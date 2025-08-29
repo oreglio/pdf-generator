@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv
+
+# Streamlit
+.streamlit/
+
+# Generated files
+generated_pdfs/*.pdf
+temp_generator.py
+test_*.py
+
+# Saved configurations (keep directory, ignore contents)
+saved_configs/*.json
+!saved_configs/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
