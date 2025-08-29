@@ -684,13 +684,14 @@ with col_preview:
                     # Add border and shadow styling
                     st.markdown("""
                     <style>
-                    .stImage {
+                    div[data-testid="stImage"] {
                         border: 1px solid #d8d8d8;
                         border-radius: 7px;
                         box-shadow: #c6c3c3 0 0 10px 0px;
-                        overflow: hidden;
+                        padding: 10px;
+                        background: white;
                     }
-                    .stImage > img {
+                    div[data-testid="stImage"] img {
                         border-radius: 7px;
                     }
                     </style>
@@ -714,13 +715,14 @@ with col_preview:
                 # Add styling
                 st.markdown("""
                 <style>
-                .stImage {
+                div[data-testid="stImage"] {
                     border: 1px solid #d8d8d8;
                     border-radius: 7px;
                     box-shadow: #c6c3c3 0 0 10px 0px;
-                    overflow: hidden;
+                    padding: 10px;
+                    background: white;
                 }
-                .stImage > img {
+                div[data-testid="stImage"] img {
                     border-radius: 7px;
                 }
                 .pdf-badge {
@@ -770,7 +772,7 @@ with col_preview:
                 data=pdf_data,
                 file_name="preview_page1.pdf",
                 mime="application/pdf",
-                use_column_width=True,
+                use_container_width=True,
                 type="primary"
             )
             
