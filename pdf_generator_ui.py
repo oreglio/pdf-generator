@@ -487,7 +487,7 @@ with col_controls:
         columns = st.radio("Number of Columns", [1, 2], index=[1, 2].index(default_config.get('columns', 2)), key="columns_radio")
     
     with col_content2:
-        pages_of_todos = int(st.number_input("Number of Todo Pages", min_value=10, max_value=100, value=int(default_config.get('pages_of_todos', 30)), step=1, key="pages_input"))
+        pages_of_todos = int(st.number_input("Number of Todo Pages", min_value=2, max_value=100, value=int(default_config.get('pages_of_todos', 30)), step=1, key="pages_input"))
         detail_pages_per_todo = st.selectbox("Detail Pages per Todo", [1, 2, 3, 4, 5], index=[1, 2, 3, 4, 5].index(default_config.get('detail_pages_per_todo', 2)), key="detail_pages_select")
     
     # Smart margin defaults based on page size (proportional)
