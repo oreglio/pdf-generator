@@ -692,72 +692,82 @@ with col_preview:
                     iframe_height = max(iframe_height, 900)
                 
                 # Create HTML with embedded PDF using blob URL
-                html_content = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <style>
-                        body {{
-                            margin: 0;
-                            padding: 0;
-                            font-family: sans-serif;
-                        }}
-                        .pdf-container {{
-                            width: 100%;
-                            height: {iframe_height}px;
-                            border: 1px solid #d8d8d8;
-                            border-radius: 7px;
-                            box-shadow: #c6c3c3 0 0 10px 0px;
-                            background: white;
-                            overflow: hidden;
-                        }}
-                        .pdf-fallback {{
-                            text-align: center;
-                            padding: 40px;
-                            color: #666;
-                        }}
-                        embed {{
-                            width: 100%;
-                            height: 100%;
-                            border: none;
-                        }}
-                    </style>
-                </head>
-                <body>
-                    <div class="pdf-container" id="pdfContainer">
-                        <div class="pdf-fallback">Loading PDF preview...</div>
-                    </div>
-                    <script>
-                        try {{
-                            // Decode base64 to binary
-                            const base64Data = "{pdf_base64}";
-                            const binaryString = atob(base64Data);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) {{
-                                bytes[i] = binaryString.charCodeAt(i);
-                            }}
-                            
-                            // Create blob and URL
-                            const blob = new Blob([bytes], {{ type: 'application/pdf' }});
-                            const url = URL.createObjectURL(blob);
-                            
-                            // Create embed element
-                            const container = document.getElementById('pdfContainer');
-                            container.innerHTML = '<embed src="' + url + '" type="application/pdf" />';
-                            
-                            // Clean up URL after page unload
-                            window.addEventListener('unload', () => URL.revokeObjectURL(url));
-                        }} catch(e) {{
-                            document.getElementById('pdfContainer').innerHTML = 
-                                '<div class="pdf-fallback">⚠️ PDF preview not available in this browser<br>Please use the download button below</div>';
-                        }}
-                    </script>
-                </body>
-                </html>
-                """
+                # Using triple quotes and format to avoid escaping issues
+                html_template = '''<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+        .pdf-container {
+            width: 100%;
+            height: ''' + str(iframe_height) + '''px;
+            border: 1px solid #d8d8d8;
+            border-radius: 7px;
+            box-shadow: #c6c3c3 0 0 10px 0px;
+            background: white;
+            overflow: hidden;
+        }
+        .pdf-fallback {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        embed {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="pdf-container" id="pdfContainer">
+        <div class="pdf-fallback">Loading PDF preview...</div>
+    </div>
+    <script>
+        (function() {
+            try {
+                // Decode base64 to binary
+                const base64Data = "''' + pdf_base64 + '''";
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
                 
-                # Display using components.html which allows JavaScript
-                components.html(html_content, height=iframe_height + 20, scrolling=False)
+                // Create blob and URL
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                // Create embed element
+                const container = document.getElementById('pdfContainer');
+                const embed = document.createElement('embed');
+                embed.src = url;
+                embed.type = 'application/pdf';
+                embed.style.width = '100%';
+                embed.style.height = '100%';
+                container.innerHTML = '';
+                container.appendChild(embed);
+                
+                // Clean up URL after page unload
+                window.addEventListener('unload', function() {
+                    URL.revokeObjectURL(url);
+                });
+            } catch(e) {
+                document.getElementById('pdfContainer').innerHTML = 
+                    '<div class="pdf-fallback">⚠️ PDF preview not available in this browser<br>Please use the download button below</div>';
+                console.error('PDF preview error:', e);
+            }
+        })();
+    </script>
+</body>
+</html>'''
+                
+                # Display using components.html which allows JavaScript execution
+                components.html(html_template, height=iframe_height + 20, scrolling=False)
                 
                 # Show document info
                 pages_of_todos = config.get('pages_of_todos', 30)
