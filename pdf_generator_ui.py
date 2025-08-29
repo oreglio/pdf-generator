@@ -24,7 +24,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 st.set_page_config(
-    page_title="PDF Todo Generator",
+    page_title="A4 PDF Todo Generator",
     page_icon="📄",
     layout="wide"  # Changed to wide for side-by-side layout
 )
@@ -38,7 +38,7 @@ if st.checkbox("🔧 Show Debug Info", value=False):
     except ImportError as e:
         st.error(f"❌ ReportLab import error: {e}")
 
-st.title("📄 PDF Todo Generator")
+st.title("📄 A4 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
 
 # Configuration management
@@ -183,6 +183,33 @@ def generate_pdf_preview(config_dict, page_size=A4):
             c.drawString(icon_x, icon_y, ">")
             
             y -= line_gap
+    
+    # Draw guide lines if enabled
+    if config_dict.get('guide_lines_enabled', False):
+        # Calculate boundaries based on number placement
+        if config_dict['num_placement'] == "Outside (left/right)":
+            # Lines stop at the outer edge of numbers
+            left_boundary = config_dict['margin_left'] * mm - 10 * mm  # Stop before left numbers
+            right_boundary = PAGE_WIDTH - config_dict['margin_right'] * mm + 10 * mm  # Stop after right numbers
+        else:
+            # Lines use full margin width if numbers are inside
+            left_boundary = config_dict['margin_left'] * mm
+            right_boundary = PAGE_WIDTH - config_dict['margin_right'] * mm
+        
+        # Horizontal line (middle of page)
+        c.setStrokeColor(HexColor(config_dict.get('guide_h_color', '#E0E0E0')))
+        c.setLineWidth(config_dict.get('guide_h_width', 0.5) * mm)
+        mid_y = PAGE_HEIGHT / 2
+        c.line(left_boundary, mid_y, right_boundary, mid_y)
+        
+        # Vertical line (center of page)
+        c.setStrokeColor(HexColor(config_dict.get('guide_v_color', '#E0E0E0')))
+        c.setLineWidth(config_dict.get('guide_v_width', 0.5) * mm)
+        mid_x = PAGE_WIDTH / 2
+        # Vertical line stops at header and bottom
+        top_boundary = PAGE_HEIGHT - config_dict['margin_top'] * mm
+        bottom_boundary = config_dict['margin_bottom'] * mm
+        c.line(mid_x, bottom_boundary, mid_x, top_boundary)
     
     # Add a note at the bottom with total pages info
     c.setFont("Helvetica", 8)
@@ -637,6 +664,52 @@ with col_controls:
         with col10:
             color_text = st.color_picker("Text Color", default_config.get('color_text', "#454545"))
         
+        st.header("📏 Guide Lines")
+        st.markdown("Add horizontal and vertical guide lines to todo pages")
+        
+        col_guide1, col_guide2 = st.columns(2)
+        
+        with col_guide1:
+            guide_lines_enabled = st.checkbox(
+                "Enable Guide Lines",
+                value=default_config.get('guide_lines_enabled', False),
+                help="Add horizontal and vertical guide lines on todo pages"
+            )
+            
+            if guide_lines_enabled:
+                guide_h_color = st.color_picker(
+                    "Horizontal Line Color",
+                    default_config.get('guide_h_color', "#E0E0E0")
+                )
+                guide_h_width = st.slider(
+                    "Horizontal Line Width (mm)",
+                    0.2, 2.0, 
+                    default_config.get('guide_h_width', 0.5),
+                    step=0.1,
+                    format="%.1f"
+                )
+        
+        with col_guide2:
+            if guide_lines_enabled:
+                st.markdown("&nbsp;")  # Spacing to align with checkbox
+                guide_v_color = st.color_picker(
+                    "Vertical Line Color",
+                    default_config.get('guide_v_color', "#E0E0E0")
+                )
+                guide_v_width = st.slider(
+                    "Vertical Line Width (mm)",
+                    0.2, 2.0,
+                    default_config.get('guide_v_width', 0.5),
+                    step=0.1,
+                    format="%.1f"
+                )
+            else:
+                # Set default values when disabled
+                guide_h_color = "#E0E0E0"
+                guide_v_color = "#E0E0E0"
+                guide_h_width = 0.5
+                guide_v_width = 0.5
+        
         st.header("📁 Output")
         output_filename = st.text_input(
             "Output Filename", 
@@ -691,6 +764,11 @@ with col_preview:
             'num_offset_x_left': num_offset_x_left,
             'num_offset_x_right': num_offset_x_right,
             'num_offset_y': num_offset_y,
+            'guide_lines_enabled': guide_lines_enabled,
+            'guide_h_color': guide_h_color,
+            'guide_v_color': guide_v_color,
+            'guide_h_width': guide_h_width,
+            'guide_v_width': guide_v_width,
             'pdf_quality_index': ["Standard (72 DPI)", "High (150 DPI)", "Print (300 DPI)", "Maximum (600 DPI)"].index(pdf_quality)
         }
         
@@ -874,6 +952,13 @@ class Config:
     NUM_OFFSET_X_LEFT = {num_offset_x_left} * mm
     NUM_OFFSET_X_RIGHT = {num_offset_x_right} * mm
     NUM_OFFSET_Y = {num_offset_y} * mm
+    
+    # Guide lines configuration
+    GUIDE_LINES_ENABLED = {guide_lines_enabled}
+    GUIDE_H_COLOR = HexColor('{guide_h_color}')
+    GUIDE_V_COLOR = HexColor('{guide_v_color}')
+    GUIDE_H_WIDTH = {guide_h_width} * mm
+    GUIDE_V_WIDTH = {guide_v_width} * mm
 """
     
     # Read the original generator and replace the config
@@ -899,6 +984,43 @@ class Config:
     function_section = function_section.replace(
         'c = canvas.Canvas(output_file, pagesize=A4)',
         'c = canvas.Canvas(output_file, pagesize=(Config.PAGE_WIDTH, Config.PAGE_HEIGHT))'
+    )
+    
+    # Add guide lines to XObject (before endForm)
+    xobject_guide_lines = """    
+    # Draw guide lines if enabled (in XObject for efficiency)
+    if Config.GUIDE_LINES_ENABLED:
+        # Calculate boundaries based on number placement
+        if Config.NUM_PLACEMENT == "Outside (left/right)":
+            # Lines stop at the outer edge of numbers
+            left_boundary = Config.MARGIN_LEFT - 10 * mm  # Stop before left numbers
+            right_boundary = Config.PAGE_WIDTH - Config.MARGIN_RIGHT + 10 * mm  # Stop after right numbers
+        else:
+            # Lines use full margin width if numbers are inside
+            left_boundary = Config.MARGIN_LEFT
+            right_boundary = Config.PAGE_WIDTH - Config.MARGIN_RIGHT
+        
+        # Horizontal line (middle of page)
+        c.setStrokeColor(Config.GUIDE_H_COLOR)
+        c.setLineWidth(Config.GUIDE_H_WIDTH)
+        mid_y = Config.PAGE_HEIGHT / 2
+        c.line(left_boundary, mid_y, right_boundary, mid_y)
+        
+        # Vertical line (center of page)
+        c.setStrokeColor(Config.GUIDE_V_COLOR)
+        c.setLineWidth(Config.GUIDE_V_WIDTH)
+        mid_x = Config.PAGE_WIDTH / 2
+        # Vertical line stops at header and bottom
+        top_boundary = Config.PAGE_HEIGHT - Config.MARGIN_TOP
+        bottom_boundary = Config.MARGIN_BOTTOM
+        c.line(mid_x, bottom_boundary, mid_x, top_boundary)
+    
+    c.endForm()"""
+    
+    # Replace the endForm line to add guide lines before it
+    function_section = function_section.replace(
+        '    c.endForm()',
+        xobject_guide_lines
     )
     
     # Add number placement logic
