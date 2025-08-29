@@ -206,32 +206,21 @@ def generate_preview(config_dict, page_size=A4, format='image'):
     img = Image.new('RGB', (img_width, img_height), 'white')
     draw = ImageDraw.Draw(img)
     
-    # Try to load a better font for text rendering
+    # Font setup - use default font which always works
+    # System fonts often fail on cloud deployments
+    font = None
+    header_font = None
+    icon_font = None
+    
     try:
         from PIL import ImageFont
-        # Try to use a system font for better quality
+        # Just use the default font - it always works
         font_size = int(12 * scale)
         header_font_size = int(16 * scale)
-        try:
-            # Try common system fonts
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-            header_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", header_font_size)
-            icon_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(14 * scale))
-        except:
-            try:
-                # Fallback to Arial if available
-                font = ImageFont.truetype("arial.ttf", font_size)
-                header_font = ImageFont.truetype("arial.ttf", header_font_size)
-                icon_font = ImageFont.truetype("arial.ttf", int(14 * scale))
-            except:
-                # Use default font
-                font = ImageFont.load_default()
-                header_font = font
-                icon_font = font
+        # Default font doesn't support size, so we'll skip custom fonts
+        # This ensures the preview works everywhere
     except ImportError:
-        font = None
-        header_font = None
-        icon_font = None
+        pass
     
     # Draw margins as light gray lines
     margin_color = (230, 230, 230)
@@ -275,10 +264,7 @@ def generate_preview(config_dict, page_size=A4, format='image'):
             try:
                 icon_x = line_end + int(2 * mm * scale)
                 icon_y = y - int(4 * scale)
-                if icon_font:
-                    draw.text((icon_x, icon_y), ">", fill=(85, 85, 85), font=icon_font)
-                else:
-                    draw.text((icon_x, icon_y), ">", fill=(85, 85, 85))
+                draw.text((icon_x, icon_y), ">", fill=(85, 85, 85))
             except:
                 pass  # Skip if font issues
             
@@ -300,10 +286,7 @@ def generate_preview(config_dict, page_size=A4, format='image'):
                         num_x = line_end - int(20 * mm * scale)
                     
                     num_y = y - int(4 * scale)
-                    if font:
-                        draw.text((num_x, num_y), num_text, fill=(num_color, num_color, num_color), font=font)
-                    else:
-                        draw.text((num_x, num_y), num_text, fill=(num_color, num_color, num_color))
+                    draw.text((num_x, num_y), num_text, fill=(num_color, num_color, num_color))
                 except:
                     pass
             
@@ -315,10 +298,7 @@ def generate_preview(config_dict, page_size=A4, format='image'):
         page_text = "Page 1"
         header_x = img_width - right_margin - int(80 * scale)
         header_y = top_margin - int(20 * scale)
-        if header_font:
-            draw.text((header_x, header_y), page_text, fill=(69, 69, 69), font=header_font)
-        else:
-            draw.text((header_x, header_y), page_text, fill=(69, 69, 69))
+        draw.text((header_x, header_y), page_text, fill=(69, 69, 69))
         
         # Add info text at bottom
         pages_of_todos = config_dict.get('pages_of_todos', 30)
@@ -329,10 +309,7 @@ def generate_preview(config_dict, page_size=A4, format='image'):
         info_text = f"Preview: {pages_of_todos} todo pages | {items_per_col} items × {config_dict.get('columns', 2)} cols | Total: {total_pages:,} pages"
         info_x = left_margin
         info_y = img_height - bottom_margin + int(10 * scale)
-        if font:
-            draw.text((info_x, info_y), info_text, fill=(150, 150, 150), font=font)
-        else:
-            draw.text((info_x, info_y), info_text, fill=(150, 150, 150))
+        draw.text((info_x, info_y), info_text, fill=(150, 150, 150))
     except:
         pass  # Skip text if font issues
     
