@@ -75,6 +75,12 @@ def list_saved_configs():
             configs.append(file[:-5])  # Remove .json extension
     return configs
 
+def hex_to_rgb(hex_color):
+    """Convert hex color to RGB tuple (0-1 range for ReportLab)"""
+    hex_color = hex_color.lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+    return r, g, b
+
 def generate_pdf_preview(config_dict, page_size=A4):
     """Generate a preview of the first todo page as PDF"""
     PAGE_WIDTH, PAGE_HEIGHT = page_size
@@ -136,7 +142,14 @@ def generate_pdf_preview(config_dict, page_size=A4):
             # Draw number if not hidden
             if config_dict['num_placement'] != "Hidden":
                 c.setFont("Helvetica", config_dict['num_size'])
-                c.setFillColor(Color(config_dict['num_color'], config_dict['num_color'], config_dict['num_color']))
+                # Convert hex color to RGB for todo numbers - set it for each number
+                if 'num_color_hex' in config_dict:
+                    r, g, b = hex_to_rgb(config_dict['num_color_hex'])
+                    c.setFillColor(Color(r, g, b))
+                else:
+                    # Fallback to gray value for backward compatibility
+                    gray = config_dict.get('num_color', 0.85)
+                    c.setFillColor(Color(gray, gray, gray))
                 
                 num_text = str(todo_num)
                 num_width = c.stringWidth(num_text, "Helvetica", config_dict['num_size'])
@@ -272,7 +285,14 @@ def generate_preview(config_dict, page_size=A4, format='image'):
             if config_dict.get('num_placement') != "Hidden":
                 try:
                     todo_num = col * items_per_col + i + 1
-                    num_color = int(config_dict.get('num_color', 0.7) * 255)
+                    # Convert hex color to RGB for todo numbers
+                    if 'num_color_hex' in config_dict:
+                        hex_color = config_dict['num_color_hex'].lstrip('#')
+                        num_color_rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+                    else:
+                        # Fallback to gray value for backward compatibility
+                        gray_value = int(config_dict.get('num_color', 0.7) * 255)
+                        num_color_rgb = (gray_value, gray_value, gray_value)
                     num_text = str(todo_num)
                     
                     if config_dict['num_placement'] == "Outside (left/right)":
@@ -286,7 +306,7 @@ def generate_preview(config_dict, page_size=A4, format='image'):
                         num_x = line_end - int(20 * mm * scale)
                     
                     num_y = y - int(4 * scale)
-                    draw.text((num_x, num_y), num_text, fill=(num_color, num_color, num_color))
+                    draw.text((num_x, num_y), num_text, fill=num_color_rgb)
                 except:
                     pass
             
@@ -579,7 +599,7 @@ with col_controls:
                 index=placement_options.index(default_config.get('num_placement', "Outside (left/right)")),
                 help="Outside: left column numbers on left margin, right column on right margin"
             )
-            num_color = st.slider("Number Color (Gray)", 0.3, 1.0, default_config.get('num_color', 0.85), step=0.05)
+            num_color_hex = st.color_picker("Number Color", default_config.get('num_color_hex', "#D8D8D8"))
             num_size = st.slider("Number Size", 5, 12, default_config.get('num_size', 7))
         
         with col_num2:
@@ -657,7 +677,7 @@ with col_preview:
             'num_size': num_size,
             'color_line': color_line,
             'color_text': color_text,
-            'num_color': num_color,
+            'num_color_hex': num_color_hex,
             'num_placement': num_placement,
             'num_offset_x_left': num_offset_x_left,
             'num_offset_x_right': num_offset_x_right,
@@ -688,6 +708,7 @@ with col_preview:
                         border: 1px solid #d8d8d8;
                         border-radius: 7px;
                         box-shadow: #c6c3c3 0 0 10px 0px;
+                        overflow: hidden;
                         padding: 10px;
                         background: white;
                     }
@@ -719,6 +740,7 @@ with col_preview:
                     border: 1px solid #d8d8d8;
                     border-radius: 7px;
                     box-shadow: #c6c3c3 0 0 10px 0px;
+                    overflow: hidden;
                     padding: 10px;
                     background: white;
                 }
@@ -835,7 +857,8 @@ class Config:
     
     COLOR_LINE = HexColor('{color_line}')
     COLOR_TEXT = HexColor('{color_text}')
-    COLOR_NUM = Color({num_color}, {num_color}, {num_color})
+    # Convert hex color to RGB for todo numbers
+    COLOR_NUM = HexColor('{num_color_hex}')
     
     # Number placement configuration
     NUM_PLACEMENT = "{num_placement}"
