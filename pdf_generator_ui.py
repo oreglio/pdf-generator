@@ -699,7 +699,7 @@ with col_preview:
                         """, unsafe_allow_html=True)
                         
                         # Display the PDF as image
-                        st.image(pdf_image, caption="PDF Preview - Page 1", use_container_width=True)
+                        st.image(pdf_image, caption="PDF Preview - Page 1", use_column_width=True)
                         
                         # Show it's actually a PDF with download option
                         st.info("📄 This is a real PDF preview. Download below to view all pages.")
@@ -740,7 +740,7 @@ with col_preview:
                     st.markdown('<span class="pdf-badge">PDF FORMAT</span>', unsafe_allow_html=True)
                     
                     # Display the preview
-                    st.image(preview_img, caption="PDF Preview (rendered as image)", use_container_width=True)
+                    st.image(preview_img, caption="PDF Preview (rendered as image)", use_column_width=True)
                 
                 except Exception as e:
                     # Final fallback
@@ -800,7 +800,7 @@ with col_preview:
                     """, unsafe_allow_html=True)
                     
                     # Display the PNG preview (works better on Streamlit Cloud)
-                    st.image(preview_img, caption="Preview of Page 1", use_container_width=True)
+                    st.image(preview_img, caption="Preview of Page 1", use_column_width=True)
                 except Exception as e:
                     st.error(f"⚠️ Could not generate image preview. Try PDF format instead.")
                     st.caption(f"Error details: {str(e)}")
