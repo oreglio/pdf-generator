@@ -675,83 +675,129 @@ with col_preview:
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
                 import base64
+                import hashlib
                 
-                # Since browsers block inline PDF data URIs, let's provide a better UX
-                # Use Streamlit's container for styling
-                with st.container():
-                    # Add custom CSS for styling
-                    st.markdown("""
-                    <style>
-                    .stDownloadButton > button {
-                        width: 100%;
-                        background-color: #4CAF50;
-                        color: white;
-                        padding: 12px;
-                        font-size: 16px;
-                        border-radius: 7px;
-                        border: none;
-                        margin: 10px 0;
-                    }
-                    .stDownloadButton > button:hover {
-                        background-color: #45a049;
-                    }
-                    .pdf-info-box {
-                        border: 1px solid #d8d8d8;
-                        border-radius: 7px;
-                        box-shadow: #c6c3c3 0 0 10px 0px;
-                        padding: 20px;
-                        background: white;
-                        margin: 10px 0;
-                        text-align: center;
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
-                    # Info box
-                    st.markdown("""
-                    <div class="pdf-info-box">
-                        <h4>📄 PDF Preview Generated</h4>
-                        <p>The preview PDF has been created with your current settings.</p>
-                        <p style="color: #666; font-size: 14px;">Due to browser security, PDF must be downloaded to view.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Calculate page info
-                    PAGE_WIDTH, PAGE_HEIGHT = page_size
-                    pages_of_todos = config.get('pages_of_todos', 30)
-                    items_per_col = config.get('items_per_col', 20)
-                    columns = config.get('columns', 2)
-                    detail_pages = config.get('detail_pages_per_todo', 2)
-                    total_items = pages_of_todos * items_per_col * columns
-                    total_detail_pages = total_items * detail_pages
-                    total_pages = 1 + pages_of_todos + total_detail_pages
-                    
-                    # Show document info
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Page Format", page_format)
-                    with col2:
-                        st.metric("Todo Pages", pages_of_todos)
-                    with col3:
-                        st.metric("Total Pages", f"{total_pages:,}")
-                    
-                    # Download and switch buttons
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
-                        st.download_button(
-                            label="📥 Download Preview PDF",
-                            data=pdf_data,
-                            file_name="preview_page1.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                            type="primary"
-                        )
-                    with col2:
-                        if st.button("🖼️ Switch to Image Preview", use_container_width=True):
-                            st.session_state.preview_format = "Image"
-                            st.rerun()
-                    
-                    st.caption("💡 Tip: Use Image preview for instant viewing without download")
+                # Store PDF in session state with a unique key
+                pdf_key = hashlib.md5(pdf_data).hexdigest()[:8]
+                st.session_state[f'pdf_preview_{pdf_key}'] = pdf_data
+                
+                # Calculate height for display
+                PAGE_WIDTH, PAGE_HEIGHT = page_size
+                aspect_ratio = PAGE_HEIGHT / PAGE_WIDTH
+                if page_format == "A4":
+                    iframe_height = 1100
+                else:
+                    iframe_height = int(800 * aspect_ratio)
+                    iframe_height = max(iframe_height, 900)
+                
+                # Try using Streamlit's built-in PDF display via download link
+                # This works around browser security by using blob URLs
+                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+                
+                # Add custom CSS
+                st.markdown(f"""
+                <style>
+                .pdf-viewer-container {{
+                    border: 1px solid #d8d8d8;
+                    border-radius: 7px;
+                    box-shadow: #c6c3c3 0 0 10px 0px;
+                    padding: 10px;
+                    background: white;
+                    margin: 10px 0;
+                    height: {iframe_height}px;
+                    overflow: auto;
+                    position: relative;
+                }}
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Create a JavaScript solution that creates a blob URL (works around security)
+                pdf_viewer_html = f"""
+                <div class="pdf-viewer-container">
+                    <div id="pdf-container-{pdf_key}"></div>
+                </div>
+                <script>
+                    (function() {{
+                        try {{
+                            // Decode base64 to binary
+                            const base64Data = "{pdf_base64}";
+                            const binaryString = atob(base64Data);
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {{
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }}
+                            
+                            // Create blob and URL
+                            const blob = new Blob([bytes], {{ type: 'application/pdf' }});
+                            const url = URL.createObjectURL(blob);
+                            
+                            // Create embed element
+                            const container = document.getElementById('pdf-container-{pdf_key}');
+                            if (container) {{
+                                container.innerHTML = `
+                                    <embed src="${{url}}" 
+                                           type="application/pdf" 
+                                           width="100%" 
+                                           height="{iframe_height}px"
+                                           style="border: none;">
+                                `;
+                            }}
+                            
+                            // Clean up URL after a delay
+                            setTimeout(() => URL.revokeObjectURL(url), 60000);
+                        }} catch(e) {{
+                            // Fallback message if PDF can't be displayed
+                            const container = document.getElementById('pdf-container-{pdf_key}');
+                            if (container) {{
+                                container.innerHTML = `
+                                    <div style="text-align: center; padding: 40px;">
+                                        <p>⚠️ PDF preview not available in this browser</p>
+                                        <p>Please use the download button below</p>
+                                    </div>
+                                `;
+                            }}
+                        }}
+                    }})();
+                </script>
+                """
+                
+                # Display the PDF viewer
+                st.markdown(pdf_viewer_html, unsafe_allow_html=True)
+                
+                # Show document info
+                pages_of_todos = config.get('pages_of_todos', 30)
+                items_per_col = config.get('items_per_col', 20)
+                columns = config.get('columns', 2)
+                detail_pages = config.get('detail_pages_per_todo', 2)
+                total_items = pages_of_todos * items_per_col * columns
+                total_detail_pages = total_items * detail_pages
+                total_pages = 1 + pages_of_todos + total_detail_pages
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Page Format", page_format)
+                with col2:
+                    st.metric("Todo Pages", pages_of_todos)
+                with col3:
+                    st.metric("Total Pages", f"{total_pages:,}")
+                
+                # Download and switch buttons
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    st.download_button(
+                        label="📥 Download Preview PDF",
+                        data=pdf_data,
+                        file_name="preview_page1.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary"
+                    )
+                with col2:
+                    if st.button("🖼️ Switch to Image Preview", use_container_width=True):
+                        st.session_state.preview_format = "Image"
+                        st.rerun()
+                
+                st.caption("PDF Preview - If not visible above, use download button")
             else:
                 # Generate image preview
                 try:
