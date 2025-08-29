@@ -28,7 +28,7 @@ st.set_page_config(
     layout="wide"  # Changed to wide for side-by-side layout
 )
 
-st.title("📄 A4 PDF Todo Generator")
+st.title("📄 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
 
 # Configuration management
