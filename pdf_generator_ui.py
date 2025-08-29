@@ -186,6 +186,12 @@ def generate_pdf_preview(config_dict, page_size=A4):
     
     # Draw guide lines if enabled
     if config_dict.get('guide_lines_enabled', False):
+        # Calculate boundaries with margins
+        left_margin = 2.5 * mm  # 2.5mm margin from todo lines
+        right_margin = 2.5 * mm
+        top_margin = 5 * mm  # 5mm margin from top/bottom todo lines
+        bottom_margin = 5 * mm
+        
         # Calculate boundaries based on number placement
         if config_dict['num_placement'] == "Outside (left/right)":
             # Lines stop at the outer edge of numbers
@@ -193,22 +199,29 @@ def generate_pdf_preview(config_dict, page_size=A4):
             right_boundary = PAGE_WIDTH - config_dict['margin_right'] * mm + 10 * mm  # Stop after right numbers
         else:
             # Lines use full margin width if numbers are inside
-            left_boundary = config_dict['margin_left'] * mm
-            right_boundary = PAGE_WIDTH - config_dict['margin_right'] * mm
+            left_boundary = config_dict['margin_left'] * mm + left_margin
+            right_boundary = PAGE_WIDTH - config_dict['margin_right'] * mm - right_margin
         
-        # Horizontal line (middle of page)
+        # Calculate position between todo lines
+        # Find the middle todo line position (between items)
+        middle_item = items_to_show // 2
+        middle_y = top_y - (middle_item * line_gap) + (line_gap / 2)  # Position between two middle lines
+        
+        # Horizontal line (between middle todo lines)
         c.setStrokeColor(HexColor(config_dict.get('guide_h_color', '#E0E0E0')))
         c.setLineWidth(config_dict.get('guide_h_width', 0.5) * mm)
-        mid_y = PAGE_HEIGHT / 2
-        c.line(left_boundary, mid_y, right_boundary, mid_y)
+        c.line(left_boundary, middle_y, right_boundary, middle_y)
         
-        # Vertical line (center of page)
+        # Vertical line (between columns)
         c.setStrokeColor(HexColor(config_dict.get('guide_v_color', '#E0E0E0')))
         c.setLineWidth(config_dict.get('guide_v_width', 0.5) * mm)
-        mid_x = PAGE_WIDTH / 2
-        # Vertical line stops at header and bottom
-        top_boundary = PAGE_HEIGHT - config_dict['margin_top'] * mm
-        bottom_boundary = config_dict['margin_bottom'] * mm
+        
+        # Position between columns
+        mid_x = config_dict['margin_left'] * mm + col_width  # Between first and second column
+        
+        # Vertical line boundaries with margins
+        top_boundary = top_y - top_margin
+        bottom_boundary = top_y - ((items_to_show - 1) * line_gap) + bottom_margin
         c.line(mid_x, bottom_boundary, mid_x, top_boundary)
     
     # Add a note at the bottom with total pages info
@@ -1011,6 +1024,12 @@ class Config:
     xobject_guide_lines = """    
     # Draw guide lines if enabled (in XObject for efficiency)
     if Config.GUIDE_LINES_ENABLED:
+        # Calculate boundaries with margins
+        left_margin = 2.5 * mm  # 2.5mm margin from todo lines
+        right_margin = 2.5 * mm
+        top_margin = 5 * mm  # 5mm margin from top/bottom todo lines
+        bottom_margin = 5 * mm
+        
         # Calculate boundaries based on number placement
         if Config.NUM_PLACEMENT == "Outside (left/right)":
             # Lines stop at the outer edge of numbers
@@ -1018,22 +1037,36 @@ class Config:
             right_boundary = Config.PAGE_WIDTH - Config.MARGIN_RIGHT + 10 * mm  # Stop after right numbers
         else:
             # Lines use full margin width if numbers are inside
-            left_boundary = Config.MARGIN_LEFT
-            right_boundary = Config.PAGE_WIDTH - Config.MARGIN_RIGHT
+            left_boundary = Config.MARGIN_LEFT + left_margin
+            right_boundary = Config.PAGE_WIDTH - Config.MARGIN_RIGHT - right_margin
         
-        # Horizontal line (middle of page)
+        # Calculate layout dimensions (same as todo page layout)
+        usable_width = Config.PAGE_WIDTH - Config.MARGIN_LEFT - Config.MARGIN_RIGHT
+        col_width = usable_width / Config.COLUMNS
+        header_space = 30  # Same as in todo pages
+        inner_height = Config.PAGE_HEIGHT - Config.MARGIN_TOP - Config.MARGIN_BOTTOM - header_space
+        line_gap = inner_height / Config.ITEMS_PER_COL
+        top_y = Config.PAGE_HEIGHT - Config.MARGIN_TOP - 30
+        
+        # Calculate position between todo lines
+        middle_item = Config.ITEMS_PER_COL // 2
+        middle_y = top_y - (middle_item * line_gap) + (line_gap / 2)  # Position between two middle lines
+        
+        # Horizontal line (between middle todo lines)
         c.setStrokeColor(Config.GUIDE_H_COLOR)
         c.setLineWidth(Config.GUIDE_H_WIDTH)
-        mid_y = Config.PAGE_HEIGHT / 2
-        c.line(left_boundary, mid_y, right_boundary, mid_y)
+        c.line(left_boundary, middle_y, right_boundary, middle_y)
         
-        # Vertical line (center of page)
+        # Vertical line (between columns)
         c.setStrokeColor(Config.GUIDE_V_COLOR)
         c.setLineWidth(Config.GUIDE_V_WIDTH)
-        mid_x = Config.PAGE_WIDTH / 2
-        # Vertical line stops at header and bottom
-        top_boundary = Config.PAGE_HEIGHT - Config.MARGIN_TOP
-        bottom_boundary = Config.MARGIN_BOTTOM
+        
+        # Position between columns
+        mid_x = Config.MARGIN_LEFT + col_width  # Between first and second column
+        
+        # Vertical line boundaries with margins
+        top_boundary = top_y - top_margin
+        bottom_boundary = top_y - ((Config.ITEMS_PER_COL - 1) * line_gap) + bottom_margin
         c.line(mid_x, bottom_boundary, mid_x, top_boundary)
     
     c.endForm()"""
