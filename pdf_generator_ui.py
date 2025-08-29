@@ -14,7 +14,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, A5, A3, letter, legal, B4, B5
 # Define tabloid size (11x17 inches)
 tabloid = (11*72, 17*72)  # 72 points per inch
-from PIL import Image
+from PIL import Image, ImageDraw
 import io
 import json
 from datetime import datetime
@@ -75,29 +75,15 @@ def list_saved_configs():
             configs.append(file[:-5])  # Remove .json extension
     return configs
 
-def generate_preview(config_dict, page_size=A4):
-    """Generate a preview of the first todo page as PNG"""
-    from reportlab.graphics import renderPM
-    from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
-    from reportlab.lib import colors
-    
-    # Page size in points
+def generate_pdf_preview(config_dict, page_size=A4):
+    """Generate a preview of the first todo page as PDF"""
     PAGE_WIDTH, PAGE_HEIGHT = page_size
-    
-    # Create a simple PIL image directly
-    img_width = int(PAGE_WIDTH)
-    img_height = int(PAGE_HEIGHT) 
-    
-    # Create white background image
-    img = Image.new('RGB', (img_width, img_height), 'white')
-    
-    # For a simpler preview, let's just generate a PDF and return it as bytes
-    # We'll use the PDF embed which works well in Streamlit
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=(PAGE_WIDTH, PAGE_HEIGHT))
     
+    # Draw the actual PDF preview content
     # White background
-    c.setFillColor(colors.white)
+    c.setFillColor(Color(1, 1, 1))
     c.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, fill=1, stroke=0)
     
     # Draw the preview page - calculate usable area
@@ -200,7 +186,157 @@ def generate_preview(config_dict, page_size=A4):
     c.save()
     
     buffer.seek(0)
-    return buffer
+    return buffer.getvalue()
+
+def generate_preview(config_dict, page_size=A4, format='image'):
+    """Generate a preview of the first todo page as PNG image or PDF"""    
+    if format == 'pdf':
+        return generate_pdf_preview(config_dict, page_size)
+    
+    # Generate PNG image preview
+    # Page size in points (convert to pixels for display)
+    PAGE_WIDTH, PAGE_HEIGHT = page_size
+    # Higher quality preview - scale up for better rendering
+    dpi = 150  # Higher DPI for better quality
+    scale = dpi / 72.0  # Convert from points (72 DPI) to target DPI
+    img_width = int(PAGE_WIDTH * scale)
+    img_height = int(PAGE_HEIGHT * scale)
+    
+    # Create a high-quality PNG preview with anti-aliasing
+    img = Image.new('RGB', (img_width, img_height), 'white')
+    draw = ImageDraw.Draw(img)
+    
+    # Try to load a better font for text rendering
+    try:
+        from PIL import ImageFont
+        # Try to use a system font for better quality
+        font_size = int(12 * scale)
+        header_font_size = int(16 * scale)
+        try:
+            # Try common system fonts
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            header_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", header_font_size)
+            icon_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(14 * scale))
+        except:
+            try:
+                # Fallback to Arial if available
+                font = ImageFont.truetype("arial.ttf", font_size)
+                header_font = ImageFont.truetype("arial.ttf", header_font_size)
+                icon_font = ImageFont.truetype("arial.ttf", int(14 * scale))
+            except:
+                # Use default font
+                font = ImageFont.load_default()
+                header_font = font
+                icon_font = font
+    except ImportError:
+        font = None
+        header_font = None
+        icon_font = None
+    
+    # Draw margins as light gray lines
+    margin_color = (230, 230, 230)
+    # Scaled margins
+    left_margin = int(config_dict['margin_left'] * mm * scale)
+    right_margin = int(config_dict['margin_right'] * mm * scale)
+    top_margin = int(config_dict['margin_top'] * mm * scale)
+    bottom_margin = int(config_dict['margin_bottom'] * mm * scale)
+    
+    # Draw margin lines with better width for visibility
+    line_width = max(1, int(scale))
+    draw.line([(left_margin, 0), (left_margin, img_height)], fill=margin_color, width=line_width)
+    draw.line([(img_width - right_margin, 0), (img_width - right_margin, img_height)], fill=margin_color, width=line_width)
+    draw.line([(0, top_margin), (img_width, top_margin)], fill=margin_color, width=line_width)
+    draw.line([(0, img_height - bottom_margin), (img_width, img_height - bottom_margin)], fill=margin_color, width=line_width)
+    
+    # Draw todo lines
+    line_color = (105, 105, 105)
+    usable_width = img_width - left_margin - right_margin
+    col_width = usable_width // config_dict['columns']
+    items_per_col = config_dict.get('items_per_col', 20)
+    top_y = top_margin + int(30 * scale)  # Start below header with more space
+    line_height = (img_height - top_y - bottom_margin) // items_per_col if items_per_col > 0 else int(20 * scale)
+    
+    # Better line width for todo lines
+    todo_line_width = max(1, int(0.5 * scale))
+    
+    for col in range(config_dict['columns']):
+        x0 = left_margin + col * col_width
+        y = top_y
+        
+        for i in range(min(items_per_col, 50)):  # Allow more items for better preview
+            if y > img_height - bottom_margin - int(10 * scale):
+                break
+                
+            # Draw horizontal line with better quality
+            line_end = x0 + col_width - int(16 * mm * scale)
+            draw.line([(x0, y), (line_end, y)], fill=line_color, width=todo_line_width)
+            
+            # Draw ">" at the end with better positioning
+            try:
+                icon_x = line_end + int(2 * mm * scale)
+                icon_y = y - int(4 * scale)
+                if icon_font:
+                    draw.text((icon_x, icon_y), ">", fill=(85, 85, 85), font=icon_font)
+                else:
+                    draw.text((icon_x, icon_y), ">", fill=(85, 85, 85))
+            except:
+                pass  # Skip if font issues
+            
+            # Draw todo numbers if configured
+            if config_dict.get('num_placement') != "Hidden":
+                try:
+                    todo_num = col * items_per_col + i + 1
+                    num_color = int(config_dict.get('num_color', 0.7) * 255)
+                    num_text = str(todo_num)
+                    
+                    if config_dict['num_placement'] == "Outside (left/right)":
+                        if col == 0:
+                            num_x = left_margin - int(10 * mm * scale)
+                        else:
+                            num_x = img_width - right_margin + int(3 * mm * scale)
+                    elif config_dict['num_placement'] == "Inside (left)":
+                        num_x = x0 + int(2 * mm * scale)
+                    else:  # Inside (right)
+                        num_x = line_end - int(20 * mm * scale)
+                    
+                    num_y = y - int(4 * scale)
+                    if font:
+                        draw.text((num_x, num_y), num_text, fill=(num_color, num_color, num_color), font=font)
+                    else:
+                        draw.text((num_x, num_y), num_text, fill=(num_color, num_color, num_color))
+                except:
+                    pass
+            
+            y += line_height
+    
+    # Add preview text with better fonts
+    try:
+        # Page header
+        page_text = "Page 1"
+        header_x = img_width - right_margin - int(80 * scale)
+        header_y = top_margin - int(20 * scale)
+        if header_font:
+            draw.text((header_x, header_y), page_text, fill=(69, 69, 69), font=header_font)
+        else:
+            draw.text((header_x, header_y), page_text, fill=(69, 69, 69))
+        
+        # Add info text at bottom
+        pages_of_todos = config_dict.get('pages_of_todos', 30)
+        items_per_page = items_per_col * config_dict.get('columns', 2)
+        detail_pages = config_dict.get('detail_pages_per_todo', 2)
+        total_pages = 1 + pages_of_todos + (pages_of_todos * items_per_page * detail_pages)
+        
+        info_text = f"Preview: {pages_of_todos} todo pages | {items_per_col} items × {config_dict.get('columns', 2)} cols | Total: {total_pages:,} pages"
+        info_x = left_margin
+        info_y = img_height - bottom_margin + int(10 * scale)
+        if font:
+            draw.text((info_x, info_y), info_text, fill=(150, 150, 150), font=font)
+        else:
+            draw.text((info_x, info_y), info_text, fill=(150, 150, 150))
+    except:
+        pass  # Skip text if font issues
+    
+    return img
 
 # Configuration save/load UI
 with st.expander("💾 Save/Load Configuration", expanded=False):
@@ -513,6 +649,9 @@ with col_controls:
 with col_preview:
     st.subheader("📄 Preview")
     
+    # Add toggle for preview format (PDF as default)
+    preview_format = st.radio("Format:", ["PDF", "Image"], horizontal=True, key="preview_format", index=0)
+    
     # Generate preview when button is clicked or on first load
     if preview_clicked or 'preview_config' not in st.session_state:
         # Create configuration dictionary
@@ -554,16 +693,78 @@ with col_preview:
         
         # Generate preview
         with st.spinner("Generating preview..."):
-            preview_pdf = generate_preview(config, page_size)
-            
-            # Display the PDF preview using iframe
-            import base64
-            pdf_bytes = preview_pdf.read()
-            base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-            
-            # Adjust height based on screen
-            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf" style="border: 1px solid #ddd; border-radius: 5px;"></iframe>'
-            st.markdown(pdf_display, unsafe_allow_html=True)
+            if preview_format == "PDF":
+                # Generate PDF preview
+                pdf_data = generate_preview(config, page_size, format='pdf')
+                
+                # Display PDF using iframe (works locally, might have issues on Streamlit Cloud)
+                import base64
+                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+                
+                # Calculate height based on page aspect ratio
+                # Get page dimensions
+                PAGE_WIDTH, PAGE_HEIGHT = page_size
+                aspect_ratio = PAGE_HEIGHT / PAGE_WIDTH
+                
+                # For A4, use maximum height that fits well
+                # A4 is 210mm x 297mm (aspect ratio ~1.414)
+                if page_format == "A4":
+                    iframe_height = 1200  # Fixed optimal height for A4
+                else:
+                    # For other formats, calculate based on aspect ratio
+                    container_width = 800  # Base width for calculation
+                    iframe_height = int(container_width * aspect_ratio)
+                    # Ensure minimum height for visibility
+                    iframe_height = max(iframe_height, 1000)
+                
+                # Add custom CSS for the PDF container
+                st.markdown("""
+                <style>
+                .pdf-container {
+                    border: 1px solid #d8d8d8;
+                    border-radius: 7px;
+                    box-shadow: #c6c3c3 0 0 10px 0px;
+                    padding: 10px;
+                    background: white;
+                    overflow: hidden;
+                }
+                .pdf-container iframe {
+                    border: none;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Create PDF viewer with dynamic height
+                pdf_display = f'''
+                <div class="pdf-container">
+                    <iframe src="data:application/pdf;base64,{pdf_base64}" 
+                            width="100%" 
+                            height="{iframe_height}px" 
+                            type="application/pdf">
+                    </iframe>
+                </div>
+                '''
+                st.markdown(pdf_display, unsafe_allow_html=True)
+                st.caption("PDF Preview of Page 1")
+            else:
+                # Generate image preview
+                preview_img = generate_preview(config, page_size, format='image')
+                
+                # Add custom CSS for the image container
+                st.markdown("""
+                <style>
+                .stImage > div {
+                    border: 1px solid #d8d8d8;
+                    border-radius: 7px;
+                    box-shadow: #c6c3c3 0 0 10px 0px;
+                    padding: 10px;
+                    background: white;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Display the PNG preview (works better on Streamlit Cloud)
+                st.image(preview_img, caption="Preview of Page 1", use_container_width=True)
         
         # Save configuration if requested
         if 'save_config' in st.session_state:
