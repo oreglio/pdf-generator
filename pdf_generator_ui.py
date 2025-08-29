@@ -674,100 +674,45 @@ with col_preview:
                 # Generate PDF preview
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
-                import base64
+                # For PDF, since browsers block inline viewing, we'll provide a nice UI
+                # with download option and suggest Image preview for instant viewing
                 
-                # Since Streamlit sanitizes JavaScript, we'll use components.html
-                # This allows JavaScript execution in an iframe
-                import streamlit.components.v1 as components
-                
-                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
-                
-                # Calculate height for display
-                PAGE_WIDTH, PAGE_HEIGHT = page_size
-                aspect_ratio = PAGE_HEIGHT / PAGE_WIDTH
-                if page_format == "A4":
-                    iframe_height = 1100
-                else:
-                    iframe_height = int(800 * aspect_ratio)
-                    iframe_height = max(iframe_height, 900)
-                
-                # Create HTML with embedded PDF using blob URL
-                # Using triple quotes and format to avoid escaping issues
-                html_template = '''<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: sans-serif;
-        }
-        .pdf-container {
-            width: 100%;
-            height: ''' + str(iframe_height) + '''px;
-            border: 1px solid #d8d8d8;
-            border-radius: 7px;
-            box-shadow: #c6c3c3 0 0 10px 0px;
-            background: white;
-            overflow: hidden;
-        }
-        .pdf-fallback {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-        embed {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="pdf-container" id="pdfContainer">
-        <div class="pdf-fallback">Loading PDF preview...</div>
-    </div>
-    <script>
-        (function() {
-            try {
-                // Decode base64 to binary
-                const base64Data = "''' + pdf_base64 + '''";
-                const binaryString = atob(base64Data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
+                # Add custom CSS for the container
+                st.markdown("""
+                <style>
+                .pdf-preview-info {
+                    border: 2px dashed #4CAF50;
+                    border-radius: 10px;
+                    padding: 30px;
+                    background: #f8f9fa;
+                    text-align: center;
+                    margin: 20px 0;
                 }
+                .pdf-icon {
+                    font-size: 48px;
+                    margin-bottom: 15px;
+                }
+                .pdf-ready {
+                    color: #4CAF50;
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                }
+                .pdf-info {
+                    color: #666;
+                    margin-bottom: 20px;
+                }
+                </style>
+                """, unsafe_allow_html=True)
                 
-                // Create blob and URL
-                const blob = new Blob([bytes], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                
-                // Create embed element
-                const container = document.getElementById('pdfContainer');
-                const embed = document.createElement('embed');
-                embed.src = url;
-                embed.type = 'application/pdf';
-                embed.style.width = '100%';
-                embed.style.height = '100%';
-                container.innerHTML = '';
-                container.appendChild(embed);
-                
-                // Clean up URL after page unload
-                window.addEventListener('unload', function() {
-                    URL.revokeObjectURL(url);
-                });
-            } catch(e) {
-                document.getElementById('pdfContainer').innerHTML = 
-                    '<div class="pdf-fallback">⚠️ PDF preview not available in this browser<br>Please use the download button below</div>';
-                console.error('PDF preview error:', e);
-            }
-        })();
-    </script>
-</body>
-</html>'''
-                
-                # Display using components.html which allows JavaScript execution
-                components.html(html_template, height=iframe_height + 20, scrolling=False)
+                # Display PDF ready message
+                st.markdown("""
+                <div class="pdf-preview-info">
+                    <div class="pdf-icon">📄</div>
+                    <div class="pdf-ready">✓ PDF Preview Generated</div>
+                    <div class="pdf-info">Your preview PDF is ready with the current settings</div>
+                </div>
+                """, unsafe_allow_html=True)
                 
                 # Show document info
                 pages_of_todos = config.get('pages_of_todos', 30)
