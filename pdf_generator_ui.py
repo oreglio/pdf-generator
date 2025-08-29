@@ -599,7 +599,16 @@ with col_controls:
                 index=placement_options.index(default_config.get('num_placement', "Outside (left/right)")),
                 help="Outside: left column numbers on left margin, right column on right margin"
             )
-            num_color_hex = st.color_picker("Number Color", default_config.get('num_color_hex', "#D8D8D8"))
+            # Handle backward compatibility: convert old num_color gray value to hex
+            if 'num_color_hex' in default_config:
+                default_hex = default_config.get('num_color_hex')
+            elif 'num_color' in default_config:
+                # Convert old gray value (0-1) to hex
+                gray_val = int(default_config.get('num_color', 0.85) * 255)
+                default_hex = f"#{gray_val:02x}{gray_val:02x}{gray_val:02x}"
+            else:
+                default_hex = "#D8D8D8"
+            num_color_hex = st.color_picker("Number Color", default_hex)
             num_size = st.slider("Number Size", 5, 12, default_config.get('num_size', 7))
         
         with col_num2:
