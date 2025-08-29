@@ -802,12 +802,16 @@ class Config:
     
     function_section = function_section.replace(index_fix_original, index_fix_new)
     
-    # Also need to adjust the usable height calculation to fit more items
+    # Also need to adjust the usable height calculation based on number of pages
     height_fix_original = """    # Utiliser seulement la moitié de la hauteur disponible pour chaque colonne
     usable_height = (y_top - Config.MARGIN_BOTTOM) / 2  # Moitié de la hauteur"""
     
-    height_fix_new = """    # Use full available height for index items
-    usable_height = y_top - Config.MARGIN_BOTTOM  # Full available height"""
+    # Use half page for ≤30 pages (to leave bottom half blank), full page for >30
+    height_fix_new = f"""    # Use half page for ≤30 pages, full page for >30 pages
+    if Config.PAGES_OF_TODOS <= 30:
+        usable_height = (y_top - Config.MARGIN_BOTTOM) / 2  # Half height to leave bottom blank
+    else:
+        usable_height = y_top - Config.MARGIN_BOTTOM  # Full available height for many pages"""
     
     function_section = function_section.replace(height_fix_original, height_fix_new)
     
