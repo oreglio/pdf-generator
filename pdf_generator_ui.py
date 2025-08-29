@@ -6,6 +6,7 @@ Using Streamlit for easy configuration
 
 import streamlit as st
 import subprocess
+import sys
 import os
 from reportlab.lib.units import mm
 from reportlab.lib.colors import Color, HexColor
@@ -27,6 +28,15 @@ st.set_page_config(
     page_icon="📄",
     layout="wide"  # Changed to wide for side-by-side layout
 )
+
+# Debug: Verify Python environment and reportlab
+if st.checkbox("🔧 Show Debug Info", value=False):
+    st.code(f"Python: {sys.executable}\nVersion: {sys.version}", language="text")
+    try:
+        import reportlab
+        st.success(f"✅ ReportLab {reportlab.Version} is installed")
+    except ImportError as e:
+        st.error(f"❌ ReportLab import error: {e}")
 
 st.title("📄 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
@@ -852,7 +862,7 @@ class Config:
     with st.spinner("Generating PDF..."):
         try:
             result = subprocess.run(
-                ["python3", temp_generator],
+                [sys.executable, temp_generator],
                 capture_output=True,
                 text=True
             )
