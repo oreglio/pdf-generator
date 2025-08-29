@@ -24,7 +24,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 st.set_page_config(
-    page_title="A4 PDF Todo Generator",
+    page_title="PDF Todo Generator",
     page_icon="📄",
     layout="wide"  # Changed to wide for side-by-side layout
 )
@@ -38,7 +38,7 @@ if st.checkbox("🔧 Show Debug Info", value=False):
     except ImportError as e:
         st.error(f"❌ ReportLab import error: {e}")
 
-st.title("📄 A4 PDF Todo Generator")
+st.title("📄 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
 
 # Configuration management
