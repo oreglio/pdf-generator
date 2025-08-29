@@ -674,83 +674,84 @@ with col_preview:
                 # Generate PDF preview
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
-                # Save PDF to temp file for display
-                import tempfile
                 import base64
                 
-                # Try multiple display methods
-                # Method 1: Use a temporary file (works better with some browsers)
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                    tmp_file.write(pdf_data)
-                    tmp_file_path = tmp_file.name
-                
-                # Calculate height based on page aspect ratio
-                PAGE_WIDTH, PAGE_HEIGHT = page_size
-                aspect_ratio = PAGE_HEIGHT / PAGE_WIDTH
-                
-                # For A4, use maximum height that fits well
-                if page_format == "A4":
-                    iframe_height = 1200  # Fixed optimal height for A4
-                else:
-                    container_width = 800
-                    iframe_height = int(container_width * aspect_ratio)
-                    iframe_height = max(iframe_height, 1000)
-                
-                # Add styled container
-                st.markdown("""
-                <style>
-                .pdf-preview-box {
-                    border: 1px solid #d8d8d8;
-                    border-radius: 7px;
-                    box-shadow: #c6c3c3 0 0 10px 0px;
-                    padding: 20px;
-                    background: white;
-                    margin: 10px 0;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-                
-                # Create a container for the preview
-                st.markdown('<div class="pdf-preview-box">', unsafe_allow_html=True)
-                
-                # Try to show as embedded object (more compatible than iframe)
-                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
-                
-                # Use object tag which has better browser support than iframe for PDFs
-                pdf_display = f'''
-                <object data="data:application/pdf;base64,{pdf_base64}" 
-                        type="application/pdf" 
-                        width="100%" 
-                        height="{iframe_height}px">
-                    <embed src="data:application/pdf;base64,{pdf_base64}" 
-                           type="application/pdf" 
-                           width="100%" 
-                           height="{iframe_height}px" />
-                    <p style="text-align: center; padding: 20px;">
-                        ⚠️ PDF preview requires a PDF-compatible browser.<br>
-                        Use the download button below to view the PDF.
-                    </p>
-                </object>
-                '''
-                st.markdown(pdf_display, unsafe_allow_html=True)
-                
-                # Download button
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    st.download_button(
-                        label="📥 Download Preview PDF",
-                        data=pdf_data,
-                        file_name="preview_page1.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
-                with col2:
-                    if st.button("🔄 Switch to Image Preview", use_container_width=True):
-                        st.session_state.preview_format = "Image"
-                        st.rerun()
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.caption("PDF Preview - Page 1 of your document")
+                # Since browsers block inline PDF data URIs, let's provide a better UX
+                # Use Streamlit's container for styling
+                with st.container():
+                    # Add custom CSS for styling
+                    st.markdown("""
+                    <style>
+                    .stDownloadButton > button {
+                        width: 100%;
+                        background-color: #4CAF50;
+                        color: white;
+                        padding: 12px;
+                        font-size: 16px;
+                        border-radius: 7px;
+                        border: none;
+                        margin: 10px 0;
+                    }
+                    .stDownloadButton > button:hover {
+                        background-color: #45a049;
+                    }
+                    .pdf-info-box {
+                        border: 1px solid #d8d8d8;
+                        border-radius: 7px;
+                        box-shadow: #c6c3c3 0 0 10px 0px;
+                        padding: 20px;
+                        background: white;
+                        margin: 10px 0;
+                        text-align: center;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    # Info box
+                    st.markdown("""
+                    <div class="pdf-info-box">
+                        <h4>📄 PDF Preview Generated</h4>
+                        <p>The preview PDF has been created with your current settings.</p>
+                        <p style="color: #666; font-size: 14px;">Due to browser security, PDF must be downloaded to view.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Calculate page info
+                    PAGE_WIDTH, PAGE_HEIGHT = page_size
+                    pages_of_todos = config.get('pages_of_todos', 30)
+                    items_per_col = config.get('items_per_col', 20)
+                    columns = config.get('columns', 2)
+                    detail_pages = config.get('detail_pages_per_todo', 2)
+                    total_items = pages_of_todos * items_per_col * columns
+                    total_detail_pages = total_items * detail_pages
+                    total_pages = 1 + pages_of_todos + total_detail_pages
+                    
+                    # Show document info
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Page Format", page_format)
+                    with col2:
+                        st.metric("Todo Pages", pages_of_todos)
+                    with col3:
+                        st.metric("Total Pages", f"{total_pages:,}")
+                    
+                    # Download and switch buttons
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        st.download_button(
+                            label="📥 Download Preview PDF",
+                            data=pdf_data,
+                            file_name="preview_page1.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            type="primary"
+                        )
+                    with col2:
+                        if st.button("🖼️ Switch to Image Preview", use_container_width=True):
+                            st.session_state.preview_format = "Image"
+                            st.rerun()
+                    
+                    st.caption("💡 Tip: Use Image preview for instant viewing without download")
             else:
                 # Generate image preview
                 try:
