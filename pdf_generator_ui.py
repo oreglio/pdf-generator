@@ -205,7 +205,7 @@ def generate_pdf_preview(config_dict, page_size=A4):
         # Calculate position between todo lines
         # Find the middle todo line position (between items)
         middle_item = items_to_show // 2
-        middle_y = top_y - (middle_item * line_gap) + (line_gap / 2)  # Position between two middle lines
+        middle_y = top_y - (middle_item * line_gap) - (line_gap / 2)  # Position between two middle lines
         
         # Horizontal line (between middle todo lines)
         c.setStrokeColor(HexColor(config_dict.get('guide_h_color', '#E0E0E0')))
@@ -373,7 +373,7 @@ def generate_preview(config_dict, page_size=A4, format='image'):
         # Calculate position between todo lines
         # Find the middle todo line position (between items)
         middle_item = items_per_col // 2
-        middle_y = top_y + (middle_item * line_height) - (line_height // 2)  # Position between two middle lines
+        middle_y = top_y + (middle_item * line_height) + (line_height // 2)  # Position between two middle lines
         
         # Horizontal line (between middle todo lines)
         hex_h_color = config_dict.get('guide_h_color', '#E0E0E0').lstrip('#')
@@ -743,20 +743,26 @@ with col_controls:
             key="guide_lines_checkbox"
         )
         
-        # Always show the columns, but only show controls when enabled
-        col_guide1, col_guide2 = st.columns(2)
+        # Initialize default values first
+        guide_h_color = default_config.get('guide_h_color', "#E0E0E0")
+        guide_v_color = default_config.get('guide_v_color', "#E0E0E0")
+        guide_h_width = default_config.get('guide_h_width', 0.5)
+        guide_v_width = default_config.get('guide_v_width', 0.5)
         
+        # Show controls only when enabled
         if guide_lines_enabled:
+            col_guide1, col_guide2 = st.columns(2)
+            
             with col_guide1:
                 guide_h_color = st.color_picker(
                     "Horizontal Line Color",
-                    default_config.get('guide_h_color', "#E0E0E0"),
+                    guide_h_color,
                     key="guide_h_color_picker"
                 )
                 guide_h_width = st.slider(
                     "Horizontal Line Width (mm)",
                     0.2, 2.0, 
-                    default_config.get('guide_h_width', 0.5),
+                    guide_h_width,
                     step=0.1,
                     format="%.1f",
                     key="guide_h_width_slider"
@@ -765,28 +771,17 @@ with col_controls:
             with col_guide2:
                 guide_v_color = st.color_picker(
                     "Vertical Line Color",
-                    default_config.get('guide_v_color', "#E0E0E0"),
+                    guide_v_color,
                     key="guide_v_color_picker"
                 )
                 guide_v_width = st.slider(
                     "Vertical Line Width (mm)",
                     0.2, 2.0,
-                    default_config.get('guide_v_width', 0.5),
+                    guide_v_width,
                     step=0.1,
                     format="%.1f",
                     key="guide_v_width_slider"
                 )
-        else:
-            # Set default values when disabled
-            guide_h_color = "#E0E0E0"
-            guide_v_color = "#E0E0E0"
-            guide_h_width = 0.5
-            guide_v_width = 0.5
-            # Clear the area to hide controls immediately
-            with col_guide1:
-                st.empty()
-            with col_guide2:
-                st.empty()
         
         st.header("📁 Output")
         output_filename = st.text_input(
