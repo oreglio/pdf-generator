@@ -23,7 +23,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 st.set_page_config(
-    page_title="A4 PDF Todo Generator",
+    page_title="PDF Todo Generator",
     page_icon="📄",
     layout="wide"  # Changed to wide for side-by-side layout
 )
