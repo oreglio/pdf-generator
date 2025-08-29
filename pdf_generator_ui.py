@@ -717,6 +717,7 @@ with col_preview:
                         border: 1px solid #d8d8d8;
                         border-radius: 7px;
                         box-shadow: #c6c3c3 0 0 10px 0px;
+                        padding: 0;
                         overflow: hidden;
                         padding: 10px;
                         background: white;
@@ -749,6 +750,7 @@ with col_preview:
                     border: 1px solid #d8d8d8;
                     border-radius: 7px;
                     box-shadow: #c6c3c3 0 0 10px 0px;
+                    padding: 0;
                     overflow: hidden;
                     padding: 10px;
                     background: white;
