@@ -301,7 +301,7 @@ with col_controls:
             with st.expander("📱 Common E-Reader Resolutions"):
                 st.markdown("""
                 **Boox Note Air 3:** 1872×1404 @ 227 PPI (10.3")  
-                **Boox Note Max:** 2200×1650 @ 207 PPI (13.3")  
+                **Boox Note Max:** 3200×2400 @ 300 PPI (13.3")  
                 **reMarkable 2:** 1872×1404 @ 226 PPI (10.3")  
                 **Kindle Scribe:** 1860×2480 @ 300 PPI (10.2")  
                 **Kindle Oasis:** 1680×1264 @ 300 PPI (7")  
@@ -787,6 +787,29 @@ class Config:
             c.showPage()'''
             
             function_section = function_section[:detail_start] + new_detail_code + function_section[detail_end:]
+    
+    # Fix index page to show all todo pages dynamically
+    # Replace hardcoded items_per_col = 8
+    index_fix_original = """    usable_width = Config.PAGE_WIDTH - Config.MARGIN_LEFT - Config.MARGIN_RIGHT
+    cols = 2
+    items_per_col = 8  # 8 pages par colonne"""
+    
+    # Calculate items per column based on actual pages
+    index_fix_new = f"""    usable_width = Config.PAGE_WIDTH - Config.MARGIN_LEFT - Config.MARGIN_RIGHT
+    cols = 2
+    # Dynamic items per column based on actual todo pages
+    items_per_col = (Config.PAGES_OF_TODOS + cols - 1) // cols  # Ceiling division"""
+    
+    function_section = function_section.replace(index_fix_original, index_fix_new)
+    
+    # Also need to adjust the usable height calculation to fit more items
+    height_fix_original = """    # Utiliser seulement la moitié de la hauteur disponible pour chaque colonne
+    usable_height = (y_top - Config.MARGIN_BOTTOM) / 2  # Moitié de la hauteur"""
+    
+    height_fix_new = """    # Use full available height for index items
+    usable_height = y_top - Config.MARGIN_BOTTOM  # Full available height"""
+    
+    function_section = function_section.replace(height_fix_original, height_fix_new)
     
     # Combine everything
     new_code = imports_section + config_code + "\n" + function_section

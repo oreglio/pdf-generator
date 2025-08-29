@@ -109,7 +109,7 @@ For e-readers like Boox Note Air 3:
 | Device | Resolution | PPI | Screen Size |
 |--------|------------|-----|-------------|
 | Boox Note Air 3 | 1872×1404 | 227 | 10.3" |
-| Boox Note Max | 2200×1650 | 207 | 13.3" |
+| Boox Note Max | 3200×2400 | 300 | 13.3" |
 | reMarkable 2 | 1872×1404 | 226 | 10.3" |
 | Kindle Scribe | 1860×2480 | 300 | 10.2" |
 | iPad Pro 11" | 2388×1668 | 264 | 11" |
