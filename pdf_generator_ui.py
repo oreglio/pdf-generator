@@ -24,7 +24,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 st.set_page_config(
-    page_title="PDF Todo Generator",
+    page_title="A4 PDF Todo Generator",
     page_icon="📄",
     layout="wide"  # Changed to wide for side-by-side layout
 )
@@ -38,7 +38,7 @@ if st.checkbox("🔧 Show Debug Info", value=False):
     except ImportError as e:
         st.error(f"❌ ReportLab import error: {e}")
 
-st.title("📄 PDF Todo Generator")
+st.title("📄 A4 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
 
 # Configuration management
@@ -697,74 +697,60 @@ with col_preview:
                 # Generate PDF preview
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
-                # Display PDF using iframe (works locally, might have issues on Streamlit Cloud)
+                # On Streamlit Cloud, use download button instead of iframe
+                # Chrome and other browsers block inline PDF data URLs for security
                 import base64
-                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
                 
-                # Calculate height based on page aspect ratio
-                # Get page dimensions
-                PAGE_WIDTH, PAGE_HEIGHT = page_size
-                aspect_ratio = PAGE_HEIGHT / PAGE_WIDTH
-                
-                # For A4, use maximum height that fits well
-                # A4 is 210mm x 297mm (aspect ratio ~1.414)
-                if page_format == "A4":
-                    iframe_height = 1200  # Fixed optimal height for A4
-                else:
-                    # For other formats, calculate based on aspect ratio
-                    container_width = 800  # Base width for calculation
-                    iframe_height = int(container_width * aspect_ratio)
-                    # Ensure minimum height for visibility
-                    iframe_height = max(iframe_height, 1000)
-                
-                # Add custom CSS for the PDF container
+                # Add custom CSS for the download container
                 st.markdown("""
                 <style>
-                .pdf-container {
+                .pdf-download-container {
                     border: 1px solid #d8d8d8;
                     border-radius: 7px;
                     box-shadow: #c6c3c3 0 0 10px 0px;
-                    padding: 10px;
+                    padding: 20px;
                     background: white;
-                    overflow: hidden;
-                }
-                .pdf-container iframe {
-                    border: none;
+                    text-align: center;
+                    margin: 10px 0;
                 }
                 </style>
                 """, unsafe_allow_html=True)
                 
-                # Create PDF viewer with dynamic height
-                pdf_display = f'''
-                <div class="pdf-container">
-                    <iframe src="data:application/pdf;base64,{pdf_base64}" 
-                            width="100%" 
-                            height="{iframe_height}px" 
-                            type="application/pdf">
-                    </iframe>
-                </div>
-                '''
-                st.markdown(pdf_display, unsafe_allow_html=True)
-                st.caption("PDF Preview of Page 1")
+                # Provide download button for PDF preview
+                st.markdown('<div class="pdf-download-container">', unsafe_allow_html=True)
+                st.info("📄 PDF preview is generated. Click below to view:")
+                st.download_button(
+                    label="📥 Download Preview PDF",
+                    data=pdf_data,
+                    file_name="preview_page1.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.caption("PDF Preview of Page 1 - Download to view in your PDF reader")
             else:
                 # Generate image preview
-                preview_img = generate_preview(config, page_size, format='image')
-                
-                # Add custom CSS for the image container
-                st.markdown("""
-                <style>
-                .stImage > div {
-                    border: 1px solid #d8d8d8;
-                    border-radius: 7px;
-                    box-shadow: #c6c3c3 0 0 10px 0px;
-                    padding: 10px;
-                    background: white;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-                
-                # Display the PNG preview (works better on Streamlit Cloud)
-                st.image(preview_img, caption="Preview of Page 1", use_container_width=True)
+                try:
+                    preview_img = generate_preview(config, page_size, format='image')
+                    
+                    # Add custom CSS for the image container
+                    st.markdown("""
+                    <style>
+                    .stImage > div {
+                        border: 1px solid #d8d8d8;
+                        border-radius: 7px;
+                        box-shadow: #c6c3c3 0 0 10px 0px;
+                        padding: 10px;
+                        background: white;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    # Display the PNG preview (works better on Streamlit Cloud)
+                    st.image(preview_img, caption="Preview of Page 1", use_container_width=True)
+                except Exception as e:
+                    st.error(f"⚠️ Could not generate image preview. Try PDF format instead.")
+                    st.caption(f"Error details: {str(e)}")
         
         # Save configuration if requested
         if 'save_config' in st.session_state:
