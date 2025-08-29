@@ -674,45 +674,78 @@ with col_preview:
                 # Generate PDF preview
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
-                # For PDF, since browsers block inline viewing, we'll provide a nice UI
-                # with download option and suggest Image preview for instant viewing
+                # Convert PDF to image for display (elegant solution!)
+                try:
+                    # Try using pdf2image if available
+                    from pdf2image import convert_from_bytes
+                    import io
+                    
+                    # Convert first page of PDF to image
+                    images = convert_from_bytes(pdf_data, dpi=150, first_page=1, last_page=1)
+                    if images:
+                        pdf_image = images[0]
+                        
+                        # Add border and shadow styling
+                        st.markdown("""
+                        <style>
+                        .stImage > div {
+                            border: 1px solid #d8d8d8;
+                            border-radius: 7px;
+                            box-shadow: #c6c3c3 0 0 10px 0px;
+                            padding: 10px;
+                            background: white;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
+                        
+                        # Display the PDF as image
+                        st.image(pdf_image, caption="PDF Preview - Page 1", use_container_width=True)
+                        
+                        # Show it's actually a PDF with download option
+                        st.info("📄 This is a real PDF preview. Download below to view all pages.")
+                    
+                except ImportError:
+                    # Fallback: Create high-quality image preview directly
+                    # This ensures it works even without pdf2image
+                    import io
+                    from PIL import Image
+                    
+                    # Generate as high-quality image instead
+                    preview_img = generate_preview(config, page_size, format='image')
+                    
+                    # Add styling
+                    st.markdown("""
+                    <style>
+                    .stImage > div {
+                        border: 1px solid #d8d8d8;
+                        border-radius: 7px;
+                        box-shadow: #c6c3c3 0 0 10px 0px;
+                        padding: 10px;
+                        background: white;
+                    }
+                    .pdf-badge {
+                        display: inline-block;
+                        background: #dc3545;
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    # Show PDF badge
+                    st.markdown('<span class="pdf-badge">PDF FORMAT</span>', unsafe_allow_html=True)
+                    
+                    # Display the preview
+                    st.image(preview_img, caption="PDF Preview (rendered as image)", use_container_width=True)
                 
-                # Add custom CSS for the container
-                st.markdown("""
-                <style>
-                .pdf-preview-info {
-                    border: 2px dashed #4CAF50;
-                    border-radius: 10px;
-                    padding: 30px;
-                    background: #f8f9fa;
-                    text-align: center;
-                    margin: 20px 0;
-                }
-                .pdf-icon {
-                    font-size: 48px;
-                    margin-bottom: 15px;
-                }
-                .pdf-ready {
-                    color: #4CAF50;
-                    font-size: 20px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                }
-                .pdf-info {
-                    color: #666;
-                    margin-bottom: 20px;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-                
-                # Display PDF ready message
-                st.markdown("""
-                <div class="pdf-preview-info">
-                    <div class="pdf-icon">📄</div>
-                    <div class="pdf-ready">✓ PDF Preview Generated</div>
-                    <div class="pdf-info">Your preview PDF is ready with the current settings</div>
-                </div>
-                """, unsafe_allow_html=True)
+                except Exception as e:
+                    # Final fallback
+                    st.warning("PDF preview rendering failed. Use download button below.")
+                    st.error(f"Error: {str(e)}")
                 
                 # Show document info
                 pages_of_todos = config.get('pages_of_todos', 30)
