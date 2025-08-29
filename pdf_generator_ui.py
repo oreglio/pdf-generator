@@ -675,11 +675,12 @@ with col_preview:
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
                 import base64
-                import hashlib
                 
-                # Store PDF in session state with a unique key
-                pdf_key = hashlib.md5(pdf_data).hexdigest()[:8]
-                st.session_state[f'pdf_preview_{pdf_key}'] = pdf_data
+                # Since Streamlit sanitizes JavaScript, we'll use components.html
+                # This allows JavaScript execution in an iframe
+                import streamlit.components.v1 as components
+                
+                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
                 
                 # Calculate height for display
                 PAGE_WIDTH, PAGE_HEIGHT = page_size
@@ -690,34 +691,43 @@ with col_preview:
                     iframe_height = int(800 * aspect_ratio)
                     iframe_height = max(iframe_height, 900)
                 
-                # Try using Streamlit's built-in PDF display via download link
-                # This works around browser security by using blob URLs
-                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
-                
-                # Add custom CSS
-                st.markdown(f"""
-                <style>
-                .pdf-viewer-container {{
-                    border: 1px solid #d8d8d8;
-                    border-radius: 7px;
-                    box-shadow: #c6c3c3 0 0 10px 0px;
-                    padding: 10px;
-                    background: white;
-                    margin: 10px 0;
-                    height: {iframe_height}px;
-                    overflow: auto;
-                    position: relative;
-                }}
-                </style>
-                """, unsafe_allow_html=True)
-                
-                # Create a JavaScript solution that creates a blob URL (works around security)
-                pdf_viewer_html = f"""
-                <div class="pdf-viewer-container">
-                    <div id="pdf-container-{pdf_key}"></div>
-                </div>
-                <script>
-                    (function() {{
+                # Create HTML with embedded PDF using blob URL
+                html_content = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body {{
+                            margin: 0;
+                            padding: 0;
+                            font-family: sans-serif;
+                        }}
+                        .pdf-container {{
+                            width: 100%;
+                            height: {iframe_height}px;
+                            border: 1px solid #d8d8d8;
+                            border-radius: 7px;
+                            box-shadow: #c6c3c3 0 0 10px 0px;
+                            background: white;
+                            overflow: hidden;
+                        }}
+                        .pdf-fallback {{
+                            text-align: center;
+                            padding: 40px;
+                            color: #666;
+                        }}
+                        embed {{
+                            width: 100%;
+                            height: 100%;
+                            border: none;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="pdf-container" id="pdfContainer">
+                        <div class="pdf-fallback">Loading PDF preview...</div>
+                    </div>
+                    <script>
                         try {{
                             // Decode base64 to binary
                             const base64Data = "{pdf_base64}";
@@ -732,37 +742,22 @@ with col_preview:
                             const url = URL.createObjectURL(blob);
                             
                             // Create embed element
-                            const container = document.getElementById('pdf-container-{pdf_key}');
-                            if (container) {{
-                                container.innerHTML = `
-                                    <embed src="${{url}}" 
-                                           type="application/pdf" 
-                                           width="100%" 
-                                           height="{iframe_height}px"
-                                           style="border: none;">
-                                `;
-                            }}
+                            const container = document.getElementById('pdfContainer');
+                            container.innerHTML = '<embed src="' + url + '" type="application/pdf" />';
                             
-                            // Clean up URL after a delay
-                            setTimeout(() => URL.revokeObjectURL(url), 60000);
+                            // Clean up URL after page unload
+                            window.addEventListener('unload', () => URL.revokeObjectURL(url));
                         }} catch(e) {{
-                            // Fallback message if PDF can't be displayed
-                            const container = document.getElementById('pdf-container-{pdf_key}');
-                            if (container) {{
-                                container.innerHTML = `
-                                    <div style="text-align: center; padding: 40px;">
-                                        <p>⚠️ PDF preview not available in this browser</p>
-                                        <p>Please use the download button below</p>
-                                    </div>
-                                `;
-                            }}
+                            document.getElementById('pdfContainer').innerHTML = 
+                                '<div class="pdf-fallback">⚠️ PDF preview not available in this browser<br>Please use the download button below</div>';
                         }}
-                    }})();
-                </script>
+                    </script>
+                </body>
+                </html>
                 """
                 
-                # Display the PDF viewer
-                st.markdown(pdf_viewer_html, unsafe_allow_html=True)
+                # Display using components.html which allows JavaScript
+                components.html(html_content, height=iframe_height + 20, scrolling=False)
                 
                 # Show document info
                 pages_of_todos = config.get('pages_of_todos', 30)
