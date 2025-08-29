@@ -198,7 +198,9 @@ with st.expander("💾 Save/Load Configuration", expanded=False):
     
     with col_save:
         st.markdown("**Save Current Configuration**")
-        config_name = st.text_input("Configuration name", value="my_config")
+        # Use loaded config name if available, otherwise default to "my_config"
+        default_save_name = st.session_state.get('loaded_config_name', 'my_config')
+        config_name = st.text_input("Configuration name", value=default_save_name)
         if st.button("💾 Save Configuration"):
             # We'll collect the config after the form
             st.session_state['save_config'] = config_name
@@ -214,6 +216,7 @@ with st.expander("💾 Save/Load Configuration", expanded=False):
                     loaded = load_config(selected_config)
                     if loaded:
                         st.session_state['loaded_config'] = loaded
+                        st.session_state['loaded_config_name'] = selected_config  # Track the name
                         st.success(f"Loaded configuration: {selected_config}")
                         st.rerun()
         else:
