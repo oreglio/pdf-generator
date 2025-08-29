@@ -684,12 +684,14 @@ with col_preview:
                     # Add border and shadow styling
                     st.markdown("""
                     <style>
-                    .stImage > div {
+                    .stImage {
                         border: 1px solid #d8d8d8;
                         border-radius: 7px;
                         box-shadow: #c6c3c3 0 0 10px 0px;
-                        padding: 10px;
-                        background: white;
+                        overflow: hidden;
+                    }
+                    .stImage > img {
+                        border-radius: 7px;
                     }
                     </style>
                     """, unsafe_allow_html=True)
@@ -712,12 +714,14 @@ with col_preview:
                 # Add styling
                 st.markdown("""
                 <style>
-                .stImage > div {
+                .stImage {
                     border: 1px solid #d8d8d8;
                     border-radius: 7px;
                     box-shadow: #c6c3c3 0 0 10px 0px;
-                    padding: 10px;
-                    background: white;
+                    overflow: hidden;
+                }
+                .stImage > img {
+                    border-radius: 7px;
                 }
                 .pdf-badge {
                     display: inline-block;
