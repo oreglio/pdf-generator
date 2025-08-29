@@ -626,9 +626,6 @@ with col_controls:
 with col_preview:
     st.subheader("📄 Preview")
     
-    # Add toggle for preview format (PDF as default)
-    preview_format = st.radio("Format:", ["PDF", "Image"], horizontal=True, key="preview_format", index=0)
-    
     # Generate preview when button is clicked or on first load
     if preview_clicked or 'preview_config' not in st.session_state:
         # Create configuration dictionary
@@ -670,123 +667,21 @@ with col_preview:
         
         # Generate preview
         with st.spinner("Generating preview..."):
-            if preview_format == "PDF":
-                # Generate PDF preview
-                pdf_data = generate_preview(config, page_size, format='pdf')
+            # Always generate PDF preview
+            pdf_data = generate_preview(config, page_size, format='pdf')
+            
+            # Convert PDF to image for display (elegant solution!)
+            try:
+                # Try using pdf2image if available
+                from pdf2image import convert_from_bytes
+                import io
                 
-                # Convert PDF to image for display (elegant solution!)
-                try:
-                    # Try using pdf2image if available
-                    from pdf2image import convert_from_bytes
-                    import io
+                # Convert first page of PDF to image
+                images = convert_from_bytes(pdf_data, dpi=150, first_page=1, last_page=1)
+                if images:
+                    pdf_image = images[0]
                     
-                    # Convert first page of PDF to image
-                    images = convert_from_bytes(pdf_data, dpi=150, first_page=1, last_page=1)
-                    if images:
-                        pdf_image = images[0]
-                        
-                        # Add border and shadow styling
-                        st.markdown("""
-                        <style>
-                        .stImage > div {
-                            border: 1px solid #d8d8d8;
-                            border-radius: 7px;
-                            box-shadow: #c6c3c3 0 0 10px 0px;
-                            padding: 10px;
-                            background: white;
-                        }
-                        </style>
-                        """, unsafe_allow_html=True)
-                        
-                        # Display the PDF as image
-                        st.image(pdf_image, caption="PDF Preview - Page 1", use_column_width=True)
-                        
-                        # Show it's actually a PDF with download option
-                        st.info("📄 This is a real PDF preview. Download below to view all pages.")
-                    
-                except ImportError:
-                    # Fallback: Create high-quality image preview directly
-                    # This ensures it works even without pdf2image
-                    import io
-                    from PIL import Image
-                    
-                    # Generate as high-quality image instead
-                    preview_img = generate_preview(config, page_size, format='image')
-                    
-                    # Add styling
-                    st.markdown("""
-                    <style>
-                    .stImage > div {
-                        border: 1px solid #d8d8d8;
-                        border-radius: 7px;
-                        box-shadow: #c6c3c3 0 0 10px 0px;
-                        padding: 10px;
-                        background: white;
-                    }
-                    .pdf-badge {
-                        display: inline-block;
-                        background: #dc3545;
-                        color: white;
-                        padding: 4px 8px;
-                        border-radius: 4px;
-                        font-size: 12px;
-                        font-weight: bold;
-                        margin-bottom: 10px;
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
-                    # Show PDF badge
-                    st.markdown('<span class="pdf-badge">PDF FORMAT</span>', unsafe_allow_html=True)
-                    
-                    # Display the preview
-                    st.image(preview_img, caption="PDF Preview (rendered as image)", use_column_width=True)
-                
-                except Exception as e:
-                    # Final fallback
-                    st.warning("PDF preview rendering failed. Use download button below.")
-                    st.error(f"Error: {str(e)}")
-                
-                # Show document info
-                pages_of_todos = config.get('pages_of_todos', 30)
-                items_per_col = config.get('items_per_col', 20)
-                columns = config.get('columns', 2)
-                detail_pages = config.get('detail_pages_per_todo', 2)
-                total_items = pages_of_todos * items_per_col * columns
-                total_detail_pages = total_items * detail_pages
-                total_pages = 1 + pages_of_todos + total_detail_pages
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Page Format", page_format)
-                with col2:
-                    st.metric("Todo Pages", pages_of_todos)
-                with col3:
-                    st.metric("Total Pages", f"{total_pages:,}")
-                
-                # Download and switch buttons
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    st.download_button(
-                        label="📥 Download Preview PDF",
-                        data=pdf_data,
-                        file_name="preview_page1.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        type="primary"
-                    )
-                with col2:
-                    if st.button("🖼️ Switch to Image Preview", use_container_width=True):
-                        st.session_state.preview_format = "Image"
-                        st.rerun()
-                
-                st.caption("PDF Preview - If not visible above, use download button")
-            else:
-                # Generate image preview
-                try:
-                    preview_img = generate_preview(config, page_size, format='image')
-                    
-                    # Add custom CSS for the image container
+                    # Add border and shadow styling
                     st.markdown("""
                     <style>
                     .stImage > div {
@@ -799,11 +694,83 @@ with col_preview:
                     </style>
                     """, unsafe_allow_html=True)
                     
-                    # Display the PNG preview (works better on Streamlit Cloud)
-                    st.image(preview_img, caption="Preview of Page 1", use_column_width=True)
-                except Exception as e:
-                    st.error(f"⚠️ Could not generate image preview. Try PDF format instead.")
-                    st.caption(f"Error details: {str(e)}")
+                    # Display the PDF as image
+                    st.image(pdf_image, caption="PDF Preview - Page 1", use_column_width=True)
+                    
+                    # Show it's actually a PDF with download option
+                    st.info("📄 This is a real PDF preview. Download below to view all pages.")
+                
+            except ImportError:
+                # Fallback: Create high-quality image preview directly
+                # This ensures it works even without pdf2image
+                import io
+                from PIL import Image
+                
+                # Generate as high-quality image instead
+                preview_img = generate_preview(config, page_size, format='image')
+                
+                # Add styling
+                st.markdown("""
+                <style>
+                .stImage > div {
+                    border: 1px solid #d8d8d8;
+                    border-radius: 7px;
+                    box-shadow: #c6c3c3 0 0 10px 0px;
+                    padding: 10px;
+                    background: white;
+                }
+                .pdf-badge {
+                    display: inline-block;
+                    background: #dc3545;
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Show PDF badge
+                st.markdown('<span class="pdf-badge">PDF FORMAT</span>', unsafe_allow_html=True)
+                
+                # Display the preview
+                st.image(preview_img, caption="PDF Preview (rendered as image)", use_column_width=True)
+            
+            except Exception as e:
+                # Final fallback
+                st.warning("PDF preview rendering failed. Use download button below.")
+                st.error(f"Error: {str(e)}")
+            
+            # Show document info
+            pages_of_todos = config.get('pages_of_todos', 30)
+            items_per_col = config.get('items_per_col', 20)
+            columns = config.get('columns', 2)
+            detail_pages = config.get('detail_pages_per_todo', 2)
+            total_items = pages_of_todos * items_per_col * columns
+            total_detail_pages = total_items * detail_pages
+            total_pages = 1 + pages_of_todos + total_detail_pages
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Page Format", page_format)
+            with col2:
+                st.metric("Todo Pages", pages_of_todos)
+            with col3:
+                st.metric("Total Pages", f"{total_pages:,}")
+                
+            # Download button
+            st.download_button(
+                label="📥 Download Preview PDF",
+                data=pdf_data,
+                file_name="preview_page1.pdf",
+                mime="application/pdf",
+                use_column_width=True,
+                type="primary"
+            )
+            
+            st.caption("PDF Preview - Page 1 of your document")
         
         # Save configuration if requested
         if 'save_config' in st.session_state:
