@@ -674,8 +674,15 @@ with col_preview:
                 # Generate PDF preview
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
+                # Save PDF to temp file for display
+                import tempfile
                 import base64
-                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+                
+                # Try multiple display methods
+                # Method 1: Use a temporary file (works better with some browsers)
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                    tmp_file.write(pdf_data)
+                    tmp_file_path = tmp_file.name
                 
                 # Calculate height based on page aspect ratio
                 PAGE_WIDTH, PAGE_HEIGHT = page_size
@@ -685,54 +692,65 @@ with col_preview:
                 if page_format == "A4":
                     iframe_height = 1200  # Fixed optimal height for A4
                 else:
-                    # For other formats, calculate based on aspect ratio
-                    container_width = 800  # Base width for calculation
+                    container_width = 800
                     iframe_height = int(container_width * aspect_ratio)
-                    # Ensure minimum height for visibility
                     iframe_height = max(iframe_height, 1000)
                 
-                # Add custom CSS for the PDF container
+                # Add styled container
                 st.markdown("""
                 <style>
-                .pdf-container {
+                .pdf-preview-box {
                     border: 1px solid #d8d8d8;
                     border-radius: 7px;
                     box-shadow: #c6c3c3 0 0 10px 0px;
-                    padding: 10px;
+                    padding: 20px;
                     background: white;
-                    overflow: hidden;
                     margin: 10px 0;
-                }
-                .pdf-container iframe {
-                    border: none;
-                    width: 100%;
                 }
                 </style>
                 """, unsafe_allow_html=True)
                 
-                # Try to display PDF in iframe (may not work on all browsers/deployments)
+                # Create a container for the preview
+                st.markdown('<div class="pdf-preview-box">', unsafe_allow_html=True)
+                
+                # Try to show as embedded object (more compatible than iframe)
+                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+                
+                # Use object tag which has better browser support than iframe for PDFs
                 pdf_display = f'''
-                <div class="pdf-container">
-                    <iframe src="data:application/pdf;base64,{pdf_base64}" 
-                            width="100%" 
-                            height="{iframe_height}px" 
-                            type="application/pdf"
-                            style="min-height: {iframe_height}px;">
-                        <p>Your browser does not support PDFs. Please download the PDF to view it.</p>
-                    </iframe>
-                </div>
+                <object data="data:application/pdf;base64,{pdf_base64}" 
+                        type="application/pdf" 
+                        width="100%" 
+                        height="{iframe_height}px">
+                    <embed src="data:application/pdf;base64,{pdf_base64}" 
+                           type="application/pdf" 
+                           width="100%" 
+                           height="{iframe_height}px" />
+                    <p style="text-align: center; padding: 20px;">
+                        ⚠️ PDF preview requires a PDF-compatible browser.<br>
+                        Use the download button below to view the PDF.
+                    </p>
+                </object>
                 '''
                 st.markdown(pdf_display, unsafe_allow_html=True)
                 
-                # Also provide download button as fallback
-                st.download_button(
-                    label="📥 Download Preview PDF (if preview doesn't show above)",
-                    data=pdf_data,
-                    file_name="preview_page1.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-                st.caption("PDF Preview of Page 1")
+                # Download button
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    st.download_button(
+                        label="📥 Download Preview PDF",
+                        data=pdf_data,
+                        file_name="preview_page1.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                with col2:
+                    if st.button("🔄 Switch to Image Preview", use_container_width=True):
+                        st.session_state.preview_format = "Image"
+                        st.rerun()
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.caption("PDF Preview - Page 1 of your document")
             else:
                 # Generate image preview
                 try:
