@@ -331,6 +331,39 @@ with col_controls:
     page_width_mm = page_size[0] / mm if 'page_size' in locals() else 210
     page_height_mm = page_size[1] / mm if 'page_size' in locals() else 297
     
+    # Content Structure - OUTSIDE the form for proper loading
+    st.header("📊 Content Structure")
+    
+    # Auto-scale items per column based on page height
+    auto_items = st.checkbox(
+        "Auto-scale items per column for page size",
+        value=default_config.get('auto_items', False),
+        help="Automatically adjust number of items based on available page height",
+        key="auto_items_checkbox"
+    )
+    
+    col_content1, col_content2 = st.columns(2)
+    
+    with col_content1:
+        if auto_items:
+            # Calculate based on available height (using default margins since they're not defined yet)
+            # We'll use proportional margins based on page size
+            margin_scale = min(page_width_mm / 210, page_height_mm / 297)
+            est_margin_top = max(5, round(18 * margin_scale))
+            est_margin_bottom = max(3, round(8 * margin_scale))
+            available_height = page_height_mm - est_margin_top - est_margin_bottom - 30  # 30mm for header
+            # Assume ~12mm per item (based on A4 having 20 items in ~240mm)
+            items_per_col_default = min(30, max(10, int(available_height / 12)))
+            items_per_col = int(items_per_col_default)
+            st.info(f"Auto: {items_per_col} items")
+        else:
+            items_per_col = int(st.number_input("Items per Column", min_value=10, max_value=30, value=int(default_config.get('items_per_col', 20)), step=1, key="items_input"))
+        columns = st.radio("Number of Columns", [1, 2], index=[1, 2].index(default_config.get('columns', 2)), key="columns_radio")
+    
+    with col_content2:
+        pages_of_todos = int(st.number_input("Number of Todo Pages", min_value=10, max_value=100, value=int(default_config.get('pages_of_todos', 30)), step=1, key="pages_input"))
+        detail_pages_per_todo = st.selectbox("Detail Pages per Todo", [1, 2, 3, 4, 5], index=[1, 2, 3, 4, 5].index(default_config.get('detail_pages_per_todo', 2)), key="detail_pages_select")
+    
     # Smart margin defaults based on page size (proportional)
     # Scale margins proportionally to page size relative to A4
     margin_scale = min(page_width_mm / 210, page_height_mm / 297)
@@ -397,35 +430,6 @@ with col_controls:
         
         with col4:
             dot_color_intensity = st.slider("Dot Color (Gray)", 0.3, 0.9, default_config.get('dot_color_intensity', 0.7), step=0.1)
-        
-        st.header("📊 Content Structure")
-        
-        # Auto-scale items per column based on page height
-        auto_items = st.checkbox(
-            "Auto-scale items per column for page size",
-            value=default_config.get('auto_items', False),
-            help="Automatically adjust number of items based on available page height"
-        )
-        
-        col5, col6 = st.columns(2)
-        
-        with col5:
-            if auto_items:
-                # Calculate based on available height
-                available_height = page_height_mm - margin_top - margin_bottom - 30  # 30mm for header
-                # Assume ~12mm per item (based on A4 having 20 items in ~240mm)
-                items_per_col_default = min(30, max(10, int(available_height / 12)))
-                items_per_col = int(items_per_col_default)
-                st.info(f"Auto: {items_per_col} items (based on {available_height:.0f}mm available height)")
-            else:
-                items_per_col_input = st.number_input("Items per Column", min_value=10, max_value=30, value=int(default_config.get('items_per_col', 20)), step=1)
-                items_per_col = int(items_per_col_input)
-                st.caption(f"Current value: {items_per_col}")  # Debug display
-            columns = st.radio("Number of Columns", [1, 2], index=[1, 2].index(default_config.get('columns', 2)))
-        
-        with col6:
-            pages_of_todos = int(st.number_input("Number of Todo Pages", min_value=10, max_value=100, value=int(default_config.get('pages_of_todos', 30)), step=1))
-            detail_pages_per_todo = st.selectbox("Detail Pages per Todo", [1, 2, 3, 4, 5], index=[1, 2, 3, 4, 5].index(default_config.get('detail_pages_per_todo', 2)))
         
         st.header("🔤 Font Sizes")
         col7, col8 = st.columns(2)
