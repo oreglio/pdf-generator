@@ -695,6 +695,96 @@ class Config:
     detail_header_new = 'arrow_y = Config.PAGE_HEIGHT - Config.MARGIN_TOP + max(5 * mm, min(15 * mm, Config.PAGE_HEIGHT * 0.034))  # Adaptive offset'
     function_section = function_section.replace(detail_header_original, detail_header_new)
     
+    # Fix hardcoded 2 pages to use actual DETAIL_PAGES_PER_TODO
+    # Replace the hardcoded detail page generation with a proper loop
+    if 'DETAIL_PAGES_PER_TODO' in config_code and detail_pages_per_todo != 2:
+        # Find and replace the hardcoded section
+        old_detail_generation = """        # ===== PREMIÈRE PAGE DE DÉTAIL =====
+        # UTILISER LE XOBJECT (pas de redessiner!)
+        c.doForm("dotPattern")
+        
+        # Bookmark pour cette première page de détail
+        detail_bookmark_1 = f"detail_{idx}_1"
+        c.bookmarkPage(detail_bookmark_1)"""
+        
+        # Check if we need to replace the detail page generation
+        if old_detail_generation in function_section:
+            # Extract the part before detail pages
+            detail_start = function_section.find("        # ===== PREMIÈRE PAGE DE DÉTAIL =====")
+            detail_end = function_section.find("        c.showPage()", detail_start)
+            # Find the last showPage() for the second detail page
+            detail_end = function_section.find("        c.showPage()", detail_end + 10) + len("        c.showPage()")
+            
+            # Generate new loop-based code for multiple detail pages
+            new_detail_code = f'''        # Generate all detail pages for this todo
+        for detail_page_num in range(1, Config.DETAIL_PAGES_PER_TODO + 1):
+            # UTILISER LE XOBJECT (pas de redessiner!)
+            c.doForm("dotPattern")
+            
+            # Bookmark pour cette page de détail
+            detail_bookmark = f"detail_{{idx}}_{{detail_page_num}}"
+            c.bookmarkPage(detail_bookmark)
+            
+            # En-tête avec flèche de retour
+            c.setFont("Helvetica-Bold", Config.FONT_SIZE_DETAIL)
+            
+            # Position remontée et couleur gris clair
+            arrow_x = Config.MARGIN_LEFT - 4 * mm
+            arrow_y = Config.PAGE_HEIGHT - Config.MARGIN_TOP + max(5 * mm, min(15 * mm, Config.PAGE_HEIGHT * 0.034))
+            
+            # Flèche retour en gris clair
+            c.setFillColor(Color(0.6, 0.6, 0.6))
+            c.drawString(arrow_x, arrow_y, "<")
+            
+            # Texte du header avec indication de page
+            c.setFillColor(Color(0.6, 0.6, 0.6))
+            header_text = f"Details — Page {{page_num}} — #{{position_in_page}} — {{detail_page_num}}/{{Config.DETAIL_PAGES_PER_TODO}}"
+            c.drawString(Config.MARGIN_LEFT, arrow_y, header_text)
+            
+            # Lien "Index" du côté opposé (à droite)
+            index_text = "Index"
+            index_text_width = c.stringWidth(index_text, "Helvetica-Bold", Config.FONT_SIZE_DETAIL)
+            index_x = Config.PAGE_WIDTH - Config.MARGIN_RIGHT - index_text_width
+            c.drawString(index_x, arrow_y, index_text)
+            
+            # Lien retour vers la page de liste
+            header_width = c.stringWidth(header_text, "Helvetica-Bold", Config.FONT_SIZE_DETAIL)
+            source_bookmark = f"page_{{page_num}}"
+            c.linkRect("", source_bookmark, 
+                      (arrow_x, arrow_y - 5, Config.MARGIN_LEFT + header_width, arrow_y + 15))
+            
+            # Lien vers l'index
+            c.linkRect("", "index", 
+                      (index_x, arrow_y - 5, index_x + index_text_width, arrow_y + 15))
+            
+            # Navigation links (Previous/Next)
+            c.setFont("Helvetica", 10)
+            c.setFillColor(Color(0.5, 0.5, 0.5))
+            
+            # Previous link (if not first page)
+            if detail_page_num > 1:
+                prev_text = "< Prev"
+                prev_x = Config.MARGIN_LEFT
+                prev_y = Config.MARGIN_BOTTOM - 12
+                c.drawString(prev_x, prev_y, prev_text)
+                prev_bookmark = f"detail_{{idx}}_{{detail_page_num - 1}}"
+                c.linkRect("", prev_bookmark, 
+                          (prev_x, prev_y - 3, prev_x + c.stringWidth(prev_text, "Helvetica", 10), prev_y + 10))
+            
+            # Next link (if not last page)
+            if detail_page_num < Config.DETAIL_PAGES_PER_TODO:
+                next_text = "Next >"
+                next_x = Config.PAGE_WIDTH - Config.MARGIN_RIGHT - c.stringWidth(next_text, "Helvetica", 10)
+                next_y = Config.MARGIN_BOTTOM - 12
+                c.drawString(next_x, next_y, next_text)
+                next_bookmark = f"detail_{{idx}}_{{detail_page_num + 1}}"
+                c.linkRect("", next_bookmark, 
+                          (next_x, next_y - 3, Config.PAGE_WIDTH - Config.MARGIN_RIGHT, next_y + 10))
+            
+            c.showPage()'''
+            
+            function_section = function_section[:detail_start] + new_detail_code + function_section[detail_end:]
+    
     # Combine everything
     new_code = imports_section + config_code + "\n" + function_section
     
