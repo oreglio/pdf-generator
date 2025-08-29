@@ -436,7 +436,7 @@ with col_controls:
         
         with col7:
             font_size_header = st.slider("Header Font Size", 10, 20, default_config.get('font_size_header', 14))
-            font_size_icon = st.slider("Icon Font Size", 10, 18, default_config.get('font_size_icon', 13))
+            font_size_icon = st.slider("Icon Font Size (>)", 6, 20, default_config.get('font_size_icon', 13), help="Size of the '>' symbol at the end of each todo line")
         
         with col8:
             font_size_detail = st.slider("Detail Font Size", 10, 16, default_config.get('font_size_detail', 12))
