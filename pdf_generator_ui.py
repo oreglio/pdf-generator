@@ -674,37 +674,65 @@ with col_preview:
                 # Generate PDF preview
                 pdf_data = generate_preview(config, page_size, format='pdf')
                 
-                # On Streamlit Cloud, use download button instead of iframe
-                # Chrome and other browsers block inline PDF data URLs for security
                 import base64
+                pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
                 
-                # Add custom CSS for the download container
+                # Calculate height based on page aspect ratio
+                PAGE_WIDTH, PAGE_HEIGHT = page_size
+                aspect_ratio = PAGE_HEIGHT / PAGE_WIDTH
+                
+                # For A4, use maximum height that fits well
+                if page_format == "A4":
+                    iframe_height = 1200  # Fixed optimal height for A4
+                else:
+                    # For other formats, calculate based on aspect ratio
+                    container_width = 800  # Base width for calculation
+                    iframe_height = int(container_width * aspect_ratio)
+                    # Ensure minimum height for visibility
+                    iframe_height = max(iframe_height, 1000)
+                
+                # Add custom CSS for the PDF container
                 st.markdown("""
                 <style>
-                .pdf-download-container {
+                .pdf-container {
                     border: 1px solid #d8d8d8;
                     border-radius: 7px;
                     box-shadow: #c6c3c3 0 0 10px 0px;
-                    padding: 20px;
+                    padding: 10px;
                     background: white;
-                    text-align: center;
+                    overflow: hidden;
                     margin: 10px 0;
+                }
+                .pdf-container iframe {
+                    border: none;
+                    width: 100%;
                 }
                 </style>
                 """, unsafe_allow_html=True)
                 
-                # Provide download button for PDF preview
-                st.markdown('<div class="pdf-download-container">', unsafe_allow_html=True)
-                st.info("📄 PDF preview is generated. Click below to view:")
+                # Try to display PDF in iframe (may not work on all browsers/deployments)
+                pdf_display = f'''
+                <div class="pdf-container">
+                    <iframe src="data:application/pdf;base64,{pdf_base64}" 
+                            width="100%" 
+                            height="{iframe_height}px" 
+                            type="application/pdf"
+                            style="min-height: {iframe_height}px;">
+                        <p>Your browser does not support PDFs. Please download the PDF to view it.</p>
+                    </iframe>
+                </div>
+                '''
+                st.markdown(pdf_display, unsafe_allow_html=True)
+                
+                # Also provide download button as fallback
                 st.download_button(
-                    label="📥 Download Preview PDF",
+                    label="📥 Download Preview PDF (if preview doesn't show above)",
                     data=pdf_data,
                     file_name="preview_page1.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.caption("PDF Preview of Page 1 - Download to view in your PDF reader")
+                st.caption("PDF Preview of Page 1")
             else:
                 # Generate image preview
                 try:
