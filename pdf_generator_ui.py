@@ -352,6 +352,48 @@ def generate_preview(config_dict, page_size=A4, format='image'):
             
             y += line_height
     
+    # Draw guide lines if enabled
+    if config_dict.get('guide_lines_enabled', False):
+        # Calculate boundaries with margins (scaled)
+        guide_left_margin = int(2.5 * mm * scale)  # 2.5mm margin from todo lines
+        guide_right_margin = int(2.5 * mm * scale)
+        guide_top_margin = int(5 * mm * scale)  # 5mm margin from top/bottom todo lines
+        guide_bottom_margin = int(5 * mm * scale)
+        
+        # Calculate boundaries based on number placement
+        if config_dict['num_placement'] == "Outside (left/right)":
+            # Lines stop at the outer edge of numbers
+            left_boundary = left_margin - int(10 * mm * scale)  # Stop before left numbers
+            right_boundary = img_width - right_margin + int(10 * mm * scale)  # Stop after right numbers
+        else:
+            # Lines use margin width with additional margins
+            left_boundary = left_margin + guide_left_margin
+            right_boundary = img_width - right_margin - guide_right_margin
+        
+        # Calculate position between todo lines
+        # Find the middle todo line position (between items)
+        middle_item = items_per_col // 2
+        middle_y = top_y + (middle_item * line_height) - (line_height // 2)  # Position between two middle lines
+        
+        # Horizontal line (between middle todo lines)
+        hex_h_color = config_dict.get('guide_h_color', '#E0E0E0').lstrip('#')
+        h_color_rgb = tuple(int(hex_h_color[i:i+2], 16) for i in (0, 2, 4))
+        h_width = max(1, int(config_dict.get('guide_h_width', 0.5) * mm * scale))
+        draw.line([(left_boundary, middle_y), (right_boundary, middle_y)], fill=h_color_rgb, width=h_width)
+        
+        # Vertical line (between columns)
+        hex_v_color = config_dict.get('guide_v_color', '#E0E0E0').lstrip('#')
+        v_color_rgb = tuple(int(hex_v_color[i:i+2], 16) for i in (0, 2, 4))
+        v_width = max(1, int(config_dict.get('guide_v_width', 0.5) * mm * scale))
+        
+        # Position between columns
+        mid_x = left_margin + col_width  # Between first and second column
+        
+        # Vertical line boundaries with margins
+        top_boundary = top_y - guide_top_margin
+        bottom_boundary = top_y + ((items_per_col - 1) * line_height) + guide_bottom_margin
+        draw.line([(mid_x, top_boundary), (mid_x, bottom_boundary)], fill=v_color_rgb, width=v_width)
+    
     # Add preview text with better fonts
     try:
         # Page header
@@ -694,48 +736,57 @@ with col_controls:
         st.header("📏 Guide Lines")
         st.markdown("Add horizontal and vertical guide lines to todo pages")
         
+        guide_lines_enabled = st.checkbox(
+            "Enable Guide Lines",
+            value=default_config.get('guide_lines_enabled', False),
+            help="Add horizontal and vertical guide lines on todo pages",
+            key="guide_lines_checkbox"
+        )
+        
+        # Always show the columns, but only show controls when enabled
         col_guide1, col_guide2 = st.columns(2)
         
-        with col_guide1:
-            guide_lines_enabled = st.checkbox(
-                "Enable Guide Lines",
-                value=default_config.get('guide_lines_enabled', False),
-                help="Add horizontal and vertical guide lines on todo pages"
-            )
-            
-            if guide_lines_enabled:
+        if guide_lines_enabled:
+            with col_guide1:
                 guide_h_color = st.color_picker(
                     "Horizontal Line Color",
-                    default_config.get('guide_h_color', "#E0E0E0")
+                    default_config.get('guide_h_color', "#E0E0E0"),
+                    key="guide_h_color_picker"
                 )
                 guide_h_width = st.slider(
                     "Horizontal Line Width (mm)",
                     0.2, 2.0, 
                     default_config.get('guide_h_width', 0.5),
                     step=0.1,
-                    format="%.1f"
+                    format="%.1f",
+                    key="guide_h_width_slider"
                 )
-        
-        with col_guide2:
-            if guide_lines_enabled:
-                st.markdown("&nbsp;")  # Spacing to align with checkbox
+            
+            with col_guide2:
                 guide_v_color = st.color_picker(
                     "Vertical Line Color",
-                    default_config.get('guide_v_color', "#E0E0E0")
+                    default_config.get('guide_v_color', "#E0E0E0"),
+                    key="guide_v_color_picker"
                 )
                 guide_v_width = st.slider(
                     "Vertical Line Width (mm)",
                     0.2, 2.0,
                     default_config.get('guide_v_width', 0.5),
                     step=0.1,
-                    format="%.1f"
+                    format="%.1f",
+                    key="guide_v_width_slider"
                 )
-            else:
-                # Set default values when disabled
-                guide_h_color = "#E0E0E0"
-                guide_v_color = "#E0E0E0"
-                guide_h_width = 0.5
-                guide_v_width = 0.5
+        else:
+            # Set default values when disabled
+            guide_h_color = "#E0E0E0"
+            guide_v_color = "#E0E0E0"
+            guide_h_width = 0.5
+            guide_v_width = 0.5
+            # Clear the area to hide controls immediately
+            with col_guide1:
+                st.empty()
+            with col_guide2:
+                st.empty()
         
         st.header("📁 Output")
         output_filename = st.text_input(
