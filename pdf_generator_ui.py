@@ -487,6 +487,20 @@ with col_controls:
             height_mm = int(page_size[1] / mm)
             st.info(f"Size: {width_mm} × {height_mm} mm")
     
+    # Landscape orientation option
+    landscape = st.checkbox(
+        "🔄 Landscape Orientation", 
+        value=default_config.get('landscape', False),
+        help="Rotate page to landscape orientation (swaps width and height)"
+    )
+    
+    # Apply landscape orientation if selected
+    if landscape:
+        page_size = (page_size[1], page_size[0])  # Swap width and height
+        # Also swap custom dimensions if custom format
+        if page_format == "Custom":
+            custom_width, custom_height = custom_height, custom_width
+    
     # PDF Quality setting (moved up, outside form)
     st.header("🎨 Quality")
     pdf_quality = st.selectbox(
@@ -733,6 +747,7 @@ with col_preview:
         # Create configuration dictionary
         config = {
             'page_format': page_format,
+            'landscape': landscape,
             'custom_method': custom_method if page_format == "Custom" else 'Millimeters',
             'custom_width': custom_width,
             'custom_height': custom_height,
@@ -900,16 +915,22 @@ with col_preview:
 if submitted:
     # Prepare page size for config
     if page_format == "Custom":
-        page_size_str = f"({custom_width} * mm, {custom_height} * mm)"
+        if landscape:
+            page_size_str = f"({custom_height} * mm, {custom_width} * mm)"  # Swapped for landscape
+        else:
+            page_size_str = f"({custom_width} * mm, {custom_height} * mm)"
     else:
         # Extract just the format name (A4, A5, etc.) from the display string
         page_size_str = page_format.split(" ")[0]
+        if landscape:
+            from reportlab.lib.pagesizes import landscape as landscape_fn
+            page_size_str = f"landscape({page_size_str})"
     
     # Create a modified version of the generator with new config
     config_code = f"""
 #!/usr/bin/env python3
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4, A5, A3, letter, legal, B4, B5
+from reportlab.lib.pagesizes import A4, A5, A3, letter, legal, B4, B5, landscape
 # Define tabloid size (11x17 inches)
 tabloid = (11*72, 17*72)  # 72 points per inch
 from reportlab.lib.units import mm
