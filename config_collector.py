@@ -78,6 +78,10 @@ def collect_complete_config():
         'title_add_date': st.session_state.get('title_add_date', False),
         'title_decoration': st.session_state.get('title_decoration', 'Simple Line'),
         
+        # Index Layout Options (NEW!)
+        'use_half_page_index': st.session_state.get('use_half_page_index', True),
+        'half_page_threshold': st.session_state.get('half_page_threshold', 30),
+        
         # Output
         'output_filename': st.session_state.get('output_filename', 'todo-a4-custom.pdf'),
         'pdf_quality_index': st.session_state.get('pdf_quality_index', 1),
