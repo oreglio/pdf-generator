@@ -1169,8 +1169,32 @@ with col_controls:
 with col_preview:
     st.subheader("📄 Preview")
     
-    # Always use image mode for simplicity and compatibility
-    st.session_state.preview_mode = 'image'
+    # Check if st.pdf() is available
+    has_pdf_viewer = False
+    try:
+        # Check if st.pdf exists and streamlit-pdf is installed
+        if hasattr(st, 'pdf'):
+            import streamlit_pdf
+            has_pdf_viewer = True
+    except ImportError:
+        has_pdf_viewer = False
+    
+    # Show toggle buttons only if PDF viewer is available
+    if has_pdf_viewer:
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("PDF", use_container_width=True, 
+                        type="primary" if st.session_state.get('preview_mode', 'pdf') == 'pdf' else "secondary"):
+                st.session_state.preview_mode = 'pdf'
+                st.rerun()
+        with col2:
+            if st.button("IMAGE", use_container_width=True,
+                        type="primary" if st.session_state.get('preview_mode', 'pdf') == 'image' else "secondary"):
+                st.session_state.preview_mode = 'image'
+                st.rerun()
+    else:
+        # No PDF viewer available, use image mode
+        st.session_state.preview_mode = 'image'
     
     # Generate preview when button is clicked or on first load
     if preview_clicked or 'preview_config' not in st.session_state:
@@ -1235,86 +1259,98 @@ with col_preview:
             # Always generate PDF first
             pdf_data = generate_preview(config, page_size, format='pdf')
             
-            # Convert PDF to image for display (elegant solution!)
-            try:
-                # Try using pdf2image if available
-                from pdf2image import convert_from_bytes
-                import io
-                
-                # Convert first page of PDF to image
-                images = convert_from_bytes(pdf_data, dpi=150, first_page=1, last_page=1)
-                if images:
-                    pdf_image = images[0]
+            # Display based on selected mode
+            if st.session_state.get('preview_mode', 'image') == 'pdf' and has_pdf_viewer:
+                # Use native PDF viewer
+                try:
+                    st.pdf(pdf_data, height=700)
+                    st.caption("Native PDF viewer - Scroll to see more pages")
+                except Exception as e:
+                    st.warning("PDF viewer failed, falling back to image mode")
+                    st.session_state.preview_mode = 'image'
+                    # Fall through to image display
+            
+            if st.session_state.get('preview_mode', 'image') == 'image':
+                # Convert PDF to image for display (elegant solution!)
+                try:
+                    # Try using pdf2image if available
+                    from pdf2image import convert_from_bytes
+                    import io
                     
-                    # Add border and shadow styling
+                    # Convert first page of PDF to image
+                    images = convert_from_bytes(pdf_data, dpi=150, first_page=1, last_page=1)
+                    if images:
+                        pdf_image = images[0]
+                        
+                        # Add border and shadow styling
+                        st.markdown("""
+                        <style>
+                        div[data-testid="stImage"] {
+                            border: 1px solid #d8d8d8;
+                            border-radius: 7px;
+                            box-shadow: #c6c3c3 0 0 10px 0px;
+                            overflow: hidden;
+                            padding: 0px;
+                            background: white;
+                        }
+                        div[data-testid="stImage"] img {
+                            border-radius: 7px;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
+                        
+                        # Display the PDF as image
+                        st.image(pdf_image, caption="PDF Preview - Page 1", use_column_width=True)
+                        
+                        # Show it's actually a PDF with download option
+                        st.info("📄 Image preview of page 1. Download to view all pages.")
+                    
+                except ImportError:
+                    # Fallback: Create high-quality image preview directly
+                    # This ensures it works even without pdf2image
+                    import io
+                    from PIL import Image
+                    
+                    # Generate as high-quality image instead
+                    preview_img = generate_preview(config, page_size, format='image')
+                    
+                    # Add styling
                     st.markdown("""
-                    <style>
-                    div[data-testid="stImage"] {
-                        border: 1px solid #d8d8d8;
-                        border-radius: 7px;
-                        box-shadow: #c6c3c3 0 0 10px 0px;
-                        overflow: hidden;
-                        padding: 0px;
-                        background: white;
-                    }
-                    div[data-testid="stImage"] img {
-                        border-radius: 7px;
-                    }
-                    </style>
+                        <style>
+                        div[data-testid="stImage"] {
+                            border: 1px solid #d8d8d8;
+                            border-radius: 7px;
+                            box-shadow: #c6c3c3 0 0 10px 0px;
+                            overflow: hidden;
+                            padding: 0px;
+                            background: white;
+                        }
+                        div[data-testid="stImage"] img {
+                            border-radius: 7px;
+                        }
+                        .pdf-badge {
+                            display: inline-block;
+                            background: #dc3545;
+                            color: white;
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            font-size: 12px;
+                            font-weight: bold;
+                            margin-bottom: 10px;
+                        }
+                        </style>
                     """, unsafe_allow_html=True)
                     
-                    # Display the PDF as image
-                    st.image(pdf_image, caption="PDF Preview - Page 1", use_column_width=True)
+                    # Show PDF badge
+                    st.markdown('<span class="pdf-badge">PDF FORMAT</span>', unsafe_allow_html=True)
                     
-                    # Show it's actually a PDF with download option
-                    st.info("📄 Image preview of page 1. Download to view all pages.")
+                    # Display the preview
+                    st.image(preview_img, caption="PDF Preview (rendered as image)", use_column_width=True)
                 
-            except ImportError:
-                # Fallback: Create high-quality image preview directly
-                # This ensures it works even without pdf2image
-                import io
-                from PIL import Image
-                
-                # Generate as high-quality image instead
-                preview_img = generate_preview(config, page_size, format='image')
-                
-                # Add styling
-                st.markdown("""
-                    <style>
-                    div[data-testid="stImage"] {
-                        border: 1px solid #d8d8d8;
-                        border-radius: 7px;
-                        box-shadow: #c6c3c3 0 0 10px 0px;
-                        overflow: hidden;
-                        padding: 0px;
-                        background: white;
-                    }
-                    div[data-testid="stImage"] img {
-                        border-radius: 7px;
-                    }
-                    .pdf-badge {
-                        display: inline-block;
-                        background: #dc3545;
-                        color: white;
-                        padding: 4px 8px;
-                        border-radius: 4px;
-                        font-size: 12px;
-                        font-weight: bold;
-                        margin-bottom: 10px;
-                    }
-                    </style>
-                """, unsafe_allow_html=True)
-                
-                # Show PDF badge
-                st.markdown('<span class="pdf-badge">PDF FORMAT</span>', unsafe_allow_html=True)
-                
-                # Display the preview
-                st.image(preview_img, caption="PDF Preview (rendered as image)", use_column_width=True)
-            
-            except Exception as e:
-                # Final fallback
-                st.warning("PDF preview rendering failed. Use download button below.")
-                st.error(f"Error: {str(e)}")
+                except Exception as e:
+                    # Final fallback
+                    st.warning("PDF preview rendering failed. Use download button below.")
+                    st.error(f"Error: {str(e)}")
             
             # Show document info
             pages_of_todos = config.get('pages_of_todos', 30)
