@@ -25,6 +25,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import user configuration manager
 from user_config_manager import init_user_config
+from gallery_ui import render_gallery_ui
 
 st.set_page_config(
     page_title="A4 PDF Todo Generator",
@@ -44,40 +45,20 @@ if st.checkbox("🔧 Show Debug Info", value=False):
 st.title("📄 A4 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
 
-# Privacy Notice
-with st.expander("🔒 Privacy & Data Storage", expanded=False):
-    st.markdown("""
-    ### How Your Data is Handled
-    
-    **🏠 Local Storage Only**
-    - All configurations are stored locally in your browser session
-    - No data is sent to external servers
-    - Your configs are private and unique to your browser
-    
-    **🔄 Session-Based**
-    - Configurations persist during your browser session
-    - Closing the tab may clear temporary configs
-    - Use "Save Configuration" to persist settings
-    
-    **🔗 Sharing Configs**
-    - Export creates a text code you can share
-    - Import allows loading shared configurations
-    - Shared codes contain only PDF settings, no personal data
-    
-    **🍪 No Cookies or Tracking**
-    - This app doesn't use cookies
-    - No analytics or tracking
-    - Completely private usage
-    """)
-
 # Initialize user configuration manager
 config_manager = init_user_config()
 
-# Check if there's a configuration in the URL
-url_config = config_manager.load_from_url()
-if url_config:
-    st.success("✅ Configuration loaded from shared link!")
-    st.session_state.loaded_config = url_config
+# Main navigation tabs
+main_tabs = st.tabs(["⚙️ Generator", "🎨 Gallery", "ℹ️ About"])
+
+with main_tabs[0]:
+    st.markdown("### Configure and Generate Your PDF")
+    
+    # Check if there's a configuration in the URL
+    url_config = config_manager.load_from_url()
+    if url_config:
+        st.success("✅ Configuration loaded from shared link!")
+        st.session_state.loaded_config = url_config
 
 # Configuration management
 def save_config(config_dict, name="default"):
@@ -469,6 +450,7 @@ def generate_preview(config_dict, page_size=A4, format='image'):
     
     return img
 
+
 # Configuration save/load UI with user-specific storage
 with st.expander("💾 Configuration Management", expanded=False):
     
@@ -519,8 +501,38 @@ with st.expander("💾 Configuration Management", expanded=False):
         with col_export:
             st.markdown("**Export Config**")
             if st.button("📤 Generate Code", key="export"):
-                st.info("Export after preview update")
-                st.session_state['export_config'] = True
+                # Collect current configuration immediately
+                current_config = {
+                    'page_format': st.session_state.get('page_format', 'A4 (210×297 mm)'),
+                    'landscape': st.session_state.get('landscape', False),
+                    'custom_method': st.session_state.get('custom_method', 'Direct measurements (mm)'),
+                    'custom_width': st.session_state.get('custom_width', 210),
+                    'custom_height': st.session_state.get('custom_height', 297),
+                    'pixels_width': st.session_state.get('pixels_width', 1920),
+                    'pixels_height': st.session_state.get('pixels_height', 2560),
+                    'ppi': st.session_state.get('ppi', 300),
+                    'items_per_col': st.session_state.get('items_per_col', 20),
+                    'columns': st.session_state.get('columns', 2),
+                    'pages_of_todos': st.session_state.get('pages_of_todos', 30),
+                    'detail_pages_per_todo': st.session_state.get('detail_pages_per_todo', 2),
+                    'margin_left': st.session_state.get('margin_left', 8),
+                    'margin_right': st.session_state.get('margin_right', 8),
+                    'margin_top': st.session_state.get('margin_top', 18),
+                    'margin_bottom': st.session_state.get('margin_bottom', 8),
+                    'dot_spacing': st.session_state.get('dot_spacing', 5.0),
+                    'dot_radius': st.session_state.get('dot_radius', 0.3),
+                    'guide_lines_enabled': st.session_state.get('guide_lines_enabled', False),
+                    'guide_h_color': st.session_state.get('guide_h_color', '#E0E0E0'),
+                    'guide_v_color': st.session_state.get('guide_v_color', '#E0E0E0'),
+                    'guide_h_width': st.session_state.get('guide_h_width', 0.5),
+                    'guide_v_width': st.session_state.get('guide_v_width', 0.5),
+                }
+                
+                # Generate and display the code immediately
+                export_code = config_manager.export_config(current_config)
+                st.success("✅ Configuration exported! Copy the code below:")
+                st.code(export_code, language="text")
+                st.info("📋 Share this code with others. They can import it in the Import section.")
         
         with col_import:
             st.markdown("**Import Config**")
@@ -1077,13 +1089,6 @@ with col_preview:
             st.success(f"✅ Configuration saved as '{st.session_state['save_config']}'")
             del st.session_state['save_config']
         
-        # Export configuration if requested
-        if st.session_state.get('export_config', False):
-            config['output_filename'] = output_filename
-            export_code = config_manager.export_config(config)
-            st.info("📋 Copy this code to share your configuration:")
-            st.code(export_code, language="text")
-            del st.session_state['export_config']
         
         pages_info = f"Configured for {pages_of_todos} todo pages + {pages_of_todos * items_per_col * columns * detail_pages_per_todo:,} detail pages"
         st.caption(f"Preview shows page 1 only. {pages_info}. Click 'Update Preview' after changing settings.")
@@ -1524,6 +1529,41 @@ class Config:
             # Clean up temp file
             if os.path.exists(temp_generator):
                 os.remove(temp_generator)
+
+# Gallery Tab
+with main_tabs[1]:
+    render_gallery_ui(config_manager)
+
+# About Tab  
+with main_tabs[2]:
+    st.markdown("""
+    ### About This App
+    
+    **📄 PDF Todo Generator**
+    Generate customizable PDF templates for todo lists and note-taking, optimized for both printing and e-readers.
+    
+    **🎨 Configuration Gallery**
+    - Browse and share configurations with the community
+    - Each configuration gets a unique 8-character ID
+    - No user accounts required - fully anonymous
+    - Configurations are public and shareable
+    
+    **💡 How Sharing Works**
+    - When you publish a configuration, it gets a unique hash ID (e.g., `a3f2b8c1`)
+    - Share this ID with others so they can load your exact configuration
+    - Same configuration always generates the same ID (no duplicates)
+    - All shared configurations are public
+    
+    **🔧 Features**
+    - Custom page sizes (A4, Letter, or pixels for e-readers)
+    - Configurable margins, spacing, and layout
+    - Guide lines for better organization
+    - Landscape/portrait orientation
+    - Export configurations for sharing
+    
+    **📝 Note**
+    This is a community tool. Shared configurations are public and can be accessed by anyone with the ID.
+    """)
 
 # Instructions
 with st.expander("ℹ️ How to use"):
