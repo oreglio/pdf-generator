@@ -26,6 +26,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Import user configuration manager
 from user_config_manager import init_user_config
 from gallery_ui import render_gallery_ui
+from config_collector import collect_complete_config
 
 st.set_page_config(
     page_title="A4 PDF Todo Generator",
@@ -100,11 +101,142 @@ def hex_to_rgb(hex_color):
     r, g, b = tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
     return r, g, b
 
+def generate_title_page(c, config_dict, PAGE_WIDTH, PAGE_HEIGHT):
+    """Generate a beautiful title page for the PDF"""
+    from datetime import datetime
+    
+    # White background
+    c.setFillColor(Color(1, 1, 1))
+    c.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, fill=1, stroke=0)
+    
+    # Calculate vertical position based on selected option
+    title_position = config_dict.get('title_position', 'Golden Ratio')
+    if title_position == 'Top':
+        title_y = PAGE_HEIGHT - (PAGE_HEIGHT * 0.2)  # 20% from top
+    elif title_position == 'Center':
+        title_y = PAGE_HEIGHT * 0.5  # 50% (center)
+    elif title_position == 'Golden Ratio':
+        title_y = PAGE_HEIGHT * 0.618  # Golden ratio (most aesthetic)
+    
+    # Get alignment
+    alignment = config_dict.get('title_alignment', 'Center')
+    
+    # Draw title
+    title_text = config_dict.get('title_text', 'My Todo List')
+    title_font = config_dict.get('title_font', 'Helvetica-Bold')
+    title_size = config_dict.get('title_size', 48)
+    title_color = config_dict.get('title_color', '#000000')
+    
+    c.setFont(title_font, title_size)
+    c.setFillColor(HexColor(title_color))
+    
+    # Calculate text position based on alignment
+    title_width = c.stringWidth(title_text, title_font, title_size)
+    if alignment == 'Center':
+        title_x = (PAGE_WIDTH - title_width) / 2
+    elif alignment == 'Left':
+        title_x = config_dict.get('margin_left', 20) * mm
+    else:  # Right
+        title_x = PAGE_WIDTH - config_dict.get('margin_right', 20) * mm - title_width
+    
+    c.drawString(title_x, title_y, title_text)
+    
+    # Draw description if provided
+    description = config_dict.get('title_description', '').strip()
+    if description:
+        desc_font = config_dict.get('desc_font', 'Helvetica')
+        desc_size = config_dict.get('desc_size', 18)
+        desc_color = config_dict.get('desc_color', '#666666')
+        
+        c.setFont(desc_font, desc_size)
+        c.setFillColor(HexColor(desc_color))
+        
+        # Split description into lines if it's too long
+        lines = description.split('\n')
+        desc_y = title_y - title_size - 20  # 20 points below title
+        
+        for line in lines:
+            line = line.strip()
+            if line:
+                desc_width = c.stringWidth(line, desc_font, desc_size)
+                if alignment == 'Center':
+                    desc_x = (PAGE_WIDTH - desc_width) / 2
+                elif alignment == 'Left':
+                    desc_x = config_dict.get('margin_left', 20) * mm
+                else:  # Right
+                    desc_x = PAGE_WIDTH - config_dict.get('margin_right', 20) * mm - desc_width
+                
+                c.drawString(desc_x, desc_y, line)
+                desc_y -= desc_size + 8  # Move down for next line
+    else:
+        desc_y = title_y - title_size - 20
+    
+    # Add date if enabled
+    if config_dict.get('title_add_date', False):
+        date_text = datetime.now().strftime('%B %d, %Y')
+        date_font = 'Helvetica'
+        date_size = 14
+        
+        c.setFont(date_font, date_size)
+        c.setFillColor(HexColor('#999999'))
+        
+        date_width = c.stringWidth(date_text, date_font, date_size)
+        date_y = desc_y - 30
+        
+        if alignment == 'Center':
+            date_x = (PAGE_WIDTH - date_width) / 2
+        elif alignment == 'Left':
+            date_x = config_dict.get('margin_left', 20) * mm
+        else:  # Right
+            date_x = PAGE_WIDTH - config_dict.get('margin_right', 20) * mm - date_width
+        
+        c.drawString(date_x, date_y, date_text)
+        decoration_y = date_y - 30
+    else:
+        decoration_y = desc_y - 30
+    
+    # Add decoration if selected
+    decoration = config_dict.get('title_decoration', 'Simple Line')
+    if decoration != 'None':
+        c.setStrokeColor(HexColor('#CCCCCC'))
+        
+        if decoration == 'Simple Line':
+            c.setLineWidth(1)
+            line_width = min(200, PAGE_WIDTH * 0.3)
+            line_x = (PAGE_WIDTH - line_width) / 2
+            c.line(line_x, decoration_y, line_x + line_width, decoration_y)
+            
+        elif decoration == 'Double Line':
+            c.setLineWidth(0.5)
+            line_width = min(200, PAGE_WIDTH * 0.3)
+            line_x = (PAGE_WIDTH - line_width) / 2
+            c.line(line_x, decoration_y, line_x + line_width, decoration_y)
+            c.line(line_x, decoration_y - 4, line_x + line_width, decoration_y - 4)
+            
+        elif decoration == 'Dots':
+            c.setFillColor(HexColor('#CCCCCC'))
+            dot_count = 5
+            dot_spacing = 20
+            total_width = (dot_count - 1) * dot_spacing
+            start_x = (PAGE_WIDTH - total_width) / 2
+            for i in range(dot_count):
+                c.circle(start_x + i * dot_spacing, decoration_y, 2, fill=1, stroke=0)
+                
+        elif decoration == 'Frame':
+            c.setLineWidth(2)
+            margin = 30 * mm
+            c.rect(margin, margin, PAGE_WIDTH - 2 * margin, PAGE_HEIGHT - 2 * margin, fill=0, stroke=1)
+
 def generate_pdf_preview(config_dict, page_size=A4):
     """Generate a preview of the first todo page as PDF"""
     PAGE_WIDTH, PAGE_HEIGHT = page_size
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=(PAGE_WIDTH, PAGE_HEIGHT))
+    
+    # Generate title page if enabled
+    if config_dict.get('title_page_enabled', False):
+        generate_title_page(c, config_dict, PAGE_WIDTH, PAGE_HEIGHT)
+        c.showPage()
     
     # Draw the actual PDF preview content
     # White background
@@ -501,32 +633,8 @@ with st.expander("💾 Configuration Management", expanded=False):
         with col_export:
             st.markdown("**Export Config**")
             if st.button("📤 Generate Code", key="export"):
-                # Collect current configuration immediately
-                current_config = {
-                    'page_format': st.session_state.get('page_format', 'A4 (210×297 mm)'),
-                    'landscape': st.session_state.get('landscape', False),
-                    'custom_method': st.session_state.get('custom_method', 'Direct measurements (mm)'),
-                    'custom_width': st.session_state.get('custom_width', 210),
-                    'custom_height': st.session_state.get('custom_height', 297),
-                    'pixels_width': st.session_state.get('pixels_width', 1920),
-                    'pixels_height': st.session_state.get('pixels_height', 2560),
-                    'ppi': st.session_state.get('ppi', 300),
-                    'items_per_col': st.session_state.get('items_per_col', 20),
-                    'columns': st.session_state.get('columns', 2),
-                    'pages_of_todos': st.session_state.get('pages_of_todos', 30),
-                    'detail_pages_per_todo': st.session_state.get('detail_pages_per_todo', 2),
-                    'margin_left': st.session_state.get('margin_left', 8),
-                    'margin_right': st.session_state.get('margin_right', 8),
-                    'margin_top': st.session_state.get('margin_top', 18),
-                    'margin_bottom': st.session_state.get('margin_bottom', 8),
-                    'dot_spacing': st.session_state.get('dot_spacing', 5.0),
-                    'dot_radius': st.session_state.get('dot_radius', 0.3),
-                    'guide_lines_enabled': st.session_state.get('guide_lines_enabled', False),
-                    'guide_h_color': st.session_state.get('guide_h_color', '#E0E0E0'),
-                    'guide_v_color': st.session_state.get('guide_v_color', '#E0E0E0'),
-                    'guide_h_width': st.session_state.get('guide_h_width', 0.5),
-                    'guide_v_width': st.session_state.get('guide_v_width', 0.5),
-                }
+                # Collect COMPLETE configuration with ALL fields
+                current_config = collect_complete_config()
                 
                 # Generate and display the code immediately
                 export_code = config_manager.export_config(current_config)
@@ -783,6 +891,147 @@ with col_controls:
         guide_h_width = default_config.get('guide_h_width', 0.5)
         guide_v_width = default_config.get('guide_v_width', 0.5)
     
+    # Title Page section - OUTSIDE the form for immediate updates
+    st.header("📝 Title Page")
+    st.markdown("Add an optional title page to your PDF")
+    
+    title_page_enabled = st.checkbox(
+        "Enable Title Page",
+        value=default_config.get('title_page_enabled', False),
+        help="Add a beautiful title page at the beginning of your PDF",
+        key="title_page_checkbox"
+    )
+    
+    if title_page_enabled:
+        col_title1, col_title2 = st.columns(2)
+        
+        with col_title1:
+            # Title text
+            title_text = st.text_input(
+                "Title",
+                value=default_config.get('title_text', 'My Todo List'),
+                placeholder="Enter your title...",
+                key="title_text_input"
+            )
+            
+            # Title font selection
+            title_font = st.selectbox(
+                "Title Font",
+                ["Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold"],
+                index=["Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold"].index(
+                    default_config.get('title_font', 'Helvetica-Bold')
+                ),
+                key="title_font_select"
+            )
+            
+            # Title size
+            title_size = st.slider(
+                "Title Size",
+                20, 72,
+                default_config.get('title_size', 48),
+                step=2,
+                help="Font size in points",
+                key="title_size_slider"
+            )
+            
+            # Title color
+            title_color = st.color_picker(
+                "Title Color",
+                default_config.get('title_color', '#000000'),
+                key="title_color_picker"
+            )
+        
+        with col_title2:
+            # Description text
+            title_description = st.text_area(
+                "Description",
+                value=default_config.get('title_description', ''),
+                placeholder="Add a description or subtitle...",
+                height=100,
+                key="title_description_input"
+            )
+            
+            # Description font
+            desc_font = st.selectbox(
+                "Description Font",
+                ["Helvetica", "Helvetica-Oblique", "Times-Roman", "Times-Italic", "Courier"],
+                index=["Helvetica", "Helvetica-Oblique", "Times-Roman", "Times-Italic", "Courier"].index(
+                    default_config.get('desc_font', 'Helvetica')
+                ),
+                key="desc_font_select"
+            )
+            
+            # Description size
+            desc_size = st.slider(
+                "Description Size",
+                12, 36,
+                default_config.get('desc_size', 18),
+                step=1,
+                help="Font size in points",
+                key="desc_size_slider"
+            )
+            
+            # Description color
+            desc_color = st.color_picker(
+                "Description Color",
+                default_config.get('desc_color', '#666666'),
+                key="desc_color_picker"
+            )
+        
+        # Layout options
+        st.markdown("#### Layout Options")
+        col_layout1, col_layout2, col_layout3 = st.columns(3)
+        
+        with col_layout1:
+            title_alignment = st.radio(
+                "Alignment",
+                ["Center", "Left", "Right"],
+                index=["Center", "Left", "Right"].index(default_config.get('title_alignment', 'Center')),
+                key="title_alignment_radio"
+            )
+        
+        with col_layout2:
+            title_position = st.radio(
+                "Vertical Position",
+                ["Top", "Center", "Golden Ratio"],
+                index=["Top", "Center", "Golden Ratio"].index(default_config.get('title_position', 'Golden Ratio')),
+                help="Golden Ratio = 38.2% from top (most aesthetic)",
+                key="title_position_radio"
+            )
+        
+        with col_layout3:
+            # Add date option
+            title_add_date = st.checkbox(
+                "Add Date",
+                value=default_config.get('title_add_date', False),
+                help="Add current date below description",
+                key="title_add_date_checkbox"
+            )
+            
+            # Add border/decoration
+            title_decoration = st.selectbox(
+                "Decoration",
+                ["None", "Simple Line", "Double Line", "Dots", "Frame"],
+                index=["None", "Simple Line", "Double Line", "Dots", "Frame"].index(
+                    default_config.get('title_decoration', 'Simple Line')
+                ),
+                key="title_decoration_select"
+            )
+    else:
+        # Default values when disabled
+        title_text = default_config.get('title_text', 'My Todo List')
+        title_font = default_config.get('title_font', 'Helvetica-Bold')
+        title_size = default_config.get('title_size', 48)
+        title_color = default_config.get('title_color', '#000000')
+        title_description = default_config.get('title_description', '')
+        desc_font = default_config.get('desc_font', 'Helvetica')
+        desc_size = default_config.get('desc_size', 18)
+        desc_color = default_config.get('desc_color', '#666666')
+        title_alignment = default_config.get('title_alignment', 'Center')
+        title_position = default_config.get('title_position', 'Golden Ratio')
+        title_add_date = default_config.get('title_add_date', False)
+        title_decoration = default_config.get('title_decoration', 'Simple Line')
+    
     # Now start the form for the rest of the configuration
     with st.form("pdf_config"):
         st.header("📏 Margins")
@@ -962,6 +1211,19 @@ with col_preview:
             'guide_v_color': guide_v_color,
             'guide_h_width': guide_h_width,
             'guide_v_width': guide_v_width,
+            'title_page_enabled': title_page_enabled,
+            'title_text': title_text,
+            'title_font': title_font,
+            'title_size': title_size,
+            'title_color': title_color,
+            'title_description': title_description,
+            'desc_font': desc_font,
+            'desc_size': desc_size,
+            'desc_color': desc_color,
+            'title_alignment': title_alignment,
+            'title_position': title_position,
+            'title_add_date': title_add_date,
+            'title_decoration': title_decoration,
             'pdf_quality_index': ["Standard (72 DPI)", "High (150 DPI)", "Print (300 DPI)", "Maximum (600 DPI)"].index(pdf_quality)
         }
         
@@ -1161,6 +1423,21 @@ class Config:
     GUIDE_V_COLOR = HexColor('{guide_v_color}')
     GUIDE_H_WIDTH = {guide_h_width} * mm
     GUIDE_V_WIDTH = {guide_v_width} * mm
+    
+    # Title page configuration
+    TITLE_PAGE_ENABLED = {title_page_enabled}
+    TITLE_TEXT = '''{title_text}'''
+    TITLE_FONT = '{title_font}'
+    TITLE_SIZE = {title_size}
+    TITLE_COLOR = '{title_color}'
+    TITLE_DESCRIPTION = '''{title_description}'''
+    DESC_FONT = '{desc_font}'
+    DESC_SIZE = {desc_size}
+    DESC_COLOR = '{desc_color}'
+    TITLE_ALIGNMENT = '{title_alignment}'
+    TITLE_POSITION = '{title_position}'
+    TITLE_ADD_DATE = {title_add_date}
+    TITLE_DECORATION = '{title_decoration}'
 """
     
     # Read the original generator and replace the config
@@ -1172,6 +1449,129 @@ class Config:
     
     # Get the imports section
     imports_section = original_code[:original_code.find("# Configuration")]
+    
+    # Add title page generation function
+    title_page_function = """
+from datetime import datetime
+
+def generate_title_page(c, PAGE_WIDTH, PAGE_HEIGHT):
+    '''Generate a beautiful title page for the PDF'''
+    
+    # White background
+    c.setFillColor(Color(1, 1, 1))
+    c.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, fill=1, stroke=0)
+    
+    # Calculate vertical position based on selected option
+    if Config.TITLE_POSITION == 'Top':
+        title_y = PAGE_HEIGHT - (PAGE_HEIGHT * 0.2)  # 20% from top
+    elif Config.TITLE_POSITION == 'Center':
+        title_y = PAGE_HEIGHT * 0.5  # 50% (center)
+    elif Config.TITLE_POSITION == 'Golden Ratio':
+        title_y = PAGE_HEIGHT * 0.618  # Golden ratio (most aesthetic)
+    else:
+        title_y = PAGE_HEIGHT * 0.618
+    
+    # Get alignment
+    alignment = Config.TITLE_ALIGNMENT
+    
+    # Draw title
+    c.setFont(Config.TITLE_FONT, Config.TITLE_SIZE)
+    c.setFillColor(HexColor(Config.TITLE_COLOR))
+    
+    # Calculate text position based on alignment
+    title_width = c.stringWidth(Config.TITLE_TEXT, Config.TITLE_FONT, Config.TITLE_SIZE)
+    if alignment == 'Center':
+        title_x = (PAGE_WIDTH - title_width) / 2
+    elif alignment == 'Left':
+        title_x = Config.MARGIN_LEFT
+    else:  # Right
+        title_x = PAGE_WIDTH - Config.MARGIN_RIGHT - title_width
+    
+    c.drawString(title_x, title_y, Config.TITLE_TEXT)
+    
+    # Draw description if provided
+    if Config.TITLE_DESCRIPTION and Config.TITLE_DESCRIPTION.strip():
+        c.setFont(Config.DESC_FONT, Config.DESC_SIZE)
+        c.setFillColor(HexColor(Config.DESC_COLOR))
+        
+        # Split description into lines if it's too long
+        lines = Config.TITLE_DESCRIPTION.split('\\n')
+        desc_y = title_y - Config.TITLE_SIZE - 20  # 20 points below title
+        
+        for line in lines:
+            line = line.strip()
+            if line:
+                desc_width = c.stringWidth(line, Config.DESC_FONT, Config.DESC_SIZE)
+                if alignment == 'Center':
+                    desc_x = (PAGE_WIDTH - desc_width) / 2
+                elif alignment == 'Left':
+                    desc_x = Config.MARGIN_LEFT
+                else:  # Right
+                    desc_x = PAGE_WIDTH - Config.MARGIN_RIGHT - desc_width
+                
+                c.drawString(desc_x, desc_y, line)
+                desc_y -= Config.DESC_SIZE + 8  # Move down for next line
+    else:
+        desc_y = title_y - Config.TITLE_SIZE - 20
+    
+    # Add date if enabled
+    if Config.TITLE_ADD_DATE:
+        date_text = datetime.now().strftime('%B %d, %Y')
+        date_font = 'Helvetica'
+        date_size = 14
+        
+        c.setFont(date_font, date_size)
+        c.setFillColor(HexColor('#999999'))
+        
+        date_width = c.stringWidth(date_text, date_font, date_size)
+        date_y = desc_y - 30
+        
+        if alignment == 'Center':
+            date_x = (PAGE_WIDTH - date_width) / 2
+        elif alignment == 'Left':
+            date_x = Config.MARGIN_LEFT
+        else:  # Right
+            date_x = PAGE_WIDTH - Config.MARGIN_RIGHT - date_width
+        
+        c.drawString(date_x, date_y, date_text)
+        decoration_y = date_y - 30
+    else:
+        decoration_y = desc_y - 30
+    
+    # Add decoration if selected
+    if Config.TITLE_DECORATION != 'None':
+        c.setStrokeColor(HexColor('#CCCCCC'))
+        
+        if Config.TITLE_DECORATION == 'Simple Line':
+            c.setLineWidth(1)
+            line_width = min(200, PAGE_WIDTH * 0.3)
+            line_x = (PAGE_WIDTH - line_width) / 2
+            c.line(line_x, decoration_y, line_x + line_width, decoration_y)
+            
+        elif Config.TITLE_DECORATION == 'Double Line':
+            c.setLineWidth(0.5)
+            line_width = min(200, PAGE_WIDTH * 0.3)
+            line_x = (PAGE_WIDTH - line_width) / 2
+            c.line(line_x, decoration_y, line_x + line_width, decoration_y)
+            c.line(line_x, decoration_y - 4, line_x + line_width, decoration_y - 4)
+            
+        elif Config.TITLE_DECORATION == 'Dots':
+            c.setFillColor(HexColor('#CCCCCC'))
+            dot_count = 5
+            dot_spacing = 20
+            total_width = (dot_count - 1) * dot_spacing
+            start_x = (PAGE_WIDTH - total_width) / 2
+            for i in range(dot_count):
+                c.circle(start_x + i * dot_spacing, decoration_y, 2, fill=1, stroke=0)
+                
+        elif Config.TITLE_DECORATION == 'Frame':
+            c.setLineWidth(2)
+            margin = 30 * mm
+            c.rect(margin, margin, PAGE_WIDTH - 2 * margin, PAGE_HEIGHT - 2 * margin, fill=0, stroke=1)
+    
+    c.showPage()
+
+"""
     
     # Get the create_pdf function and everything after
     function_section = original_code[import_end:]
@@ -1187,6 +1587,22 @@ class Config:
         'c = canvas.Canvas(output_file, pagesize=A4)',
         'c = canvas.Canvas(output_file, pagesize=(Config.PAGE_WIDTH, Config.PAGE_HEIGHT))'
     )
+    
+    # Add title page generation after canvas creation
+    title_page_call = """
+    
+    # Generate title page if enabled
+    if Config.TITLE_PAGE_ENABLED:
+        generate_title_page(c, Config.PAGE_WIDTH, Config.PAGE_HEIGHT)
+    """
+    
+    # Find where to insert title page call (after metadata setting)
+    metadata_marker = 'c.setAuthor("Generator Python Double Details")'
+    if metadata_marker in function_section:
+        function_section = function_section.replace(
+            metadata_marker,
+            metadata_marker + title_page_call
+        )
     
     # Add guide lines drawing code for todo pages
     guide_lines_todo_code = """
@@ -1444,8 +1860,8 @@ class Config:
     
     function_section = function_section.replace(height_fix_original, height_fix_new)
     
-    # Combine everything
-    new_code = imports_section + config_code + "\n" + function_section
+    # Combine everything with title page function
+    new_code = imports_section + config_code + "\n" + title_page_function + "\n" + function_section
     
     # Write temporary generator file
     temp_generator = "temp_generator.py"
