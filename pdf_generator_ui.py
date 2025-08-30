@@ -23,6 +23,9 @@ from datetime import datetime
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# Import user configuration manager
+from user_config_manager import init_user_config
+
 st.set_page_config(
     page_title="A4 PDF Todo Generator",
     page_icon="📄",
@@ -40,6 +43,41 @@ if st.checkbox("🔧 Show Debug Info", value=False):
 
 st.title("📄 A4 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
+
+# Privacy Notice
+with st.expander("🔒 Privacy & Data Storage", expanded=False):
+    st.markdown("""
+    ### How Your Data is Handled
+    
+    **🏠 Local Storage Only**
+    - All configurations are stored locally in your browser session
+    - No data is sent to external servers
+    - Your configs are private and unique to your browser
+    
+    **🔄 Session-Based**
+    - Configurations persist during your browser session
+    - Closing the tab may clear temporary configs
+    - Use "Save Configuration" to persist settings
+    
+    **🔗 Sharing Configs**
+    - Export creates a text code you can share
+    - Import allows loading shared configurations
+    - Shared codes contain only PDF settings, no personal data
+    
+    **🍪 No Cookies or Tracking**
+    - This app doesn't use cookies
+    - No analytics or tracking
+    - Completely private usage
+    """)
+
+# Initialize user configuration manager
+config_manager = init_user_config()
+
+# Check if there's a configuration in the URL
+url_config = config_manager.load_from_url()
+if url_config:
+    st.success("✅ Configuration loaded from shared link!")
+    st.session_state.loaded_config = url_config
 
 # Configuration management
 def save_config(config_dict, name="default"):
@@ -431,35 +469,88 @@ def generate_preview(config_dict, page_size=A4, format='image'):
     
     return img
 
-# Configuration save/load UI
-with st.expander("💾 Save/Load Configuration", expanded=False):
-    col_save, col_load = st.columns(2)
+# Configuration save/load UI with user-specific storage
+with st.expander("💾 Configuration Management", expanded=False):
     
-    with col_save:
-        st.markdown("**Save Current Configuration**")
-        # Use loaded config name if available, otherwise default to "my_config"
-        default_save_name = st.session_state.get('loaded_config_name', 'my_config')
-        config_name = st.text_input("Configuration name", value=default_save_name)
-        if st.button("💾 Save Configuration"):
-            # We'll collect the config after the form
-            st.session_state['save_config'] = config_name
-            st.success(f"Configuration will be saved as '{config_name}' after updating preview")
+    # Add tabs for different config options
+    config_tabs = st.tabs(["📥 My Configs", "🔗 Share/Import", "📚 Presets"])
     
-    with col_load:
-        st.markdown("**Load Saved Configuration**")
-        saved_configs = list_saved_configs()
-        if saved_configs:
-            selected_config = st.selectbox("Select configuration", [""] + saved_configs)
-            if st.button("📂 Load Configuration"):
-                if selected_config:
-                    loaded = load_config(selected_config)
-                    if loaded:
-                        st.session_state['loaded_config'] = loaded
-                        st.session_state['loaded_config_name'] = selected_config  # Track the name
-                        st.success(f"Loaded configuration: {selected_config}")
-                        st.rerun()
-        else:
-            st.info("No saved configurations found")
+    with config_tabs[0]:
+        st.markdown("### Your Configurations")
+        st.info("💡 Configurations are stored in your browser session (private to you)")
+        
+        col_save, col_load = st.columns(2)
+        
+        with col_save:
+            st.markdown("**Save Current**")
+            config_name = st.text_input("Name", value=f"config_{datetime.now().strftime('%H%M')}", key="save_name")
+            if st.button("💾 Save", key="save_btn"):
+                st.session_state['save_config'] = config_name
+                st.success(f"Will save as '{config_name}' after preview")
+        
+        with col_load:
+            st.markdown("**Load Saved**")
+            # Show session configs first
+            session_configs = list(st.session_state.get('user_configs', {}).keys())
+            file_configs = list_saved_configs()
+            all_configs = list(set(session_configs + file_configs))
+            
+            if all_configs:
+                selected = st.selectbox("Select", [""] + all_configs, key="load_sel")
+                if st.button("📂 Load", key="load_btn"):
+                    if selected:
+                        # Try session first, then file
+                        if selected in st.session_state.get('user_configs', {}):
+                            loaded = st.session_state.user_configs[selected]
+                        else:
+                            loaded = load_config(selected)
+                        
+                        if loaded:
+                            st.session_state['loaded_config'] = loaded
+                            config_manager.save_to_session(loaded, selected)
+                            st.success(f"Loaded: {selected}")
+                            st.rerun()
+            else:
+                st.info("No configs found")
+    
+    with config_tabs[1]:
+        col_export, col_import = st.columns(2)
+        
+        with col_export:
+            st.markdown("**Export Config**")
+            if st.button("📤 Generate Code", key="export"):
+                st.info("Export after preview update")
+                st.session_state['export_config'] = True
+        
+        with col_import:
+            st.markdown("**Import Config**")
+            code = st.text_area("Paste code:", height=100, key="import_code")
+            if st.button("📥 Import", key="import"):
+                if code:
+                    try:
+                        imported = config_manager.import_config(code)
+                        if imported:
+                            st.session_state['loaded_config'] = imported
+                            config_manager.save_to_session(imported, "imported")
+                            st.success("✅ Imported!")
+                            st.rerun()
+                    except:
+                        st.error("Invalid code")
+    
+    with config_tabs[2]:
+        st.markdown("### Quick Presets")
+        presets = {
+            "A4 Standard": {"page_format": "A4 (210×297 mm)", "items_per_col": 20},
+            "Letter": {"page_format": "Letter (216×279 mm)", "items_per_col": 18},
+            "Boox Note": {"page_format": "Custom", "custom_method": "Pixels + PPI (for e-readers)", "pixels_width": 1920, "pixels_height": 2560, "ppi": 300}
+        }
+        
+        for name, config in presets.items():
+            if st.button(f"Load {name}", key=f"preset_{name}"):
+                st.session_state['loaded_config'] = config
+                config_manager.save_to_session(config, name)
+                st.success(f"Loaded preset: {name}")
+                st.rerun()
 
 # Load configuration if available
 default_config = st.session_state.get('loaded_config', {})
@@ -980,9 +1071,19 @@ with col_preview:
         # Save configuration if requested
         if 'save_config' in st.session_state:
             config['output_filename'] = output_filename
+            # Save to both session and file for compatibility
+            config_manager.save_to_session(config, st.session_state['save_config'])
             save_config(config, st.session_state['save_config'])
             st.success(f"✅ Configuration saved as '{st.session_state['save_config']}'")
             del st.session_state['save_config']
+        
+        # Export configuration if requested
+        if st.session_state.get('export_config', False):
+            config['output_filename'] = output_filename
+            export_code = config_manager.export_config(config)
+            st.info("📋 Copy this code to share your configuration:")
+            st.code(export_code, language="text")
+            del st.session_state['export_config']
         
         pages_info = f"Configured for {pages_of_todos} todo pages + {pages_of_todos * items_per_col * columns * detail_pages_per_todo:,} detail pages"
         st.caption(f"Preview shows page 1 only. {pages_info}. Click 'Update Preview' after changing settings.")
@@ -1111,8 +1212,17 @@ class Config:
                 h_right_boundary = Config.PAGE_WIDTH - Config.MARGIN_RIGHT + 2 * mm
             
             # Calculate position between todo lines (middle of the items)
-            middle_item = Config.ITEMS_PER_COL // 2
-            middle_y = top_y - (middle_item * line_gap) - (line_gap / 2)  # Position between two middle lines
+            # For even numbers: place between the two middle items
+            # For 20 items: 10 above (items 1-10), 10 below (items 11-20), line between 10 and 11
+            # For odd numbers: place at the middle item
+            if Config.ITEMS_PER_COL % 2 == 0:
+                # Even number: place after item n/2 (e.g., for 20 items: after item 10, before item 11)
+                items_above = Config.ITEMS_PER_COL // 2
+                middle_y = top_y - (items_above * line_gap)  # Position after 'items_above' items
+            else:
+                # Odd number: place at the middle item (e.g., for 21 items: at item 11 with 10 above and 10 below)
+                middle_item = Config.ITEMS_PER_COL // 2
+                middle_y = top_y - (middle_item * line_gap) - (line_gap / 2)  # Position at middle line
             
             # Horizontal line (between middle todo lines)
             c.setStrokeColor(Config.GUIDE_H_COLOR)
