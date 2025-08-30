@@ -1,1 +1,4 @@
+libfreetype6-dev
+libpng-dev
+libjpeg-dev
 poppler-utils
