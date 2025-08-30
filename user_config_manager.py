@@ -70,7 +70,7 @@ class UserConfigManager:
             config = json.loads(config_json)
             return config
         except Exception as e:
-            st.error(f"Failed to import configuration: {e}")
+            st.error("❌ Invalid configuration code. Please check the code and try again.")
             return None
     
     def generate_share_url(self, config):

@@ -660,16 +660,16 @@ with st.expander("💾 Configuration Management", expanded=False):
             code = st.text_area("Paste code:", height=100, key="import_code")
             if st.button("📥 Import", key="import"):
                 if code:
-                    try:
-                        imported = config_manager.import_config(code)
-                        if imported:
-                            st.session_state['loaded_config'] = imported
-                            populate_session_state_from_config(imported)
-                            config_manager.save_to_session(imported, "imported")
-                            st.success("✅ Imported!")
-                            st.rerun()
-                    except:
-                        st.error("Invalid code")
+                    imported = config_manager.import_config(code)
+                    if imported:
+                        st.session_state['loaded_config'] = imported
+                        populate_session_state_from_config(imported)
+                        config_manager.save_to_session(imported, "imported")
+                        st.success("✅ Imported!")
+                        st.rerun()
+                    # Note: Error message is already shown by import_config function
+                else:
+                    st.warning("Please paste a configuration code")
     
     with config_tabs[2]:
         st.markdown("### Quick Presets")
