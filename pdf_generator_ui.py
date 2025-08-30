@@ -583,6 +583,16 @@ def generate_preview(config_dict, page_size=A4, format='image'):
     return img
 
 
+# Add visual separator
+st.markdown("""
+<hr style="
+    height: 1px;
+    border: none;
+    background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+    margin: 30px 0 20px 0;
+">
+""", unsafe_allow_html=True)
+
 # Configuration save/load UI with user-specific storage
 with st.expander("💾 Configuration Management", expanded=False):
     
@@ -681,155 +691,199 @@ col_controls, col_preview = st.columns([2, 1.5])
 with col_controls:
     st.subheader("⚙️ Configuration")
     
-    # Page format selection OUTSIDE the form so it updates immediately
-    st.header("📐 Page Layout")
-    col_format1, col_format2 = st.columns(2)
-    with col_format1:
-        page_formats = {
-            "A3 (297×420 mm)": A3,
-            "A4 (210×297 mm)": A4,
-            "A5 (148×210 mm)": A5,
-            "B4 (250×353 mm)": B4,
-            "B5 (176×250 mm)": B5,
-            "Letter (216×279 mm)": letter,
-            "Legal (216×356 mm)": legal,
-            "Tabloid (279×432 mm)": tabloid,
-            "Custom": "custom"
-        }
-        # Handle page format selection with saved config
-        saved_format = default_config.get('page_format', 'A4 (210×297 mm)')
-        # Try to find the saved format in the list
-        try:
-            format_index = list(page_formats.keys()).index(saved_format)
-        except ValueError:
-            # If exact match not found, try to match by prefix (A4, A5, etc.)
-            format_index = 1  # Default to A4
-            for i, fmt in enumerate(page_formats.keys()):
-                if fmt.startswith(saved_format.split(' ')[0]):
-                    format_index = i
-                    break
-        
-        page_format = st.selectbox(
-            "Page Format",
-            list(page_formats.keys()),
-            index=format_index,
-            key="page_format_selector"
-        )
+    # Add CSS for styled expanders and remove form styling
+    st.markdown("""
+    <style>
+    /* Style expanders to look like cards */
+    div[data-testid="stExpander"] {
+        box-shadow: 1px 4px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        margin: 20px 0px;
+    }
     
-    with col_format2:
-        # Initialize default values
-        custom_width = default_config.get('custom_width', 210)
-        custom_height = default_config.get('custom_height', 297)
-        custom_method = default_config.get('custom_method', 'Millimeters')
-        pixels_width = default_config.get('pixels_width', 1404)
-        pixels_height = default_config.get('pixels_height', 1872)
-        ppi = default_config.get('ppi', 300)
+    /* Remove form padding and border */
+    div[data-testid="stForm"] {
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+    }
+    
+    /* Also target the form by class for better compatibility */
+    .stForm {
+        padding: 0 !important;
+        border: none !important;
+    }
+    
+    /* Remove padding from form container */
+    div.st-emotion-cache-1bcyifm {
+        padding: 0 !important;
+        border: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Define page formats dictionary (needs to be accessible outside expander)
+    page_formats = {
+        "A3 (297×420 mm)": A3,
+        "A4 (210×297 mm)": A4,
+        "A5 (148×210 mm)": A5,
+        "B4 (250×353 mm)": B4,
+        "B5 (176×250 mm)": B5,
+        "Letter (216×279 mm)": letter,
+        "Legal (216×356 mm)": legal,
+        "Tabloid (279×432 mm)": tabloid,
+        "Custom": "custom"
+    }
+    
+    # Page Layout Section
+    with st.expander("📐 Page Layout", expanded=True):
         
-        # Always show custom options if Custom is selected
-        if page_format == "Custom":
-            custom_method = st.radio(
-                    "Input method",
-                    ["Millimeters", "Pixels + PPI (for e-readers)"],
-                    index=["Millimeters", "Pixels + PPI (for e-readers)"].index(default_config.get('custom_method', 'Millimeters'))
+        col_format1, col_format2 = st.columns(2)
+        with col_format1:
+            # Handle page format selection with saved config
+            saved_format = default_config.get('page_format', 'A4 (210×297 mm)')
+            # Try to find the saved format in the list
+            try:
+                format_index = list(page_formats.keys()).index(saved_format)
+            except ValueError:
+                # If exact match not found, try to match by prefix (A4, A5, etc.)
+                format_index = 1  # Default to A4
+                for i, fmt in enumerate(page_formats.keys()):
+                    if fmt.startswith(saved_format.split(' ')[0]):
+                        format_index = i
+                        break
+            
+            page_format_index = st.selectbox(
+                "Page Format",
+                list(page_formats.keys()),
+                index=format_index,
+                key="page_format_selector"
             )
-            
-            if custom_method == "Millimeters":
-                custom_width = st.number_input("Width (mm)", 50, 500, default_config.get('custom_width', 210))
-                custom_height = st.number_input("Height (mm)", 50, 700, default_config.get('custom_height', 297))
+            # Handle both index and string returns from selectbox
+            if isinstance(page_format_index, int):
+                page_format = list(page_formats.keys())[page_format_index]
             else:
-                # Pixels + PPI method
-                pixels_width = st.number_input("Width (pixels)", 100, 5000, default_config.get('pixels_width', 1404))
-                pixels_height = st.number_input("Height (pixels)", 100, 5000, default_config.get('pixels_height', 1872))
-                ppi = st.number_input("Screen PPI", 50, 600, default_config.get('ppi', 300))
-                # Calculate mm from pixels and PPI
-                custom_width = (pixels_width / ppi) * 25.4  # 25.4 mm per inch
-                custom_height = (pixels_height / ppi) * 25.4
-                st.info(f"➜ {custom_width:.1f} × {custom_height:.1f} mm")
-                st.caption(f"Screen: {pixels_width/ppi:.1f}\" × {pixels_height/ppi:.1f}\"")
+                page_format = page_format_index
+        
+        with col_format2:
+            # Initialize default values
+            custom_width = default_config.get('custom_width', 210)
+            custom_height = default_config.get('custom_height', 297)
+            custom_method = default_config.get('custom_method', 'Millimeters')
+            pixels_width = default_config.get('pixels_width', 1404)
+            pixels_height = default_config.get('pixels_height', 1872)
+            ppi = default_config.get('ppi', 300)
             
-            # Common e-reader examples
-            with st.expander("📱 Common E-Reader Resolutions"):
-                st.markdown("""
-                **Boox Note Air 3:** 1872×1404 @ 227 PPI (10.3")  
-                **Boox Note Max:** 3200×2400 @ 300 PPI (13.3")  
-                **reMarkable 2:** 1872×1404 @ 226 PPI (10.3")  
-                **Kindle Scribe:** 1860×2480 @ 300 PPI (10.2")  
-                **Kindle Oasis:** 1680×1264 @ 300 PPI (7")  
-                **iPad Pro 11":** 2388×1668 @ 264 PPI  
-                **iPad Pro 12.9":** 2732×2048 @ 264 PPI
-                """)
-            
-            page_size = (custom_width * mm, custom_height * mm)
-        else:
-            page_size = page_formats[page_format]
-            # Show dimensions for reference
-            width_mm = int(page_size[0] / mm)
-            height_mm = int(page_size[1] / mm)
-            st.info(f"Size: {width_mm} × {height_mm} mm")
+            # Always show custom options if Custom is selected
+            if page_format == "Custom":
+                custom_method = st.radio(
+                        "Input method",
+                        ["Millimeters", "Pixels + PPI (for e-readers)"],
+                        index=["Millimeters", "Pixels + PPI (for e-readers)"].index(default_config.get('custom_method', 'Millimeters'))
+                )
+                
+                if custom_method == "Millimeters":
+                    custom_width = st.number_input("Width (mm)", 50, 500, default_config.get('custom_width', 210))
+                    custom_height = st.number_input("Height (mm)", 50, 700, default_config.get('custom_height', 297))
+                else:
+                    # Pixels + PPI method
+                    pixels_width = st.number_input("Width (pixels)", 100, 5000, default_config.get('pixels_width', 1404))
+                    pixels_height = st.number_input("Height (pixels)", 100, 5000, default_config.get('pixels_height', 1872))
+                    ppi = st.number_input("Screen PPI", 50, 600, default_config.get('ppi', 300))
+                    # Calculate mm from pixels and PPI
+                    custom_width = (pixels_width / ppi) * 25.4  # 25.4 mm per inch
+                    custom_height = (pixels_height / ppi) * 25.4
+                    st.info(f"➜ {custom_width:.1f} × {custom_height:.1f} mm")
+                    st.caption(f"Screen: {pixels_width/ppi:.1f}\" × {pixels_height/ppi:.1f}\"")
+                
+                # Common e-reader examples
+                with st.expander("📱 Common E-Reader Resolutions"):
+                    st.markdown("""
+                    **Boox Note Air 3:** 1872×1404 @ 227 PPI (10.3")  
+                    **Boox Note Max:** 3200×2400 @ 300 PPI (13.3")  
+                    **reMarkable 2:** 1872×1404 @ 226 PPI (10.3")  
+                    **Kindle Scribe:** 1860×2480 @ 300 PPI (10.2")  
+                    **Kindle Oasis:** 1680×1264 @ 300 PPI (7")  
+                    **iPad Pro 11":** 2388×1668 @ 264 PPI  
+                    **iPad Pro 12.9":** 2732×2048 @ 264 PPI
+                    """)
+                
+                page_size = (custom_width * mm, custom_height * mm)
+            else:
+                page_size = page_formats[page_format]
+                # Show dimensions for reference
+                width_mm = int(page_size[0] / mm)
+                height_mm = int(page_size[1] / mm)
+                st.info(f"Size: {width_mm} × {height_mm} mm")
+        
+        # Landscape orientation option
+        landscape = st.checkbox(
+            "🔄 Landscape Orientation", 
+            value=default_config.get('landscape', False),
+            help="Rotate page to landscape orientation (swaps width and height)"
+        )
+        
+        # Apply landscape orientation if selected
+        if landscape:
+            page_size = (page_size[1], page_size[0])  # Swap width and height
+            # Also swap custom dimensions if custom format
+            if page_format == "Custom":
+                custom_width, custom_height = custom_height, custom_width
     
-    # Landscape orientation option
-    landscape = st.checkbox(
-        "🔄 Landscape Orientation", 
-        value=default_config.get('landscape', False),
-        help="Rotate page to landscape orientation (swaps width and height)"
-    )
     
-    # Apply landscape orientation if selected
-    if landscape:
-        page_size = (page_size[1], page_size[0])  # Swap width and height
-        # Also swap custom dimensions if custom format
-        if page_format == "Custom":
-            custom_width, custom_height = custom_height, custom_width
-    
-    # PDF Quality setting (moved up, outside form)
-    st.header("🎨 Quality")
-    pdf_quality = st.selectbox(
-        "PDF Quality / Compression",
-        ["Standard (72 DPI)", "High (150 DPI)", "Print (300 DPI)", "Maximum (600 DPI)"],
-        index=default_config.get('pdf_quality_index', 1),
-        help="Higher DPI = better quality but larger file size"
-    )
-    # Map to actual DPI values
-    dpi_map = {"Standard (72 DPI)": 72, "High (150 DPI)": 150, "Print (300 DPI)": 300, "Maximum (600 DPI)": 600}
-    dpi = dpi_map[pdf_quality]
-    st.info(f"📊 DPI: {dpi} | Best for: {'Screen viewing' if dpi <= 150 else 'E-readers (300 PPI screens)' if dpi == 300 else 'Professional printing'}")
+    # Quality Section
+    with st.expander("🎨 Quality", expanded=True):
+        quality_options = ["Standard (72 DPI)", "High (150 DPI)", "Print (300 DPI)", "Maximum (600 DPI)"]
+        pdf_quality = st.selectbox(
+            "PDF Quality / Compression",
+            quality_options,
+            index=default_config.get('pdf_quality_index', 1),
+            help="Higher DPI = better quality but larger file size"
+        )
+        # Map to actual DPI values
+        dpi_map = {"Standard (72 DPI)": 72, "High (150 DPI)": 150, "Print (300 DPI)": 300, "Maximum (600 DPI)": 600}
+        
+        # Handle case where pdf_quality might be an index instead of string
+        if isinstance(pdf_quality, int):
+            pdf_quality = quality_options[pdf_quality] if 0 <= pdf_quality < len(quality_options) else quality_options[1]
+        
+        dpi = dpi_map.get(pdf_quality, 150)  # Default to 150 DPI if key not found
+        st.info(f"📊 DPI: {dpi} | Best for: {'Screen viewing' if dpi <= 150 else 'E-readers (300 PPI screens)' if dpi == 300 else 'Professional printing'}")
     
     # Calculate suggested margins based on page size
     page_width_mm = page_size[0] / mm if 'page_size' in locals() else 210
     page_height_mm = page_size[1] / mm if 'page_size' in locals() else 297
     
-    # Content Structure - OUTSIDE the form for proper loading
-    st.header("📊 Content Structure")
-    
-    # Auto-scale items per column based on page height
-    auto_items = st.checkbox(
-        "Auto-scale items per column for page size",
-        value=default_config.get('auto_items', False),
-        help="Automatically adjust number of items based on available page height",
-        key="auto_items_checkbox"
-    )
-    
-    col_content1, col_content2 = st.columns(2)
-    
-    with col_content1:
-        if auto_items:
-            # Calculate based on available height (using default margins since they're not defined yet)
-            # We'll use proportional margins based on page size
-            margin_scale = min(page_width_mm / 210, page_height_mm / 297)
-            est_margin_top = max(5, round(18 * margin_scale))
-            est_margin_bottom = max(3, round(8 * margin_scale))
-            available_height = page_height_mm - est_margin_top - est_margin_bottom - 30  # 30mm for header
-            # Assume ~12mm per item (based on A4 having 20 items in ~240mm)
-            items_per_col_default = min(30, max(10, int(available_height / 12)))
-            items_per_col = int(items_per_col_default)
-            st.info(f"Auto: {items_per_col} items")
-        else:
-            items_per_col = int(st.number_input("Items per Column", min_value=10, max_value=30, value=int(default_config.get('items_per_col', 20)), step=1, key="items_input"))
-        columns = st.radio("Number of Columns", [1, 2], index=[1, 2].index(default_config.get('columns', 2)), key="columns_radio")
-    
-    with col_content2:
-        pages_of_todos = int(st.number_input("Number of Todo Pages", min_value=2, max_value=100, value=int(default_config.get('pages_of_todos', 30)), step=1, key="pages_input"))
-        detail_pages_per_todo = st.selectbox("Detail Pages per Todo", [1, 2, 3, 4, 5], index=[1, 2, 3, 4, 5].index(default_config.get('detail_pages_per_todo', 2)), key="detail_pages_select")
+    # Content Structure Section
+    with st.expander("📊 Content Structure", expanded=True):
+        # Auto-scale items per column based on page height
+        auto_items = st.checkbox(
+            "Auto-scale items per column for page size",
+            value=default_config.get('auto_items', False),
+            help="Automatically adjust number of items based on available page height",
+            key="auto_items_checkbox"
+        )
+        
+        col_content1, col_content2 = st.columns(2)
+        
+        with col_content1:
+            if auto_items:
+                # Calculate based on available height (using default margins since they're not defined yet)
+                # We'll use proportional margins based on page size
+                margin_scale = min(page_width_mm / 210, page_height_mm / 297)
+                est_margin_top = max(5, round(18 * margin_scale))
+                est_margin_bottom = max(3, round(8 * margin_scale))
+                available_height = page_height_mm - est_margin_top - est_margin_bottom - 30  # 30mm for header
+                # Assume ~12mm per item (based on A4 having 20 items in ~240mm)
+                items_per_col_default = min(30, max(10, int(available_height / 12)))
+                items_per_col = int(items_per_col_default)
+                st.info(f"Auto: {items_per_col} items")
+            else:
+                items_per_col = int(st.number_input("Items per Column", min_value=10, max_value=30, value=int(default_config.get('items_per_col', 20)), step=1, key="items_input"))
+            columns = st.radio("Number of Columns", [1, 2], index=[1, 2].index(default_config.get('columns', 2)), key="columns_radio")
+        
+        with col_content2:
+            pages_of_todos = int(st.number_input("Number of Todo Pages", min_value=2, max_value=100, value=int(default_config.get('pages_of_todos', 30)), step=1, key="pages_input"))
+            detail_pages_per_todo = st.selectbox("Detail Pages per Todo", [1, 2, 3, 4, 5], index=[1, 2, 3, 4, 5].index(default_config.get('detail_pages_per_todo', 2)), key="detail_pages_select")
     
     # Smart margin defaults based on page size (proportional)
     # Scale margins proportionally to page size relative to A4
@@ -840,11 +894,40 @@ with col_controls:
     default_margin_v = max(5, round(18 * margin_scale))  # Min 5mm for top
     default_margin_bottom = max(3, round(8 * margin_scale))  # Min 3mm for bottom
     
-    # Guide Lines section - OUTSIDE the form for immediate updates
-    st.header("📏 Guide Lines")
-    st.markdown("Add horizontal and vertical guide lines to todo pages")
+    # Index Layout Section
+    with st.expander("📑 Index Page Layout", expanded=True):
+        st.markdown("Configure how the index page displays the links to todo pages")
+        
+        col_index1, col_index2 = st.columns(2)
+        
+        with col_index1:
+            use_half_page_index = st.checkbox(
+                "Use half-page layout for small lists",
+                value=default_config.get('use_half_page_index', True),
+                help="When enabled, uses only half the page height for index when todo count is low, leaving bottom half blank"
+            )
+        
+        with col_index2:
+            if use_half_page_index:
+                half_page_threshold = st.number_input(
+                    "Half-page threshold (max pages)",
+                    min_value=10,
+                    max_value=50,
+                    value=default_config.get('half_page_threshold', 30),
+                    step=5,
+                    help="If total todo pages ≤ this value, use half-page layout. Otherwise use full page."
+                )
+                st.caption(f"Current: {'Half-page' if pages_of_todos <= half_page_threshold else 'Full-page'} layout")
+            else:
+                half_page_threshold = 0  # Always use full page
+                st.info("Always use full-page layout")
     
-    guide_lines_enabled = st.checkbox(
+    
+    # Guide Lines Section
+    with st.expander("📏 Guide Lines", expanded=True):
+        st.markdown("Add horizontal and vertical guide lines to todo pages")
+        
+        guide_lines_enabled = st.checkbox(
         "Enable Guide Lines",
         value=default_config.get('guide_lines_enabled', False),
         help="Add horizontal and vertical guide lines on todo pages",
@@ -891,208 +974,219 @@ with col_controls:
         guide_h_width = default_config.get('guide_h_width', 0.5)
         guide_v_width = default_config.get('guide_v_width', 0.5)
     
-    # Title Page section - OUTSIDE the form for immediate updates
-    st.header("📝 Title Page")
-    st.markdown("Add an optional title page to your PDF")
     
-    title_page_enabled = st.checkbox(
-        "Enable Title Page",
-        value=default_config.get('title_page_enabled', False),
-        help="Add a beautiful title page at the beginning of your PDF",
-        key="title_page_checkbox"
-    )
+    # Title Page Section
+    with st.expander("📝 Title Page", expanded=True):
+        st.markdown("Add an optional title page to your PDF")
+        
+        title_page_enabled = st.checkbox(
+            "Enable Title Page",
+            value=default_config.get('title_page_enabled', False),
+            help="Add a beautiful title page at the beginning of your PDF",
+            key="title_page_checkbox"
+        )
+        
+        if title_page_enabled:
+            col_title1, col_title2 = st.columns(2)
+            
+            with col_title1:
+                # Title text
+                title_text = st.text_input(
+                    "Title",
+                    value=default_config.get('title_text', 'My Todo List'),
+                    placeholder="Enter your title...",
+                    key="title_text_input"
+                )
+            
+                # Title font selection
+                title_font = st.selectbox(
+                    "Title Font",
+                    ["Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold"],
+                    index=["Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold"].index(
+                        default_config.get('title_font', 'Helvetica-Bold')
+                    ),
+                    key="title_font_select"
+                )
+            
+                # Title size
+                title_size = st.slider(
+                    "Title Size",
+                    20, 72,
+                    default_config.get('title_size', 48),
+                    step=2,
+                    help="Font size in points",
+                    key="title_size_slider"
+                )
+            
+                # Title color
+                title_color = st.color_picker(
+                    "Title Color",
+                    default_config.get('title_color', '#000000'),
+                    key="title_color_picker"
+                )
+        
+            with col_title2:
+                # Description text
+                title_description = st.text_area(
+                    "Description",
+                    value=default_config.get('title_description', ''),
+                    placeholder="Add a description or subtitle...",
+                    height=100,
+                    key="title_description_input"
+                )
+            
+                # Description font
+                desc_font = st.selectbox(
+                    "Description Font",
+                    ["Helvetica", "Helvetica-Oblique", "Times-Roman", "Times-Italic", "Courier"],
+                    index=["Helvetica", "Helvetica-Oblique", "Times-Roman", "Times-Italic", "Courier"].index(
+                        default_config.get('desc_font', 'Helvetica')
+                    ),
+                    key="desc_font_select"
+                )
+            
+                # Description size
+                desc_size = st.slider(
+                    "Description Size",
+                    12, 36,
+                    default_config.get('desc_size', 18),
+                    step=1,
+                    help="Font size in points",
+                    key="desc_size_slider"
+                )
+            
+                # Description color
+                desc_color = st.color_picker(
+                    "Description Color",
+                    default_config.get('desc_color', '#666666'),
+                    key="desc_color_picker"
+                )
+        
+            # Layout options
+            st.markdown("#### Layout Options")
+            col_layout1, col_layout2, col_layout3 = st.columns(3)
+            
+            with col_layout1:
+                title_alignment = st.radio(
+                    "Alignment",
+                    ["Center", "Left", "Right"],
+                    index=["Center", "Left", "Right"].index(default_config.get('title_alignment', 'Center')),
+                    key="title_alignment_radio"
+                )
+        
+            with col_layout2:
+                title_position = st.radio(
+                    "Vertical Position",
+                    ["Top", "Center", "Golden Ratio"],
+                    index=["Top", "Center", "Golden Ratio"].index(default_config.get('title_position', 'Golden Ratio')),
+                    help="Golden Ratio = 38.2% from top (most aesthetic)",
+                    key="title_position_radio"
+                )
+        
+            with col_layout3:
+                # Add date option
+                title_add_date = st.checkbox(
+                    "Add Date",
+                    value=default_config.get('title_add_date', False),
+                    help="Add current date below description",
+                    key="title_add_date_checkbox"
+                )
+                
+                # Add border/decoration
+                title_decoration = st.selectbox(
+                    "Decoration",
+                    ["None", "Simple Line", "Double Line", "Dots", "Frame"],
+                    index=["None", "Simple Line", "Double Line", "Dots", "Frame"].index(
+                        default_config.get('title_decoration', 'Simple Line')
+                    ),
+                    key="title_decoration_select"
+                )
+        else:
+            # Default values when disabled
+            title_text = default_config.get('title_text', 'My Todo List')
+            title_font = default_config.get('title_font', 'Helvetica-Bold')
+            title_size = default_config.get('title_size', 48)
+            title_color = default_config.get('title_color', '#000000')
+            title_description = default_config.get('title_description', '')
+            desc_font = default_config.get('desc_font', 'Helvetica')
+            desc_size = default_config.get('desc_size', 18)
+            desc_color = default_config.get('desc_color', '#666666')
+            title_alignment = default_config.get('title_alignment', 'Center')
+            title_position = default_config.get('title_position', 'Golden Ratio')
+            title_add_date = default_config.get('title_add_date', False)
+            title_decoration = default_config.get('title_decoration', 'Simple Line')
     
-    if title_page_enabled:
-        col_title1, col_title2 = st.columns(2)
-        
-        with col_title1:
-            # Title text
-            title_text = st.text_input(
-                "Title",
-                value=default_config.get('title_text', 'My Todo List'),
-                placeholder="Enter your title...",
-                key="title_text_input"
-            )
-            
-            # Title font selection
-            title_font = st.selectbox(
-                "Title Font",
-                ["Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold"],
-                index=["Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold"].index(
-                    default_config.get('title_font', 'Helvetica-Bold')
-                ),
-                key="title_font_select"
-            )
-            
-            # Title size
-            title_size = st.slider(
-                "Title Size",
-                20, 72,
-                default_config.get('title_size', 48),
-                step=2,
-                help="Font size in points",
-                key="title_size_slider"
-            )
-            
-            # Title color
-            title_color = st.color_picker(
-                "Title Color",
-                default_config.get('title_color', '#000000'),
-                key="title_color_picker"
-            )
-        
-        with col_title2:
-            # Description text
-            title_description = st.text_area(
-                "Description",
-                value=default_config.get('title_description', ''),
-                placeholder="Add a description or subtitle...",
-                height=100,
-                key="title_description_input"
-            )
-            
-            # Description font
-            desc_font = st.selectbox(
-                "Description Font",
-                ["Helvetica", "Helvetica-Oblique", "Times-Roman", "Times-Italic", "Courier"],
-                index=["Helvetica", "Helvetica-Oblique", "Times-Roman", "Times-Italic", "Courier"].index(
-                    default_config.get('desc_font', 'Helvetica')
-                ),
-                key="desc_font_select"
-            )
-            
-            # Description size
-            desc_size = st.slider(
-                "Description Size",
-                12, 36,
-                default_config.get('desc_size', 18),
-                step=1,
-                help="Font size in points",
-                key="desc_size_slider"
-            )
-            
-            # Description color
-            desc_color = st.color_picker(
-                "Description Color",
-                default_config.get('desc_color', '#666666'),
-                key="desc_color_picker"
-            )
-        
-        # Layout options
-        st.markdown("#### Layout Options")
-        col_layout1, col_layout2, col_layout3 = st.columns(3)
-        
-        with col_layout1:
-            title_alignment = st.radio(
-                "Alignment",
-                ["Center", "Left", "Right"],
-                index=["Center", "Left", "Right"].index(default_config.get('title_alignment', 'Center')),
-                key="title_alignment_radio"
-            )
-        
-        with col_layout2:
-            title_position = st.radio(
-                "Vertical Position",
-                ["Top", "Center", "Golden Ratio"],
-                index=["Top", "Center", "Golden Ratio"].index(default_config.get('title_position', 'Golden Ratio')),
-                help="Golden Ratio = 38.2% from top (most aesthetic)",
-                key="title_position_radio"
-            )
-        
-        with col_layout3:
-            # Add date option
-            title_add_date = st.checkbox(
-                "Add Date",
-                value=default_config.get('title_add_date', False),
-                help="Add current date below description",
-                key="title_add_date_checkbox"
-            )
-            
-            # Add border/decoration
-            title_decoration = st.selectbox(
-                "Decoration",
-                ["None", "Simple Line", "Double Line", "Dots", "Frame"],
-                index=["None", "Simple Line", "Double Line", "Dots", "Frame"].index(
-                    default_config.get('title_decoration', 'Simple Line')
-                ),
-                key="title_decoration_select"
-            )
-    else:
-        # Default values when disabled
-        title_text = default_config.get('title_text', 'My Todo List')
-        title_font = default_config.get('title_font', 'Helvetica-Bold')
-        title_size = default_config.get('title_size', 48)
-        title_color = default_config.get('title_color', '#000000')
-        title_description = default_config.get('title_description', '')
-        desc_font = default_config.get('desc_font', 'Helvetica')
-        desc_size = default_config.get('desc_size', 18)
-        desc_color = default_config.get('desc_color', '#666666')
-        title_alignment = default_config.get('title_alignment', 'Center')
-        title_position = default_config.get('title_position', 'Golden Ratio')
-        title_add_date = default_config.get('title_add_date', False)
-        title_decoration = default_config.get('title_decoration', 'Simple Line')
-    
-    # Now start the form for the rest of the configuration
-    with st.form("pdf_config"):
-        st.header("📏 Margins")
-        
-        # Add auto-scale option
+    # Margins Section
+    with st.expander("📏 Margins", expanded=True):
+        # Add auto-scale option (outside form for reactivity)
         auto_margins = st.checkbox(
             "Auto-scale margins for page size",
             value=default_config.get('auto_margins', True),
-            help="Automatically adjust margins based on page size"
+            help="Automatically adjust margins based on page size",
+            key="auto_margins_checkbox"
         )
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if auto_margins:
-                margin_left = default_margin_h
-                margin_right = default_margin_h
-                st.info(f"Auto: {margin_left}mm")
-            else:
-                margin_left = st.slider("Left Margin (mm)", 2, 30, default_config.get('margin_left', default_margin_h))
-                margin_right = st.slider("Right Margin (mm)", 2, 30, default_config.get('margin_right', default_margin_h))
-        
-        with col2:
-            if auto_margins:
-                margin_top = default_margin_v
-                margin_bottom = default_margin_bottom
-                st.info(f"Auto: {margin_top}mm top, {margin_bottom}mm bottom")
-            else:
-                margin_top = st.slider("Top Margin (mm)", 5, 40, default_config.get('margin_top', default_margin_v))
-                margin_bottom = st.slider("Bottom Margin (mm)", 2, 30, default_config.get('margin_bottom', default_margin_bottom))
-        
-        st.header("⚫ Dot Grid")
-        
-        # Auto-scale dot spacing based on page size
+        # Form for margin sliders
+        with st.form("margins_form"):
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if auto_margins:
+                    margin_left = default_margin_h
+                    margin_right = default_margin_h
+                    st.info(f"Auto: {margin_left}mm")
+                else:
+                    margin_left = st.slider("Left Margin (mm)", 2, 30, default_config.get('margin_left', default_margin_h))
+                    margin_right = st.slider("Right Margin (mm)", 2, 30, default_config.get('margin_right', default_margin_h))
+            
+            with col2:
+                if auto_margins:
+                    margin_top = default_margin_v
+                    margin_bottom = default_margin_bottom
+                    st.info(f"Auto: {margin_top}mm top, {margin_bottom}mm bottom")
+                else:
+                    margin_top = st.slider("Top Margin (mm)", 5, 40, default_config.get('margin_top', default_margin_v))
+                    margin_bottom = st.slider("Bottom Margin (mm)", 2, 30, default_config.get('margin_bottom', default_margin_bottom))
+            
+            margins_submitted = st.form_submit_button("Update Margins")
+    
+    # Dot Grid Section
+    with st.expander("⚫ Dot Grid", expanded=True):
+        # Auto-scale dot spacing based on page size (outside form for reactivity)
         auto_dot_spacing = st.checkbox(
             "Auto-scale dot spacing for page size",
             value=default_config.get('auto_dot_spacing', True),
             help="Automatically adjust dot spacing based on page size"
         )
         
-        col3, col4 = st.columns(2)
-        
-        with col3:
-            if auto_dot_spacing:
-                # Scale dot spacing proportionally to page size
-                # Use both width and height for better scaling
-                scale_factor = min(page_width_mm / 210, page_height_mm / 297)  # Scale relative to A4
-                dot_spacing_default = round(7 * scale_factor, 1)  # Scale relative to A4
-                dot_spacing = max(3, min(15, dot_spacing_default))  # Clamp to reasonable range
-                st.info(f"Auto: {dot_spacing}mm (scaled from A4)")
-            else:
-                dot_spacing = st.slider("Dot Spacing (mm)", 3, 15, default_config.get('dot_spacing', 7))
+        # Form for dot grid settings
+        with st.form("dot_grid_form"):
             
-            dot_radius = st.slider("Dot Radius (mm)", 0.1, 1.0, default_config.get('dot_radius', 0.3), step=0.1)
+            col3, col4 = st.columns(2)
+            
+            with col3:
+                if auto_dot_spacing:
+                    # Scale dot spacing proportionally to page size
+                    # Use both width and height for better scaling
+                    scale_factor = min(page_width_mm / 210, page_height_mm / 297)  # Scale relative to A4
+                    dot_spacing_default = round(7 * scale_factor, 1)  # Scale relative to A4
+                    dot_spacing = max(3, min(15, dot_spacing_default))  # Clamp to reasonable range
+                    st.info(f"Auto: {dot_spacing}mm (scaled from A4)")
+                else:
+                    dot_spacing = st.slider("Dot Spacing (mm)", 3, 15, default_config.get('dot_spacing', 7))
+                
+                dot_radius = st.slider("Dot Radius (mm)", 0.1, 1.0, default_config.get('dot_radius', 0.3), step=0.1)
+            
+            with col4:
+                dot_color_intensity = st.slider("Dot Color (Gray)", 0.3, 0.9, default_config.get('dot_color_intensity', 0.7), step=0.1)
+            
+            dot_grid_submitted = st.form_submit_button("Update Dot Grid")
         
-        with col4:
-            dot_color_intensity = st.slider("Dot Color (Gray)", 0.3, 0.9, default_config.get('dot_color_intensity', 0.7), step=0.1)
-        
-        st.header("🔤 Font Sizes")
+    # Font Sizes Section
+    with st.expander("🔤 Font Sizes", expanded=True):
         col7, col8 = st.columns(2)
-        
+    
         with col7:
             font_size_header = st.slider("Header Font Size", 10, 20, default_config.get('font_size_header', 14))
             font_size_icon = st.slider("Icon Font Size (>)", 6, 20, default_config.get('font_size_icon', 13), help="Size of the '>' symbol at the end of each todo line")
@@ -1101,9 +1195,11 @@ with col_controls:
             font_size_detail = st.slider("Detail Font Size", 10, 16, default_config.get('font_size_detail', 12))
             font_size_num = st.slider("Number Font Size", 5, 10, default_config.get('font_size_num', 7))
         
-        st.header("🔢 Todo Numbers")
-        col_num1, col_num2 = st.columns(2)
         
+    # Todo Numbers Section
+    with st.expander("🔢 Todo Numbers", expanded=True):
+        col_num1, col_num2 = st.columns(2)
+    
         with col_num1:
             placement_options = ["Outside (left/right)", "Inside (left)", "Inside (right)", "Hidden"]
             num_placement = st.radio(
@@ -1141,29 +1237,34 @@ with col_controls:
                 help="Fine-tune vertical position: negative = up, positive = down"
             )
         
-        st.header("🎨 Colors")
-        col9, col10 = st.columns(2)
         
+    # Colors Section
+    with st.expander("🎨 Colors", expanded=True):
+        col9, col10 = st.columns(2)
+    
         with col9:
             color_line = st.color_picker("Line Color", default_config.get('color_line', "#696969"))
         
         with col10:
             color_text = st.color_picker("Text Color", default_config.get('color_text', "#454545"))
         
-        
-        st.header("📁 Output")
+    
+    # Output Section
+    with st.expander("📁 Output", expanded=True):
         output_filename = st.text_input(
             "Output Filename", 
             default_config.get('output_filename', "todo-a4-custom.pdf"),
             help="The name of the generated PDF file"
         )
+    
         
-        # Submit button
-        col_submit, col_preview_btn = st.columns(2)
-        with col_submit:
-            submitted = st.form_submit_button("🚀 Generate PDF", type="primary", use_container_width=True)
-        with col_preview_btn:
-            preview_clicked = st.form_submit_button("👁️ Update Preview", use_container_width=True)
+    # Submit button
+        with st.form("submit_form"):
+            col_submit, col_preview_btn = st.columns(2)
+            with col_submit:
+                submitted = st.form_submit_button("🚀 Generate PDF", type="primary", use_container_width=True)
+            with col_preview_btn:
+                preview_clicked = st.form_submit_button("👁️ Update Preview", use_container_width=True)
 
 # Show preview in right column
 with col_preview:
@@ -1251,7 +1352,9 @@ with col_preview:
             'title_position': title_position,
             'title_add_date': title_add_date,
             'title_decoration': title_decoration,
-            'pdf_quality_index': ["Standard (72 DPI)", "High (150 DPI)", "Print (300 DPI)", "Maximum (600 DPI)"].index(pdf_quality)
+            'pdf_quality_index': ["Standard (72 DPI)", "High (150 DPI)", "Print (300 DPI)", "Maximum (600 DPI)"].index(pdf_quality),
+            'use_half_page_index': use_half_page_index,
+            'half_page_threshold': half_page_threshold
         }
         
         # Generate preview
@@ -1300,7 +1403,7 @@ with col_preview:
                         """, unsafe_allow_html=True)
                         
                         # Display the PDF as image
-                        st.image(pdf_image, caption="PDF Preview - Page 1", use_column_width=True)
+                        st.image(pdf_image, caption="PDF Preview - Page 1", width="stretch")
                         
                         # Show it's actually a PDF with download option
                         st.info("📄 Image preview of page 1. Download to view all pages.")
@@ -1332,7 +1435,7 @@ with col_preview:
                     """, unsafe_allow_html=True)
                     
                     # Display the preview
-                    st.image(preview_img, caption="PDF Preview - Page 1", use_column_width=True)
+                    st.image(preview_img, caption="PDF Preview - Page 1", width="stretch")
                 
                 except Exception as e:
                     # Final fallback
@@ -1877,12 +1980,16 @@ def generate_title_page(c, PAGE_WIDTH, PAGE_HEIGHT):
     height_fix_original = """    # Utiliser seulement la moitié de la hauteur disponible pour chaque colonne
     usable_height = (y_top - Config.MARGIN_BOTTOM) / 2  # Moitié de la hauteur"""
     
-    # Use half page for ≤30 pages (to leave bottom half blank), full page for >30
-    height_fix_new = f"""    # Use half page for ≤30 pages, full page for >30 pages
-    if Config.PAGES_OF_TODOS <= 30:
+    # Use configurable threshold for index page layout
+    if use_half_page_index and half_page_threshold > 0:
+        height_fix_new = f"""    # Use half page for ≤{half_page_threshold} pages, full page for >{half_page_threshold} pages
+    if Config.PAGES_OF_TODOS <= {half_page_threshold}:
         usable_height = (y_top - Config.MARGIN_BOTTOM) / 2  # Half height to leave bottom blank
     else:
         usable_height = y_top - Config.MARGIN_BOTTOM  # Full available height for many pages"""
+    else:
+        height_fix_new = """    # Always use full page height for index
+    usable_height = y_top - Config.MARGIN_BOTTOM  # Full available height"""
     
     function_section = function_section.replace(height_fix_original, height_fix_new)
     
