@@ -796,7 +796,7 @@ with col_controls:
                     st.caption(f"Screen: {pixels_width/ppi:.1f}\" × {pixels_height/ppi:.1f}\"")
                 
                 # Common e-reader examples
-                with st.expander("📱 Common E-Reader Resolutions"):
+                if st.checkbox("📱 Show Common E-Reader Resolutions", key="show_ereader_specs"):
                     st.markdown("""
                     **Boox Note Air 3:** 1872×1404 @ 227 PPI (10.3")  
                     **Boox Note Max:** 3200×2400 @ 300 PPI (13.3")  
