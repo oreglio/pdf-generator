@@ -1169,6 +1169,9 @@ with col_controls:
 with col_preview:
     st.subheader("📄 Preview")
     
+    # Always use image mode for simplicity and compatibility
+    st.session_state.preview_mode = 'image'
+    
     # Generate preview when button is clicked or on first load
     if preview_clicked or 'preview_config' not in st.session_state:
         # Create configuration dictionary
@@ -1229,7 +1232,7 @@ with col_preview:
         
         # Generate preview
         with st.spinner("Generating preview..."):
-            # Always generate PDF preview
+            # Always generate PDF first
             pdf_data = generate_preview(config, page_size, format='pdf')
             
             # Convert PDF to image for display (elegant solution!)
@@ -1264,7 +1267,7 @@ with col_preview:
                     st.image(pdf_image, caption="PDF Preview - Page 1", use_column_width=True)
                     
                     # Show it's actually a PDF with download option
-                    st.info("📄 This is a real PDF preview. Download below to view all pages.")
+                    st.info("📄 Image preview of page 1. Download to view all pages.")
                 
             except ImportError:
                 # Fallback: Create high-quality image preview directly
@@ -1277,29 +1280,29 @@ with col_preview:
                 
                 # Add styling
                 st.markdown("""
-                <style>
-                div[data-testid="stImage"] {
-                    border: 1px solid #d8d8d8;
-                    border-radius: 7px;
-                    box-shadow: #c6c3c3 0 0 10px 0px;
-                    overflow: hidden;
-                    padding: 0px;
-                    background: white;
-                }
-                div[data-testid="stImage"] img {
-                    border-radius: 7px;
-                }
-                .pdf-badge {
-                    display: inline-block;
-                    background: #dc3545;
-                    color: white;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                }
-                </style>
+                    <style>
+                    div[data-testid="stImage"] {
+                        border: 1px solid #d8d8d8;
+                        border-radius: 7px;
+                        box-shadow: #c6c3c3 0 0 10px 0px;
+                        overflow: hidden;
+                        padding: 0px;
+                        background: white;
+                    }
+                    div[data-testid="stImage"] img {
+                        border-radius: 7px;
+                    }
+                    .pdf-badge {
+                        display: inline-block;
+                        background: #dc3545;
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                    }
+                    </style>
                 """, unsafe_allow_html=True)
                 
                 # Show PDF badge
