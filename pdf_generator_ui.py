@@ -34,14 +34,6 @@ st.set_page_config(
     layout="wide"  # Changed to wide for side-by-side layout
 )
 
-# Debug: Verify Python environment and reportlab
-if st.checkbox("🔧 Show Debug Info", value=False):
-    st.code(f"Python: {sys.executable}\nVersion: {sys.version}", language="text")
-    try:
-        import reportlab
-        st.success(f"✅ ReportLab {reportlab.Version} is installed")
-    except ImportError as e:
-        st.error(f"❌ ReportLab import error: {e}")
 
 st.title("📄 A4 PDF Todo Generator")
 st.markdown("Configure and generate your custom PDF with todo lists and detail pages")
@@ -904,7 +896,8 @@ with col_controls:
             use_half_page_index = st.checkbox(
                 "Use half-page layout for small lists",
                 value=default_config.get('use_half_page_index', True),
-                help="When enabled, uses only half the page height for index when todo count is low, leaving bottom half blank"
+                help="When enabled, uses only half the page height for index when todo count is low, leaving bottom half blank",
+                key="use_half_page_index"
             )
         
         with col_index2:
@@ -915,7 +908,8 @@ with col_controls:
                     max_value=50,
                     value=default_config.get('half_page_threshold', 30),
                     step=5,
-                    help="If total todo pages ≤ this value, use half-page layout. Otherwise use full page."
+                    help="If total todo pages ≤ this value, use half-page layout. Otherwise use full page.",
+                    key="half_page_threshold"
                 )
                 st.caption(f"Current: {'Half-page' if pages_of_todos <= half_page_threshold else 'Full-page'} layout")
             else:
@@ -932,47 +926,47 @@ with col_controls:
         value=default_config.get('guide_lines_enabled', False),
         help="Add horizontal and vertical guide lines on todo pages",
         key="guide_lines_checkbox"
-    )
-    
-    # Show controls immediately when checkbox is checked
-    if guide_lines_enabled:
-        col_guide1, col_guide2 = st.columns(2)
+        )
         
-        with col_guide1:
-            guide_h_color = st.color_picker(
-                "Horizontal Line Color",
-                default_config.get('guide_h_color', "#E0E0E0"),
-                key="guide_h_color_picker"
-            )
-            guide_h_width = st.slider(
-                "Horizontal Line Width (mm)",
-                0.2, 2.0, 
-                default_config.get('guide_h_width', 0.5),
-                step=0.1,
-                format="%.1f",
-                key="guide_h_width_slider"
-            )
+        # Show controls immediately when checkbox is checked
+        if guide_lines_enabled:
+            col_guide1, col_guide2 = st.columns(2)
+            
+            with col_guide1:
+                guide_h_color = st.color_picker(
+                    "Horizontal Line Color",
+                    default_config.get('guide_h_color', "#E0E0E0"),
+                    key="guide_h_color_picker"
+                )
+                guide_h_width = st.slider(
+                    "Horizontal Line Width (mm)",
+                    0.2, 2.0, 
+                    default_config.get('guide_h_width', 0.5),
+                    step=0.1,
+                    format="%.1f",
+                    key="guide_h_width_slider"
+                )
         
-        with col_guide2:
-            guide_v_color = st.color_picker(
-                "Vertical Line Color",
-                default_config.get('guide_v_color', "#E0E0E0"),
-                key="guide_v_color_picker"
-            )
-            guide_v_width = st.slider(
-                "Vertical Line Width (mm)",
-                0.2, 2.0,
-                default_config.get('guide_v_width', 0.5),
-                step=0.1,
-                format="%.1f",
-                key="guide_v_width_slider"
-            )
-    else:
-        # Use default values when disabled
-        guide_h_color = default_config.get('guide_h_color', "#E0E0E0")
-        guide_v_color = default_config.get('guide_v_color', "#E0E0E0")
-        guide_h_width = default_config.get('guide_h_width', 0.5)
-        guide_v_width = default_config.get('guide_v_width', 0.5)
+            with col_guide2:
+                guide_v_color = st.color_picker(
+                    "Vertical Line Color",
+                    default_config.get('guide_v_color', "#E0E0E0"),
+                    key="guide_v_color_picker"
+                )
+                guide_v_width = st.slider(
+                    "Vertical Line Width (mm)",
+                    0.2, 2.0,
+                    default_config.get('guide_v_width', 0.5),
+                    step=0.1,
+                    format="%.1f",
+                    key="guide_v_width_slider"
+                )
+        else:
+            # Use default values when disabled
+            guide_h_color = default_config.get('guide_h_color', "#E0E0E0")
+            guide_v_color = default_config.get('guide_v_color', "#E0E0E0")
+            guide_h_width = default_config.get('guide_h_width', 0.5)
+            guide_v_width = default_config.get('guide_v_width', 0.5)
     
     
     # Title Page Section
