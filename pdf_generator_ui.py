@@ -52,6 +52,16 @@ with main_tabs[0]:
     if url_config:
         st.success("✅ Configuration loaded from shared link!")
         st.session_state.loaded_config = url_config
+        populate_session_state_from_config(url_config)
+
+def populate_session_state_from_config(config):
+    """Populate session state with config values so widgets and export work correctly"""
+    if not config:
+        return
+        
+    # Populate session state with all config values
+    for key, value in config.items():
+        st.session_state[key] = value
 
 # Configuration management
 def save_config(config_dict, name="default"):
@@ -623,6 +633,7 @@ with st.expander("💾 Configuration Management", expanded=False):
                         
                         if loaded:
                             st.session_state['loaded_config'] = loaded
+                            populate_session_state_from_config(loaded)
                             config_manager.save_to_session(loaded, selected)
                             st.success(f"Loaded: {selected}")
                             st.rerun()
@@ -653,6 +664,7 @@ with st.expander("💾 Configuration Management", expanded=False):
                         imported = config_manager.import_config(code)
                         if imported:
                             st.session_state['loaded_config'] = imported
+                            populate_session_state_from_config(imported)
                             config_manager.save_to_session(imported, "imported")
                             st.success("✅ Imported!")
                             st.rerun()
@@ -670,12 +682,18 @@ with st.expander("💾 Configuration Management", expanded=False):
         for name, config in presets.items():
             if st.button(f"Load {name}", key=f"preset_{name}"):
                 st.session_state['loaded_config'] = config
+                populate_session_state_from_config(config)
                 config_manager.save_to_session(config, name)
                 st.success(f"Loaded preset: {name}")
                 st.rerun()
 
 # Load configuration if available
 default_config = st.session_state.get('loaded_config', {})
+
+# IMPORTANT: Populate session state from loaded config
+# This ensures that widgets show correct values AND export works correctly
+if default_config:
+    populate_session_state_from_config(default_config)
 
 # Create two columns - controls on left, preview on right
 col_controls, col_preview = st.columns([2, 1.5])
