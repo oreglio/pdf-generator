@@ -1328,24 +1328,11 @@ with col_preview:
                         div[data-testid="stImage"] img {
                             border-radius: 7px;
                         }
-                        .pdf-badge {
-                            display: inline-block;
-                            background: #dc3545;
-                            color: white;
-                            padding: 4px 8px;
-                            border-radius: 4px;
-                            font-size: 12px;
-                            font-weight: bold;
-                            margin-bottom: 10px;
-                        }
                         </style>
                     """, unsafe_allow_html=True)
                     
-                    # Show PDF badge
-                    st.markdown('<span class="pdf-badge">PDF FORMAT</span>', unsafe_allow_html=True)
-                    
                     # Display the preview
-                    st.image(preview_img, caption="PDF Preview (rendered as image)", use_column_width=True)
+                    st.image(preview_img, caption="PDF Preview - Page 1", use_column_width=True)
                 
                 except Exception as e:
                     # Final fallback
