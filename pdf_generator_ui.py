@@ -605,6 +605,11 @@ with st.expander("💾 Configuration Management", expanded=False):
         st.markdown("### Your Configurations")
         st.info("💡 Configurations are saved temporarily during your session")
         
+        # Show success message if config was loaded
+        if st.session_state.get('load_success'):
+            st.success(f"✅ {st.session_state['load_success']}")
+            del st.session_state['load_success']  # Clear the flag
+        
         col_save, col_load = st.columns(2)
         
         with col_save:
@@ -635,7 +640,8 @@ with st.expander("💾 Configuration Management", expanded=False):
                             st.session_state['loaded_config'] = loaded
                             populate_session_state_from_config(loaded)
                             config_manager.save_to_session(loaded, selected)
-                            st.success(f"Loaded: {selected}")
+                            # Store success message to show after rerun
+                            st.session_state['load_success'] = f"Loaded: {selected}"
                             st.rerun()
             else:
                 st.info("No configs found")
@@ -665,11 +671,17 @@ with st.expander("💾 Configuration Management", expanded=False):
                         st.session_state['loaded_config'] = imported
                         populate_session_state_from_config(imported)
                         config_manager.save_to_session(imported, "imported")
-                        st.success("✅ Imported!")
+                        # Store success message to show after rerun
+                        st.session_state['import_success'] = True
                         st.rerun()
                     # Note: Error message is already shown by import_config function
                 else:
                     st.warning("Please paste a configuration code")
+            
+            # Show success message if it was set
+            if st.session_state.get('import_success', False):
+                st.success("✅ Configuration imported successfully!")
+                del st.session_state['import_success']  # Clear the flag
     
     with config_tabs[2]:
         st.markdown("### Quick Presets")
@@ -684,8 +696,14 @@ with st.expander("💾 Configuration Management", expanded=False):
                 st.session_state['loaded_config'] = config
                 populate_session_state_from_config(config)
                 config_manager.save_to_session(config, name)
-                st.success(f"Loaded preset: {name}")
+                # Store success message to show after rerun
+                st.session_state['preset_success'] = f"Loaded preset: {name}"
                 st.rerun()
+        
+        # Show success message if it was set
+        if st.session_state.get('preset_success'):
+            st.success(f"✅ {st.session_state['preset_success']}")
+            del st.session_state['preset_success']  # Clear the flag
 
 # Load configuration if available
 default_config = st.session_state.get('loaded_config', {})
