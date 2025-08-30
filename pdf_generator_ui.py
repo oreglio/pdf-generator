@@ -601,7 +601,7 @@ with st.expander("💾 Configuration Management", expanded=False):
     
     with config_tabs[0]:
         st.markdown("### Your Configurations")
-        st.info("💡 Configurations are stored in your browser session (private to you)")
+        st.info("💡 Configurations are saved temporarily during your session")
         
         col_save, col_load = st.columns(2)
         
