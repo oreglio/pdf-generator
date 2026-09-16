@@ -1,5 +1,24 @@
 # 📝 A4 PDF Todo Generator
 
+## Prototype NiceGUI : local, bureau et web
+
+Une interface distincte pour configurer, prévisualiser et télécharger les carnets,
+avec les mêmes moteurs PDF datés et non datés. Streamlit reste disponible.
+
+```bash
+python3 -m venv .venv-nicegui
+source .venv-nicegui/bin/activate
+python -m pip install -r requirements-nicegui.txt
+python nicegui_app.py
+```
+
+Ouvrir [localhost:8080](http://127.0.0.1:8080).
+[Installation bureau, Docker/VPS et périmètre du POC → NICEGUI.md](NICEGUI.md).
+[Déployer sur Coolify avec pdf.readtoken.app → DEPLOY_COOLIFY.md](DEPLOY_COOLIFY.md).
+
+Dans le carnet daté, décochez **Inclure les week-ends** pour supprimer leurs
+pages Meeting et Notes tout en conservant le calendrier complet.
+
 ## Viwoods AiPaper : Meetings & actions
 
 Le nouveau carnet comprend 200 Meetings non datés, deux pages de notes par
