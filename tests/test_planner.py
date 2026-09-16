@@ -110,10 +110,37 @@ class PlannerTests(unittest.TestCase):
             first, second = meeting + 1, meeting + 2
             self.assertEqual(self.links(reader, reader.pages[meeting])["Suite"], first)
             self.assertEqual(self.links(reader, reader.pages[first])["Suite"], second)
-            self.assertEqual(self.links(reader, reader.pages[second])["Precedent"], first)
+            self.assertEqual(self.links(reader, reader.pages[second])["Notes 1"], first)
             day = (meeting - 2) // 3 + 1
             self.assertEqual(self.links(reader, reader.pages[second])[f"Meeting {day:03d}"], meeting)
             self.assertEqual(self.links(reader, reader.pages[second])["Suite"], second + 1 if day < 3 else 1)
+
+    def test_notes_navigation_has_explicit_labels_and_no_duplicate_meeting_backlink(self):
+        for language in ("fr", "en"):
+            for count in (1, 2, 3):
+                with self.subTest(language=language, notes_pages=count):
+                    reader = self.book(language=language, notes_pages=count)
+                    for day in range(1, 4):
+                        meeting = 2 + (day - 1) * (1 + count)
+                        for number in range(1, count + 1):
+                            page = reader.pages[meeting + number]
+                            links = self.links(reader, page)
+                            text = page.extract_text()
+                            self.assertEqual(links[f"Meeting {day:03d}"], meeting)
+                            self.assertEqual(list(links.values()).count(meeting), 1)
+                            if number > 1:
+                                self.assertIn(f"< Notes {number - 1}", text)
+                                self.assertEqual(links[f"Notes {number - 1}"], meeting + number - 1)
+                            else:
+                                self.assertNotIn("<", text)
+                            if number < count:
+                                self.assertIn(f"Notes {number + 1} >", text)
+                                self.assertEqual(links["Suite" if language == "fr" else "Next"], meeting + number + 1)
+                            elif day < 3:
+                                self.assertIn("Jour suivant >" if language == "fr" else "Next day >", text)
+                                self.assertEqual(links["Suite" if language == "fr" else "Next"], meeting + count + 1)
+                            else:
+                                self.assertIn("Index >", text)
 
     def test_invalid_inputs_fail_before_writing(self):
         for changes in ({"days": 0}, {"list_count": 11}, {"tasks_per_list": 41},
