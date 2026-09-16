@@ -296,6 +296,11 @@ class DatedPlannerPages(PlannerPages):
 
     def task_list(self, number):
         self.current_date = self.active_week = None
+        if self.config.tasks_per_list > 1:
+            rows = ceil(self.config.tasks_per_list / 2)
+            divider_x = LEFT + WIDTH / 2
+            self.line(divider_x, H - 114, divider_x, H - 129 - (rows - 1) * 22.5,
+                      gray=0, width=0.25)
         super().task_list(number)
 
     def task_notes(self, number, item, part):
