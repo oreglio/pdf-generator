@@ -118,6 +118,8 @@ def dated_manifest(schedule: "DatedPlannerConfig") -> tuple[PageSpec, ...]:
     pages = [PageSpec("home", "home", "")]
     for month in schedule.calendar_months:
         pages.append(PageSpec(f"calendar-{month:%Y-%m}", "calendar", month.isoformat()))
+        if getattr(schedule, "monthly_priorities", False):
+            pages.append(PageSpec(f"month-plan-{month:%Y-%m}", "month-plan", month.isoformat()))
     week_sheets = sheets(schedule.weekly_tasks, layout.weekly_capacity)
     for monday in schedule.weeks:
         for part in range(1, schedule.week_pages + 1):

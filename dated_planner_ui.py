@@ -61,6 +61,9 @@ def render_dated_planner_ui():
                                       format_func=month_label, key='dated_field_months')
             include_weekends = st.checkbox('Inclure les week-ends', value=config.include_weekends,
                                            key='dated_field_include_weekends')
+            monthly_priorities = st.checkbox('Une page Priorités après chaque calendrier',
+                                             value=config.monthly_priorities,
+                                             key='dated_field_monthly_priorities')
             st.caption('Sans week-ends : moins de pages Meeting et Notes. Le calendrier reste complet.')
             st.caption('Au-delà de trois mois, la barre latérale indexe les mois ; '
                        'chaque calendrier ouvre ses semaines et ses journées.')
@@ -106,7 +109,8 @@ def render_dated_planner_ui():
                                      **surface)
                 config = DatedPlannerConfig(base=base, start_date=start.isoformat(), months=months,
                                             week_pages=week_pages, weekly_tasks=weekly_tasks,
-                                            include_weekends=include_weekends)
+                                            include_weekends=include_weekends,
+                                            monthly_priorities=monthly_priorities)
             except ValueError as error:
                 config = DatedPlannerConfig.from_dict(st.session_state.dated_config)
                 st.error(str(error))

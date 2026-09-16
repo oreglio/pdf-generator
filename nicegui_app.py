@@ -20,6 +20,7 @@ from nicegui_jobs import cpu_job, shutdown_jobs
 from nicegui_service import generate_artifact, parse_config, render_preview
 from planner_config import PlannerConfig, TYPOGRAPHIES
 from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES, devices_of
+from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
 
 ROOT = Path(__file__).resolve().parent
@@ -172,7 +173,8 @@ class PlannerWorkspace:
         for key in ('list_count', 'tasks_per_list', 'detail_pages', 'notes_pages', 'days'):
             if key in self.fields:
                 payload[key] = self.whole(self.fields[key].value)
-        for key in ('language', 'typography', 'title'):
+        for key in ('language', 'typography', 'title',
+                    'meeting_note_style', 'task_note_style'):
             payload[key] = self.fields[key].value
         payload['density'] = self.fields['density'].value
         device = self.fields['device'].value if 'device' in self.fields else CUSTOM
@@ -189,6 +191,7 @@ class PlannerWorkspace:
             dated['base'] = payload
             dated['start_date'] = self.fields['start_date'].value
             dated['include_weekends'] = self.fields['include_weekends'].value
+            dated['monthly_priorities'] = self.fields['monthly_priorities'].value
             for key in ('months', 'week_pages', 'weekly_tasks'):
                 dated[key] = self.whole(self.fields[key].value)
             return parse_config(self.mode, dated)
@@ -637,6 +640,10 @@ class PlannerWorkspace:
                         self.field('include_weekends', ui.checkbox('Inclure les week-ends', value=config.include_weekends))
                         ui.label('Sans week-ends : moins de pages Meeting et Notes. Le calendrier reste complet.').classes('muted')
                         ui.label('Au-delà de trois mois, la barre latérale indexe les mois ; chaque calendrier ouvre ses semaines et ses journées.').classes('muted')
+                        self.field('monthly_priorities', ui.checkbox(
+                            'Une page Priorités après chaque calendrier', value=config.monthly_priorities))
+                        ui.label('Trois priorités, leurs échéances et un espace libre, reliés au '
+                                 'calendrier du mois et à ses semaines.').classes('muted')
                     else:
                         self.number('days', 'Journées non datées', base.days, 1, 400)
                     self.number('notes_pages', 'Pages Notes après chaque Meeting', base.notes_pages, 0, 3)
@@ -651,6 +658,13 @@ class PlannerWorkspace:
                         self.field('language', ui.select(LANGUAGES, value=base.language, label='Langue du PDF'))
                         self.field('typography', ui.select(TYPOGRAPHIES, value=base.typography, label='Typographie'))
                         ui.label('Manrope contraste renforce les petits caractères sur écran e-ink.').classes('muted')
+                        with ui.element('div').classes('fields'):
+                            self.field('meeting_note_style', ui.select(
+                                NOTE_STYLES, value=base.meeting_note_style, label='Fond des Notes'))
+                            self.field('task_note_style', ui.select(
+                                NOTE_STYLES, value=base.task_note_style, label='Fond des contextes'))
+                        ui.label('Le fond ne change que la zone d’écriture : titres, liens et '
+                                 'barre latérale restent nets.').classes('muted')
                 with ui.expansion('Titre & noms des listes'):
                     with ui.column().classes('w-full gap-4'):
                         self.field('title', ui.input('Titre du carnet', value=base.title)).props('maxlength=48')

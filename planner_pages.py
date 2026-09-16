@@ -8,6 +8,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 from planner_layout import make_layout
 from planner_manifest import list_key, sheet_key, sheet_of
+from planner_note_styles import draw_note_background
 
 
 INK = 0.12
@@ -171,29 +172,33 @@ class PlannerPages:
             self.link(self.tr("Suite"), target, (self.right - next_width, 15, self.right, 40))
         self.text(self.w - 19, 25, str(self.ordinal), 7, gray=MUTED, align="center", numeric=True)
 
-    def rules(self, top, bottom=None, step=None, *, left=None, right=None):
+    def rules(self, top, bottom=None, step=None, *, left=None, right=None, style=None):
+        """The Meeting and Notes writing area, in the chosen background."""
         bottom = self.layout.body_bottom if bottom is None else bottom
-        step = self.layout.row_height if step is None else step
         left = self.left if left is None else left
         right = self.right if right is None else right
-        y = top
-        while y >= bottom:
-            self.line(left, y, right, y)
-            y -= step
+        style = self.config.meeting_note_style if style is None else style
+        step = self.layout.background_spacing(style) if step is None else step
+        draw_note_background(self.c, (left, bottom, right, top), style, step)
+
+    @property
+    def task_bounds(self):
+        return (self.left + 1, 68, self.right, self.h - 105)
 
     def _make_dot_form(self):
-        if self.c.hasForm(self.dot_form):
+        """Repeated on every context page: worth one reusable form object."""
+        if self.config.task_note_style != "dots" or self.c.hasForm(self.dot_form):
             return
         self.c.beginForm(self.dot_form, 0, 0, self.w, self.h)
-        self.c.setFillGray(0.52)
-        x = self.left + 1
-        while x <= self.right:
-            y = 68
-            while y <= self.h - 105:
-                self.c.circle(x, y, 0.42, stroke=0, fill=1)
-                y += 14
-            x += 14
+        draw_note_background(self.c, self.task_bounds, "dots", 14)
         self.c.endForm()
+
+    def task_background(self):
+        if self.config.task_note_style == "dots":
+            self.c.doForm(self.dot_form)
+        else:
+            draw_note_background(self.c, self.task_bounds,
+                                 self.config.task_note_style, self.layout.row_height)
 
     def draw(self, spec):
         """Draw one manifest entry; the manifest owns the order and the keys."""
@@ -375,7 +380,7 @@ class PlannerPages:
         self.rail(active=number)
         self.text(self.left + 115, self.h - 48, self.tr("Sujet"), 7, gray=MUTED)
         self.line(self.left + 115, self.h - 74, self.right, self.h - 74, gray=0.55)
-        self.c.doForm(self.dot_form)
+        self.task_background()
         previous = f"task-{number}-{item}-{part - 1}" if part > 1 else None
         next_page = (f"Notes {part + 1}", f"task-{number}-{item}-{part + 1}") if part < self.config.detail_pages else None
         list_label = self.tr("Liste {number:02d}", number=number)

@@ -34,10 +34,12 @@ class DatedPlannerConfig:
     week_pages: int = 1
     weekly_tasks: int = 40
     include_weekends: bool = True
+    monthly_priorities: bool = False
 
     def __post_init__(self):
-        if type(self.include_weekends) is not bool:
-            raise ValueError("include_weekends doit être un booléen.")
+        for name in ("include_weekends", "monthly_priorities"):
+            if type(getattr(self, name)) is not bool:
+                raise ValueError(f"{name} doit être un booléen.")
         if not isinstance(self.base, PlannerConfig):
             raise ValueError("La configuration du backlog doit être un PlannerConfig.")
         for name, low, high in (
@@ -90,6 +92,16 @@ class DatedPlannerConfig:
         last_index = self.end_date.year * 12 + self.end_date.month - 1
         return tuple(date(index // 12, index % 12 + 1, 1)
                      for index in range(first_index, last_index + 1))
+
+    def month_bounds(self, month):
+        """First and last day of a month actually covered by the notebook."""
+        following = date(month.year + month.month // 12, month.month % 12 + 1, 1)
+        return (max(month, self.start), min(following - timedelta(days=1), self.end_date))
+
+    def month_weeks(self, month):
+        first, last = self.month_bounds(month)
+        return tuple(monday for monday in self.weeks
+                     if first - timedelta(days=6) <= monday <= last)
 
     @property
     def long_navigation(self):

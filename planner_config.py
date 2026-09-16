@@ -6,6 +6,7 @@ from math import ceil
 from planner_formats import DEFAULT_DEVICE, DEVICES
 from planner_i18n import LANGUAGES, translate
 from planner_layout import make_layout
+from planner_note_styles import NOTE_STYLES
 from planner_manifest import sheets, undated_manifest
 
 
@@ -33,6 +34,8 @@ class PlannerConfig:
     density: str = "standard"
     custom_width_mm: float | None = None
     custom_height_mm: float | None = None
+    meeting_note_style: str = "lined"
+    task_note_style: str = "dots"
 
     def __post_init__(self):
         for name, low, high in (
@@ -42,6 +45,9 @@ class PlannerConfig:
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{name} doit être un entier entre {low} et {high}.")
+        for name in ("meeting_note_style", "task_note_style"):
+            if getattr(self, name) not in NOTE_STYLES:
+                raise ValueError("Fond de notes inconnu : " + ", ".join(NOTE_STYLES) + ".")
         if not isinstance(self.typography, str) or self.typography not in TYPOGRAPHIES:
             raise ValueError("Police inconnue.")
         if not isinstance(self.language, str) or self.language not in LANGUAGES:

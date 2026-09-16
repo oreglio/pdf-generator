@@ -60,6 +60,10 @@ class PageLayout:
         """Vertical space a full-page writing area can use."""
         return self.height - 111 - self.body_bottom
 
+    def background_spacing(self, style):
+        """A grid wants finer squares than a ruled page wants lines."""
+        return {"grid": self.row_height / 2, "dots": 14}.get(style, self.row_height)
+
     def fit(self, top, step, count, floor=None):
         """Shrink a vertical step so `count` rows stay above the footer."""
         floor = self.footer_rule + 14 if floor is None else floor

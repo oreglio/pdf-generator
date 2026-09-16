@@ -206,6 +206,8 @@ class DatedPlannerPages(PlannerPages):
     def draw(self, spec):
         if spec.kind == "calendar":
             return self.calendar(spec)
+        if spec.kind == "month-plan":
+            return self.month_plan(spec)
         if spec.kind == "weekly":
             return self.weekly(spec)
         return super().draw(spec)
@@ -277,6 +279,49 @@ class DatedPlannerPages(PlannerPages):
         self.footer(previous=self.month_key(previous) if previous else None,
                     previous_label=self.month_name(previous).capitalize()[:4] if previous else None,
                     next_page=(self.month_name(following).capitalize(), self.month_key(following)) if following else None)
+        self.end()
+
+    def month_plan(self, spec):
+        """Three priorities for the month, next to its calendar rather than inside it."""
+        month = date.fromisoformat(spec.reference).replace(day=1)
+        first, last = self.schedule.month_bounds(month)
+        self.current_date = month
+        self.active_week = None
+        title = f"{self.month_name(month).capitalize()} {month.year}"
+        self.start(spec.key, outline=self.label("Priorités — ", "Priorities — ") + title, level=2)
+        self.header(self.label("PRIORITÉS DU MOIS", "MONTH PRIORITIES"), title,
+                    subtitle=f"{first:%d.%m} — {last:%d.%m.%Y}")
+        self.rail()
+        self.text(self.left, self.h - 117, self.label("Mes trois priorités", "My three priorities"),
+                  13, bold=True)
+        top = self.h - 146
+        step = min(62, (top - self.layout.body_bottom) * 0.5 / 3)
+        deadline = self.label("Échéance", "Due")
+        for index in range(3):
+            y = top - index * step
+            self.text(self.left, y - 20, f"{index + 1:02d}", 19, bold=True, gray=0.72, numeric=True)
+            self.line(self.left + 36, y - 24, self.right, y - 24)
+            self.text(self.left + 36, y - 42, deadline, 6, gray=MUTED)
+            self.line(self.left + 36 + 40, y - 44, self.left + 36 + 170, y - 44)
+        weeks = self.schedule.month_weeks(month)
+        weeks_y = top - 3 * step - 24
+        self.text(self.left, weeks_y + 12, self.label("Ses semaines", "Its weeks"), 8,
+                  bold=True, gray=MUTED)
+        width = min(58, (self.width - 6 * (len(weeks) - 1)) / max(1, len(weeks)))
+        for index, monday in enumerate(weeks):
+            self.pill(self.left + index * (width + 6), weeks_y - 16, width, 22,
+                      self.week_label(monday), self.week_target(monday),
+                      title=self.schedule.week_key(monday), size=7)
+        notes_y = weeks_y - 34
+        self.text(self.left, notes_y, self.label("Ce que je garde en tête", "What I keep in mind"),
+                  8, bold=True, gray=MUTED)
+        self.rules(notes_y - 18)
+        months = self.schedule.calendar_months
+        index = months.index(month)
+        following = months[index + 1] if index + 1 < len(months) else None
+        # The footer already opens this month's calendar: no second link to it.
+        self.footer(next_page=(self.month_name(following).capitalize(),
+                               f"month-plan-{following:%Y-%m}") if following else None)
         self.end()
 
     def weekly(self, spec):
