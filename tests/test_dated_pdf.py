@@ -107,3 +107,33 @@ class DatedPDFTests(unittest.TestCase):
             generate_pdf(config, output)
             expected = Path(__file__).resolve().parents[1] / "examples" / config.pdf_filename
             self.assertEqual(output.getvalue(), expected.read_bytes())
+
+    def test_dated_published_examples_are_byte_identical(self):
+        from pathlib import Path
+        from dated_planner_config import DatedPlannerConfig
+        from dated_planner_pdf import generate_dated_pdf
+        from planner_config import PlannerConfig
+        for language in ("fr", "en"):
+            with self.subTest(language=language):
+                config = DatedPlannerConfig(base=PlannerConfig(language=language),
+                                            start_date="2026-09-16")
+                output = io.BytesIO()
+                generate_dated_pdf(config, output)
+                expected = (Path(__file__).resolve().parents[1]
+                            / "examples/dated" / config.pdf_filename)
+                self.assertEqual(output.getvalue(), expected.read_bytes())
+
+    def test_legacy_json_loads_without_device_density_or_module_fields(self):
+        from dated_planner_config import DatedPlannerConfig
+        from planner_config import PlannerConfig
+        legacy_base = {"list_count": 10, "tasks_per_list": 40, "detail_pages": 2,
+                       "days": 200, "notes_pages": 2, "typography": "manrope",
+                       "title": "Meetings & actions", "list_names": [], "language": "fr"}
+        base = PlannerConfig.from_dict(legacy_base)
+        self.assertEqual(base, PlannerConfig())
+        legacy = {"base": legacy_base, "start_date": "2026-09-16", "months": 3,
+                  "week_pages": 1, "weekly_tasks": 40, "include_weekends": True}
+        config = DatedPlannerConfig.from_dict(legacy)
+        self.assertEqual(config, DatedPlannerConfig(start_date="2026-09-16"))
+        self.assertEqual(config.pdf_filename,
+                         "dated-aipaper-manrope-fr-2026-09-16-2026-12-15.pdf")
