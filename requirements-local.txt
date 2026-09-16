@@ -1,0 +1,4 @@
+-r requirements-pdf.txt
+streamlit==1.49.1
+streamlit-pdf==1.0.7
+pdf2image==1.17.0
