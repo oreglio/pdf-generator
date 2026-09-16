@@ -147,8 +147,9 @@ La période exacte est affichée avant génération.
   Les onglets **Wxx** de chaque page ouvrent directement la semaine choisie.
 - Les semaines suivent ISO 8601 (lundi–dimanche). L’année ISO figure dans leur
   en-tête ; par exemple, le 1er janvier 2027 appartient à **W53 / 2026**.
-- Chaque action hebdomadaire suit **Backlog | Jour · Tâche** : une référence
-  comme **02-12**, le jour du mois comme **16**, puis le texte de l’action.
+- Chaque action hebdomadaire suit **BKLG | # | Jour · Tâche** : le numéro de
+  liste **02**, celui de la tâche **12**, le jour du mois **16**, puis le texte
+  de l’action. Les trois champs courts ont la même largeur.
   Le champ libre d’une tâche du backlog peut recevoir **W38**. Les références
   manuscrites ne créent pas de liens et aucun retour dynamique n’est simulé.
 - Reporter une action signifie recopier son texte et sa référence vers une

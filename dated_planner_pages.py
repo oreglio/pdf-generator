@@ -210,18 +210,27 @@ class DatedPlannerPages(PlannerPages):
                 self.text(x + cell / 2, H - 121, label, 7, gray=0.7, align="center")
         rows = ceil(self.schedule.weekly_tasks / 2)
         col_width = (WIDTH - 20) / 2
+        reference_width, reference_gap = 22, 7
+        reference_step = reference_width + reference_gap
+        reference_end = 2 * reference_step + reference_width
+        task_start = reference_end + 11
+        reference_labels = ("BKLG", "#", self.label("JOUR", "DAY"))
         for index in range(self.schedule.weekly_tasks):
             col, row = divmod(index, rows)
             x, y = LEFT + col * (col_width + 20), H - 165 - row * 20
+            for field, label in enumerate(reference_labels):
+                field_x = x + field * reference_step
+                if row == 0:
+                    self.text(field_x + reference_width / 2, y + 16, label, 5.5,
+                              gray=MUTED, align="center")
+                self.line(field_x, y, field_x + reference_width, y)
+                if field < 2:
+                    separator_x = field_x + reference_width + reference_gap / 2
+                    self.line(separator_x, y + 1, separator_x, y + 8)
             if row == 0:
-                self.text(x + 15, y + 16, "BKLOG", 5.5, gray=MUTED, align="center")
-                self.text(x + 55, y + 16, self.label("JOUR", "DAY"), 5.5, gray=MUTED, align="center")
-                self.text(x + 81, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
-            self.line(x, y, x + 30, y)
-            self.line(x + 35, y + 1, x + 35, y + 8)
-            self.line(x + 40, y, x + 70, y)
-            self.text(x + 75, y + 2, "·", 10, bold=True, gray=MUTED, align="center")
-            self.line(x + 81, y, x + col_width, y)
+                self.text(x + task_start, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
+            self.text(x + reference_end + 5, y + 2, "·", 10, bold=True, gray=MUTED, align="center")
+            self.line(x + task_start, y, x + col_width, y)
         self.footer(previous=self.week_target(monday, part - 1) if part > 1 else None,
                     previous_label=f"Page {part - 1}" if part > 1 else None,
                     next_page=(f"Page {part + 1}", self.week_target(monday, part + 1))
