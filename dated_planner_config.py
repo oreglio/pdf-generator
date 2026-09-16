@@ -1,0 +1,111 @@
+"""Configuration for dated weekly planners, separate from the undated notebook."""
+
+from calendar import monthrange
+from dataclasses import asdict, dataclass, field, replace
+from datetime import date, timedelta
+
+from planner_config import PlannerConfig
+
+
+@dataclass(frozen=True)
+class DatedPlannerConfig:
+    base: PlannerConfig = field(default_factory=PlannerConfig)
+    start_date: str = field(default_factory=lambda: date.today().isoformat())
+    months: int = 3
+    week_pages: int = 1
+    weekly_tasks: int = 40
+
+    def __post_init__(self):
+        if not isinstance(self.base, PlannerConfig):
+            raise ValueError("La configuration du backlog doit être un PlannerConfig.")
+        for name, low, high in (
+            ("months", 1, 3), ("week_pages", 1, 3), ("weekly_tasks", 1, 40),
+        ):
+            value = getattr(self, name)
+            if type(value) is not int or not low <= value <= high:
+                raise ValueError(f"{name} doit être un entier entre {low} et {high}.")
+        try:
+            if not isinstance(self.start_date, str):
+                raise ValueError
+            if date.fromisoformat(self.start_date).isoformat() != self.start_date:
+                raise ValueError
+            self.end_date
+        except (ValueError, OverflowError) as exc:
+            raise ValueError("La date de début doit être une date ISO valide (AAAA-MM-JJ) "
+                             "permettant de calculer toute la période.") from exc
+
+    @property
+    def start(self):
+        return date.fromisoformat(self.start_date)
+
+    @property
+    def end_date(self):
+        month_index = self.start.year * 12 + self.start.month - 1 + self.months
+        year, month = divmod(month_index, 12)
+        month += 1
+        day = min(self.start.day, monthrange(year, month)[1])
+        return date(year, month, day) - timedelta(days=1)
+
+    @property
+    def dates(self):
+        return tuple(self.start + timedelta(days=offset)
+                     for offset in range((self.end_date - self.start).days + 1))
+
+    @property
+    def weeks(self):
+        first = self.start - timedelta(days=self.start.weekday())
+        return tuple(first + timedelta(days=offset)
+                     for offset in range(0, (self.end_date - first).days + 1, 7))
+
+    @property
+    def calendar_months(self):
+        first_index = self.start.year * 12 + self.start.month - 1
+        last_index = self.end_date.year * 12 + self.end_date.month - 1
+        return tuple(date(index // 12, index % 12 + 1, 1)
+                     for index in range(first_index, last_index + 1))
+
+    @property
+    def render_config(self):
+        return replace(self.base, days=len(self.dates))
+
+    @property
+    def total_pages(self):
+        return (1 + len(self.calendar_months) + len(self.weeks) * self.week_pages
+                + len(self.dates) * (1 + self.base.notes_pages)
+                + self.base.list_count + self.base.task_count * self.base.detail_pages)
+
+    @property
+    def pdf_filename(self):
+        return (f"dated-aipaper-{self.base.typography}-{self.base.language}-"
+                f"{self.start_date}-{self.end_date.isoformat()}.pdf")
+
+    def day_number(self, value):
+        if type(value) is not date or not self.start <= value <= self.end_date:
+            raise ValueError("La journée doit appartenir à la période du carnet.")
+        return (value - self.start).days + 1
+
+    def week_for_day(self, number):
+        if type(number) is not int or not 1 <= number <= len(self.dates):
+            raise ValueError("Le numéro de journée doit appartenir au carnet.")
+        value = self.start + timedelta(days=number - 1)
+        return value - timedelta(days=value.weekday())
+
+    def week_key(self, monday):
+        if type(monday) is not date or monday not in self.weeks:
+            raise ValueError("La semaine doit commencer un lundi et appartenir au carnet.")
+        return f"week-{monday.isoformat()}"
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, values):
+        if not isinstance(values, dict):
+            raise ValueError("La configuration doit être un objet JSON.")
+        unknown = set(values) - set(cls.__dataclass_fields__)
+        if unknown:
+            raise ValueError("Paramètres inconnus : " + ', '.join(sorted(unknown)))
+        parsed = dict(values)
+        if "base" in parsed:
+            parsed["base"] = PlannerConfig.from_dict(parsed["base"])
+        return cls(**parsed)
