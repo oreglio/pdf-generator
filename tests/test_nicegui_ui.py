@@ -40,6 +40,140 @@ def workspace(mode='undated'):
     return state
 
 
+def browser(store, name, mode='undated'):
+    """A workspace bound to one browser's storage slot."""
+    state = workspace(mode)
+    state.read_storage = lambda: store.get(name)
+    state.write_storage = lambda: store.__setitem__(name, state.preferences)
+    return state
+
+
+class PreferenceRestoreTests(unittest.IsolatedAsyncioTestCase):
+    def test_last_valid_settings_return_for_each_mode_and_stay_per_browser(self):
+        import nicegui_preferences as preferences
+        store = {}
+        state = browser(store, 'first')
+        state.fields['title'].value = 'Carnet restauré'
+        state.apply_draft()
+        state.mode = 'dated'
+        populate_fields(state)
+        state.fields['months'].value = 6
+        state.apply_draft()
+
+        again = browser(store, 'first')
+        again.restore()
+        self.assertEqual(again.mode, 'dated')
+        self.assertEqual(again.config.months, 6)
+        self.assertEqual(again.configs['undated'].title, 'Carnet restauré')
+        self.assertEqual(again.error, '')
+
+        other = browser(store, 'second')
+        other.restore()
+        self.assertEqual(other.mode, 'undated')
+        self.assertEqual(other.configs['undated'].title, 'Meetings & actions')
+        self.assertEqual(other.preferences, preferences.empty())
+
+    def test_an_invalid_draft_is_never_written_to_storage(self):
+        store = {}
+        state = browser(store, 'first')
+        state.fields['title'].value = 'Valide'
+        state.apply_draft()
+        state.fields['days'].value = 0
+        with self.assertRaises(ValueError):
+            state.apply_draft()
+        self.assertEqual(store['first']['last_valid']['undated']['title'], 'Valide')
+
+    def test_corrupt_storage_reports_itself_and_keeps_the_defaults(self):
+        import nicegui_preferences as preferences
+        state = browser({'first': {'version': 99}}, 'first')
+        state.restore()
+        self.assertEqual(state.error, preferences.CORRUPT_MESSAGE)
+        self.assertEqual(state.configs['undated'], PlannerConfig(days=4, list_count=1,
+                                                                tasks_per_list=1))
+
+    def test_a_missing_storage_backend_never_blocks_the_workspace(self):
+        state = workspace()
+        state.restore()
+        self.assertTrue(state.storage_off)
+        self.assertEqual(state.error, '')
+        state.fields['title'].value = 'Sans stockage'
+        state.apply_draft()
+        self.assertEqual(state.config.title, 'Sans stockage')
+
+    async def test_saving_loading_and_deleting_a_profile(self):
+        import nicegui_preferences as preferences
+        store = {}
+        state = browser(store, 'first')
+        state.profile_name = SimpleNamespace(value='  Travail  trimestre ',
+                                             set_value=lambda value: None)
+        state.profiles_area = SimpleNamespace(refresh=lambda: None)
+        state.fields['title'].value = 'Profil de travail'
+        with patch('nicegui_app.ui.notify'):
+            await state.save_profile()
+        self.assertEqual(state.error, '')
+        profiles = store['first']['profiles']
+        self.assertEqual(len(profiles), 1)
+        self.assertEqual(profiles[0]['name'], 'Travail trimestre')
+        self.assertEqual(profiles[0]['mode'], 'undated')
+        self.assertEqual(profiles[0]['config']['title'], 'Profil de travail')
+
+        identifier = profiles[0]['id']
+        state.fields['title'].value = 'Autre chose'
+        state.apply_draft()
+        with patch('nicegui_app.ui.notify'):
+            await state.load_profile(identifier)
+        self.assertEqual(state.config.title, 'Profil de travail')
+        self.assertFalse(state.busy)
+
+        with patch.object(type(state), 'ask', new=lambda *a, **k: _answer(True)):
+            await state.delete_profile(identifier)
+        self.assertEqual(store['first']['profiles'], [])
+        self.assertIsNone(preferences.find(state.preferences, identifier))
+
+    async def test_a_profile_is_only_replaced_after_an_explicit_confirmation(self):
+        store = {}
+        state = browser(store, 'first')
+        state.profile_name = SimpleNamespace(value='Travail', set_value=lambda value: None)
+        state.profiles_area = SimpleNamespace(refresh=lambda: None)
+        with patch('nicegui_app.ui.notify'):
+            await state.save_profile()
+        first = store['first']['profiles'][0]['id']
+
+        state.fields['title'].value = 'Version deux'
+        with patch.object(type(state), 'ask', new=lambda *a, **k: _answer(None)), \
+                patch('nicegui_app.ui.notify'):
+            await state.save_profile()
+        self.assertEqual(len(store['first']['profiles']), 1)
+        self.assertNotEqual(store['first']['profiles'][0]['config']['title'], 'Version deux')
+
+        with patch.object(type(state), 'ask', new=lambda *a, **k: _answer('new')), \
+                patch('nicegui_app.ui.notify'):
+            await state.save_profile()
+        self.assertEqual(len(store['first']['profiles']), 2)
+
+        with patch.object(type(state), 'ask', new=lambda *a, **k: _answer('replace')), \
+                patch('nicegui_app.ui.notify'):
+            await state.save_profile()
+        self.assertEqual(len(store['first']['profiles']), 2)
+        replaced = next(p for p in store['first']['profiles'] if p['id'] == first)
+        self.assertEqual(replaced['config']['title'], 'Version deux')
+
+    async def test_an_invalid_profile_name_is_refused_without_touching_storage(self):
+        store = {}
+        state = browser(store, 'first')
+        state.profiles_area = SimpleNamespace(refresh=lambda: None)
+        for name in ('', '   ', 'x' * 49):
+            state.profile_name = SimpleNamespace(value=name, set_value=lambda value: None)
+            with self.subTest(name=name):
+                await state.save_profile()
+                self.assertIn('nom du profil', state.error)
+                self.assertNotIn('first', store)
+
+
+async def _answer(value):
+    return value
+
+
 class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
     def test_weekend_choice_is_applied_to_dated_generation(self):
         state = workspace('dated')

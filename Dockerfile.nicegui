@@ -13,8 +13,9 @@ RUN apt-get update \
 COPY requirements-pdf.txt requirements-nicegui.txt ./
 RUN python -m pip install --no-cache-dir -r requirements-nicegui.txt
 
-COPY nicegui_app.py nicegui_service.py nicegui_jobs.py ./
+COPY nicegui_app.py nicegui_service.py nicegui_jobs.py nicegui_preferences.py ./
 COPY planner_config.py planner_i18n.py planner_pages.py planner_pdf.py ./
+COPY planner_formats.py planner_layout.py planner_manifest.py ./
 COPY dated_planner_config.py dated_planner_pages.py dated_planner_pdf.py ./
 COPY assets/fonts/ ./assets/fonts/
 

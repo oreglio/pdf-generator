@@ -15,6 +15,7 @@ from pathlib import Path
 from nicegui import app, ui
 
 from dated_planner_config import DatedPlannerConfig, month_choices, month_label
+import nicegui_preferences as preferences
 from nicegui_jobs import cpu_job, shutdown_jobs
 from nicegui_service import generate_artifact, parse_config, render_preview
 from planner_config import PlannerConfig, TYPOGRAPHIES
@@ -61,6 +62,13 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .paper { width: min(100%, 590px); background: white; box-shadow: 0 6px 24px #25352e14; }
 .status { border-left: 3px solid #1c584c; padding: 10px 14px; background: #eff4ee; font-size: 13px; width: 100%; }
 .error { color: #a3372c; background: #fff0ed; border-color: #a3372c; }
+.profile-row { width: 100%; align-items: center; gap: 4px; flex-wrap: nowrap;
+  border-bottom: 1px solid #e6e8e1; padding-bottom: 5px; }
+.profile-name { flex: 1; min-width: 0; font-weight: 700; font-size: 13px; color: #1c584c;
+  justify-content: flex-start; padding: 2px 4px; }
+.profile-save { white-space: nowrap; flex: 0 0 auto; padding: 0 14px; height: 40px; }
+.profile-save .q-btn__content { flex-wrap: nowrap; gap: 6px; }
+.profile-mode { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #7a857f; }
 .q-uploader { width: 100%; box-shadow: none; border: 1px dashed #bac6bb; }
 .footer-note { border-top: 1px solid #dedfd9; margin-top: 30px; padding-top: 18px; width: 100%; }
 @media(max-width: 950px) { .shell { padding: 22px; } .workspace { grid-template-columns: 310px minmax(0,1fr); gap: 22px; } .preview-panel { padding: 14px; } }
@@ -75,6 +83,9 @@ class PlannerWorkspace:
         self.mode = initial_mode
         self.configs = {'dated': DatedPlannerConfig(), 'undated': PlannerConfig()}
         self.family = None
+        self.preferences = preferences.empty()
+        self.storage_off = False
+        self.profile_name = None
         self.fields = {}
         self.busy = False
         self.dirty = False
@@ -90,6 +101,45 @@ class PlannerWorkspace:
     @property
     def config(self):
         return self.configs[self.mode]
+
+    # --- browser preferences ------------------------------------------------
+    def read_storage(self):
+        try:
+            return app.storage.user.get(preferences.STORAGE_KEY)
+        except Exception:  # No request context: desktop window, tests, previews.
+            self.storage_off = True
+            logging.debug('Preferences storage unavailable', exc_info=True)
+            return None
+
+    def write_storage(self):
+        if self.storage_off:
+            return
+        try:
+            app.storage.user[preferences.STORAGE_KEY] = self.preferences
+        except Exception:
+            self.storage_off = True
+            logging.debug('Preferences storage unavailable', exc_info=True)
+
+    def restore(self):
+        """Start from the last valid settings of this browser, never from a draft."""
+        self.preferences, message = preferences.load(self.read_storage())
+        restored = False
+        for mode in ('dated', 'undated'):
+            stored = self.preferences['last_valid'][mode]
+            if stored is not None:
+                self.configs[mode] = parse_config(mode, stored)
+                restored = True
+        if restored:  # A first visit keeps the mode the workspace opened with.
+            self.mode = self.preferences['active_mode']
+        self.error = message
+
+    def persist(self):
+        try:
+            self.preferences = preferences.remember(self.preferences, self.mode,
+                                                    self.config.to_dict())
+        except ValueError:
+            return
+        self.write_storage()
 
     def mark_dirty(self, _=None):
         self.revision += 1
@@ -154,6 +204,7 @@ class PlannerWorkspace:
             self.preview_area.refresh()
         self.dirty = False
         self.error = ''
+        self.persist()
         self.metrics.refresh()
         self.format_chip.refresh()
 
@@ -325,6 +376,149 @@ class PlannerWorkspace:
         ui.label('Aéré écrit plus au large : une liste qui ne tient plus se poursuit '
                  'sur un feuillet suivant, sans perdre une seule tâche.').classes('muted')
 
+    # --- named profiles -----------------------------------------------------
+    async def ask(self, title, message, choices):
+        with ui.dialog() as dialog, ui.card().classes('gap-3').style('min-width:320px'):
+            ui.label(title).classes('text-base font-bold')
+            ui.label(message).classes('muted')
+            with ui.row().classes('justify-end w-full gap-2'):
+                for label, value, primary in choices:
+                    button = ui.button(label, on_click=lambda v=value: dialog.submit(v))
+                    if not primary:
+                        button.props('flat')
+        try:
+            return await dialog
+        finally:
+            dialog.delete()
+
+    async def save_profile(self):
+        if self.busy:
+            return
+        try:
+            name = preferences.clean_name(self.profile_name.value if self.profile_name else '')
+            config = self.read_config()
+        except (ValueError, TypeError) as error:
+            self.error = str(error)
+            self.download_area.refresh()
+            return
+        existing = next((profile for profile in self.preferences['profiles']
+                         if profile['name'].casefold() == name.casefold()), None)
+        identifier = None
+        if existing is not None:
+            answer = await self.ask(
+                f'Remplacer « {existing["name"]} » ?',
+                'Ce profil porte déjà ce nom. Vous pouvez le remplacer ou en créer un second.',
+                (('Annuler', None, False), ('Créer un second', 'new', False),
+                 ('Remplacer', 'replace', True)))
+            if answer is None:
+                return
+            identifier = existing['id'] if answer == 'replace' else None
+        try:
+            self.preferences, _ = preferences.save_profile(
+                self.preferences, name, self.mode, config.to_dict(), identifier)
+        except ValueError as error:
+            self.error = str(error)
+            self.download_area.refresh()
+            return
+        self.write_storage()
+        self.profile_name.set_value('')
+        self.error = ''
+        self.profiles_area.refresh()
+        self.download_area.refresh()
+        ui.notify(f'Profil « {name} » enregistré.', type='positive')
+
+    async def rename_profile(self, identifier):
+        profile = preferences.find(self.preferences, identifier)
+        if self.busy or profile is None:
+            return
+        with ui.dialog() as dialog, ui.card().classes('gap-3').style('min-width:320px'):
+            ui.label('Renommer ce profil').classes('text-base font-bold')
+            field = ui.input('Nom', value=profile['name']).props('outlined dense autofocus') \
+                .props(f'maxlength={preferences.NAME_LIMIT}').classes('w-full')
+            with ui.row().classes('justify-end w-full gap-2'):
+                ui.button('Annuler', on_click=lambda: dialog.submit(None)).props('flat')
+                ui.button('Renommer', on_click=lambda: dialog.submit(field.value))
+        try:
+            name = await dialog
+        finally:
+            dialog.delete()
+        if name is None:
+            return
+        try:
+            self.preferences = preferences.rename_profile(self.preferences, identifier, name)
+        except ValueError as error:
+            self.error = str(error)
+            self.download_area.refresh()
+            return
+        self.write_storage()
+        self.profiles_area.refresh()
+
+    async def delete_profile(self, identifier):
+        profile = preferences.find(self.preferences, identifier)
+        if self.busy or profile is None:
+            return
+        confirmed = await self.ask(
+            f'Supprimer « {profile["name"]} » ?',
+            'Ce profil sera retiré de ce navigateur. Vos carnets déjà téléchargés ne bougent pas.',
+            (('Annuler', False, False), ('Supprimer', True, True)))
+        if not confirmed:
+            return
+        self.preferences = preferences.delete_profile(self.preferences, identifier)
+        self.write_storage()
+        self.profiles_area.refresh()
+
+    async def load_profile(self, identifier):
+        profile = preferences.find(self.preferences, identifier)
+        if self.busy or profile is None:
+            return
+        self.busy = True
+        try:
+            config = parse_config(profile['mode'], profile['config'])
+            self.mode = profile['mode']
+            self.configs[self.mode] = config
+            self.mode_control.set_value(self.mode)
+            self.sample = self.output = None
+            self.images.clear()
+            self.kind = 0
+            self.dirty = False
+            self.error = ''
+            await self.body.refresh()
+        except (ValueError, TypeError) as error:
+            self.error = f'Profil illisible : {error}'
+            self.download_area.refresh()
+            return
+        finally:
+            self.busy = False
+            self.download_area.refresh()
+        with self.client:
+            ui.notify(f'Profil « {profile["name"]} » chargé.', type='positive')
+            await self.refresh_preview()
+
+    @ui.refreshable
+    def profiles_area(self):
+        for profile in self.preferences['profiles']:
+            with ui.row().classes('profile-row'):
+                ui.button(profile['name'],
+                          on_click=lambda identifier=profile['id']: self.load_profile(identifier)) \
+                    .props('flat dense no-caps').classes('profile-name') \
+                    .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+                ui.label(MODES[profile['mode']]).classes('profile-mode')
+                for icon, handler in (('edit', self.rename_profile), ('delete_outline', self.delete_profile)):
+                    ui.button(icon=icon,
+                              on_click=lambda identifier=profile['id'], call=handler: call(identifier)) \
+                        .props('flat dense round size=sm color=grey-8') \
+                        .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+        if not self.preferences['profiles']:
+            ui.label('Aucun profil pour l’instant. Nommez vos réglages actuels pour les '
+                     'retrouver au prochain passage.').classes('muted')
+        with ui.row().classes('w-full items-center gap-2 no-wrap pt-1'):
+            self.profile_name = ui.input(placeholder='Travail · trimestre') \
+                .props(f'outlined dense maxlength={preferences.NAME_LIMIT}').classes('grow') \
+                .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+            ui.button('Enregistrer', icon='bookmark_add', on_click=self.save_profile) \
+                .props('outline no-caps').classes('profile-save') \
+                .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+
     @ui.refreshable
     def format_chip(self):
         layout = self.base_config().layout
@@ -462,6 +656,11 @@ class PlannerWorkspace:
                         self.field('title', ui.input('Titre du carnet', value=base.title)).props('maxlength=48')
                         self.field('list_names', ui.textarea('Noms des listes', value='\n'.join(base.list_names))).props('rows=4')
                         ui.label('Un nom par ligne, 24 caractères maximum. Facultatif.').classes('muted')
+                with ui.expansion('Mes profils de réglages'):
+                    with ui.column().classes('w-full gap-3'):
+                        ui.label('Folio rouvre vos derniers réglages valides, séparément pour '
+                                 'chaque mode. Un profil garde en plus une combinaison nommée.').classes('muted')
+                        self.profiles_area()
                 with ui.expansion('Importer / sauvegarder mes réglages'):
                     with ui.column().classes('w-full gap-3'):
                         ui.upload(label='Importer un fichier JSON', on_upload=self.import_config, auto_upload=True,
@@ -486,6 +685,7 @@ class PlannerWorkspace:
 
     def render(self):
         self.client = ui.context.client
+        self.restore()
         with ui.column().classes('shell'):
             with ui.row().classes('masthead'):
                 ui.label('Folio').classes('brand')
