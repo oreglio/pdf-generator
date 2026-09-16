@@ -101,7 +101,7 @@ valeurs JSON ; `--all-variants` génère les trois polices.
   [Spécifications Viwoods](https://viwoods.com/products/viwoods-aipaper/).
 - 200 Meetings non datés : cinq Objectives, Agenda libre, Notes et deux pages
   de notes supplémentaires. **‹ Jour ›** saute directement au Meeting voisin.
-- Sur les pages Notes, **Meeting 003** revient au tableau de bord correspondant.
+- Sur les pages Notes, **‹ Meeting 003** revient au tableau de bord correspondant.
   **Notes 2 ›** et **‹ Notes 1** naviguent entre les notes ; **Jour suivant ›**
   ouvre le prochain Meeting. Sur la dernière journée, **Index ›** ramène à son index.
 - 10 listes de 40 tâches avec deux pages de contexte chacune.
