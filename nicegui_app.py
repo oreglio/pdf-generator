@@ -101,6 +101,7 @@ class PlannerWorkspace:
         self.output = None
         self.images = {}
         self.kind = 0
+        self.kind_control = None
         self.error = ''
         self.activity = ''
         self.revision = 0
@@ -295,6 +296,7 @@ class PlannerWorkspace:
 
     async def preview_image(self):
         if self.sample is None:
+            self.preview_area.refresh()
             return
         if self.kind not in self.images:
             try:
@@ -307,6 +309,10 @@ class PlannerWorkspace:
 
     async def change_kind(self, event):
         if self.busy:
+            # The enabled binding travels asynchronously: put the tab back so
+            # the panel never shows one page under another page's name.
+            if self.kind_control is not None:
+                self.kind_control.set_value(self.kind)
             return
         self.kind = event.value
         self.busy = True
@@ -642,8 +648,8 @@ class PlannerWorkspace:
 
     @ui.refreshable
     def preview_tabs_area(self):
-        ui.toggle(dict(enumerate(self.preview_tabs())), value=self.kind,
-                  on_change=self.change_kind) \
+        self.kind_control = ui.toggle(dict(enumerate(self.preview_tabs())), value=self.kind,
+                                      on_change=self.change_kind) \
             .props('unelevated toggle-color=primary color=transparent text-color=grey-8') \
             .classes('preview-tabs') \
             .bind_enabled_from(self, 'busy', backward=lambda value: not value)

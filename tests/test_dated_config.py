@@ -1,5 +1,6 @@
 import json
 import unittest
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 
 from dated_planner_config import DatedPlannerConfig
@@ -150,6 +151,23 @@ class DatedConfigTests(unittest.TestCase):
         self.assertTrue(all(day.weekday() < 5 for day in config.dates))
         self.assertEqual(len(config.calendar_months), 13)
         self.assertEqual(len(config.weeks), 53)
+
+    def test_a_week_without_a_generable_day_is_not_part_of_the_notebook(self):
+        config = DatedPlannerConfig(start_date="2026-09-19", months=1, include_weekends=False)
+        self.assertEqual(config.dates[0], date(2026, 9, 21))
+        self.assertEqual(config.weeks[0], date(2026, 9, 21))
+        for monday in config.weeks:
+            with self.subTest(week=monday):
+                self.assertTrue(any(config.includes_day(monday + timedelta(days=offset))
+                                    for offset in range(7)),
+                                "une semaine sans journée générable ne doit pas exister")
+        full = DatedPlannerConfig(start_date="2026-09-19", months=1)
+        self.assertEqual(full.weeks[0], date(2026, 9, 14))
+        self.assertEqual(len(full.weeks) - len(config.weeks), 1)
+        # The published profile keeps every one of its weeks either way.
+        reference = DatedPlannerConfig(start_date="2026-09-16")
+        self.assertEqual(reference.weeks,
+                         replace(reference, include_weekends=False).weeks)
 
     def test_navigation_variant_follows_the_period_length(self):
         for months, expected in ((1, False), (3, False), (4, True), (6, True), (12, True)):

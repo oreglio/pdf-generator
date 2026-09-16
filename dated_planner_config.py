@@ -109,9 +109,14 @@ class DatedPlannerConfig:
 
     @property
     def weeks(self):
+        """Only weeks holding at least one generable day: a Saturday start with
+        weekends excluded must not open a week whose seven days are all off."""
         first = self.start - timedelta(days=self.start.weekday())
-        return tuple(first + timedelta(days=offset)
-                     for offset in range(0, (self.end_date - first).days + 1, 7))
+        candidates = (first + timedelta(days=offset)
+                      for offset in range(0, (self.end_date - first).days + 1, 7))
+        return tuple(monday for monday in candidates
+                     if any(self.includes_day(monday + timedelta(days=day))
+                            for day in range(7)))
 
     @property
     def calendar_months(self):

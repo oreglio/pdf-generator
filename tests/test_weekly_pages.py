@@ -128,6 +128,25 @@ class WeeklyOptionTests(unittest.TestCase):
                 self.assertTrue(0 <= x0 < x1 <= width + 0.01)
                 self.assertTrue(0 <= y0 < y1 <= height + 0.01)
 
+    def test_an_empty_week_never_receives_pages_or_tabs(self):
+        config = DatedPlannerConfig(base=BASE, start_date='2026-09-19', months=1,
+                                    include_weekends=False, week_pages=3,
+                                    weekly_overview=True, weekly_review=True)
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+        reader = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(config))}
+        self.assertNotIn('week-2026-09-14-1', keys)
+        self.assertNotIn('week-overview-2026-09-14', keys)
+        self.assertNotIn('week-review-2026-09-14', keys)
+        for page in reader.pages:
+            self.assertFalse(any('2026-09-14' in title
+                                 for title in destinations(reader, page)))
+        ids = {page.indirect_reference.idnum for page in reader.pages}
+        for page in reader.pages:
+            for ref in page.get('/Annots', []):
+                self.assertIn(ref.get_object()['/Dest'][0].idnum, ids)
+
     def test_invalid_option_values_are_refused(self):
         for changes in ({'weekly_overview': 1}, {'weekly_review': None},
                         {'weekly_overview': 'true'}):

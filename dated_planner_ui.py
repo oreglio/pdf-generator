@@ -139,6 +139,8 @@ def render_dated_planner_ui():
             applied = st.form_submit_button('Appliquer et actualiser l’aperçu', use_container_width=True)
         if applied:
             try:
+                if start is None or (exact_dates and end_date is None):
+                    raise ValueError('Renseignez les dates de début et de fin de la période.')
                 base = PlannerConfig(list_count=lists, tasks_per_list=tasks, detail_pages=details,
                                      notes_pages=notes, typography=typography, title=title,
                                      list_names=tuple(names.splitlines()), language=language,
