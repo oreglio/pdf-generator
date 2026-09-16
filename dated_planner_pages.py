@@ -110,12 +110,12 @@ class DatedPlannerPages(PlannerPages):
             label = f"{self.month_name(month).capitalize()} {month.year}"
             self.pill(LEFT + index * (width + 7), H - 154, width, 27,
                       label, self.month_key(month), title=self.month_key(month), size=8)
-        self.text(LEFT, H - 188, self.label("Mes semaines", "My weeks"), 13, bold=True)
+        self.text(LEFT, H - 198, self.label("Mes semaines", "My weeks"), 13, bold=True)
         columns = min(7, len(self.schedule.weeks))
         width = (WIDTH - 6 * (columns - 1)) / columns
         for index, monday in enumerate(self.schedule.weeks):
             row, col = divmod(index, columns)
-            x, y = LEFT + col * (width + 6), H - 221 - row * 31
+            x, y = LEFT + col * (width + 6), H - 231 - row * 31
             sunday = monday + timedelta(days=6)
             date_range = (f"{monday.day:02d}–{sunday:%d/%m}" if monday.month == sunday.month
                           else f"{monday:%d/%m}–{sunday:%d/%m}")
@@ -125,13 +125,14 @@ class DatedPlannerPages(PlannerPages):
                       bold=True, align="center")
             self.text(x + width / 2, y + 4, date_range, 6, gray=MUTED,
                       align="center", max_width=width - 6)
-        self.text(LEFT, H - 287, "Backlog", 15, bold=True)
+        self.text(LEFT, H - 307, "Backlog", 15, bold=True)
         cell = (WIDTH - 12) / 2
         for number in range(1, self.config.list_count + 1):
             row, col = divmod(number - 1, 2)
-            x, y = LEFT + col * (cell + 12), H - 320 - row * 42
+            x, y = LEFT + col * (cell + 12), H - 340 - row * 46
             self.text(x, y, f"{number:02d}", 13, bold=True)
-            self.text(x + 28, y + 1, self.config.list_name(number), 9, max_width=cell - 44)
+            if number <= len(self.config.list_names) and self.config.list_names[number - 1].strip():
+                self.text(x + 28, y + 1, self.config.list_names[number - 1], 9, max_width=cell - 44)
             self.text(x + cell - 2, y, ">", 11, align="right")
             self.line(x, y - 9, x + cell, y - 9)
             self.link(self.tr("Liste {number:02d}", number=number), f"list-{number}",
@@ -207,14 +208,14 @@ class DatedPlannerPages(PlannerPages):
             col, row = divmod(index, rows)
             x, y = LEFT + col * (col_width + 20), H - 165 - row * 20
             if row == 0:
-                self.text(x, y + 16, "BACKLOG", 5.5, gray=MUTED)
-                self.text(x + 40, y + 16, self.label("JOUR", "DAY"), 5.5, gray=MUTED)
-                self.text(x + 68, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
+                self.text(x + 15, y + 16, "BKLOG", 5.5, gray=MUTED, align="center")
+                self.text(x + 55, y + 16, self.label("JOUR", "DAY"), 5.5, gray=MUTED, align="center")
+                self.text(x + 81, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
             self.line(x, y, x + 30, y)
             self.line(x + 35, y + 1, x + 35, y + 8)
-            self.line(x + 40, y, x + 57, y)
-            self.text(x + 62, y + 2, "·", 8, gray=MUTED, align="center")
-            self.line(x + 68, y, x + col_width, y)
+            self.line(x + 40, y, x + 70, y)
+            self.text(x + 75, y + 2, "·", 10, bold=True, gray=MUTED, align="center")
+            self.line(x + 81, y, x + col_width, y)
         self.footer(previous=self.week_target(monday, part - 1) if part > 1 else None,
                     previous_label=f"Page {part - 1}" if part > 1 else None,
                     next_page=(f"Page {part + 1}", self.week_target(monday, part + 1))
