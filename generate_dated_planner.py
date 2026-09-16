@@ -20,6 +20,8 @@ def main():
     parser.add_argument('--months', type=int, choices=[1, 2, 3], help='Durée en mois calendaires')
     parser.add_argument('--week-pages', type=int, choices=[1, 2, 3], help='Listes de tâches par semaine')
     parser.add_argument('--weekly-tasks', type=int, help='Actions par liste hebdomadaire, de 1 à 40')
+    parser.add_argument('--include-weekends', action=argparse.BooleanOptionalAction, default=None,
+                        help='Inclure les Meeting/Notes du week-end (par défaut oui ; --no-include-weekends pour les exclure)')
     parser.add_argument('--language', choices=LANGUAGES, help='Langue du PDF (fr par défaut)')
     parser.add_argument('--font', choices=TYPOGRAPHIES)
     parser.add_argument('--output-dir', type=Path,
@@ -27,7 +29,7 @@ def main():
     args = parser.parse_args()
     try:
         config = DatedPlannerConfig.from_dict(json.loads(args.config.read_text())) if args.config else DatedPlannerConfig()
-        overrides = {name: getattr(args, name) for name in ('start_date', 'months', 'week_pages', 'weekly_tasks')
+        overrides = {name: getattr(args, name) for name in ('start_date', 'months', 'week_pages', 'weekly_tasks', 'include_weekends')
                      if getattr(args, name) is not None}
         base_overrides = {}
         if args.language is not None:

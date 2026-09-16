@@ -7,6 +7,28 @@ from planner_config import PlannerConfig
 
 
 class DatedConfigTests(unittest.TestCase):
+    def test_weekdays_keep_calendar_and_weeks_but_remove_only_daily_pages(self):
+        from dataclasses import replace
+        original = DatedPlannerConfig(start_date="2026-09-16")
+        config = replace(original, include_weekends=False)
+        self.assertEqual(len(config.dates), 65)
+        self.assertEqual(config.calendar_months, original.calendar_months)
+        self.assertEqual(config.weeks, original.weeks)
+        self.assertEqual(original.total_pages - config.total_pages, 26 * 3)
+        self.assertEqual(config.day_number(date(2026, 9, 21)), 4)
+        self.assertEqual(config.week_for_day(4), date(2026, 9, 21))
+        with self.assertRaises(ValueError):
+            config.day_number(date(2026, 9, 19))
+        self.assertEqual(DatedPlannerConfig.from_dict(config.to_dict()), config)
+        self.assertTrue(DatedPlannerConfig.from_dict({}).include_weekends)
+        for value in (0, 1, "false", None):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                replace(config, include_weekends=value)
+        weekend_start = replace(config, start_date="2026-09-19", months=1)
+        self.assertEqual(weekend_start.dates[0], date(2026, 9, 21))
+        self.assertEqual(weekend_start.dates[-1], date(2026, 10, 16))
+        self.assertNotEqual(config.pdf_filename, original.pdf_filename)
+
     def test_calendar_month_interval_includes_start_and_excludes_anniversary(self):
         config = DatedPlannerConfig(start_date="2026-09-16", months=3)
         self.assertEqual(config.start, date(2026, 9, 16))

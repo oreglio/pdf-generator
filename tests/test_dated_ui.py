@@ -37,7 +37,9 @@ class DatedPlannerUITests(unittest.TestCase):
         app.selectbox(key='dated_field_language').set_value('en')
         app.number_input(key='dated_field_lists').set_value(1)
         app.number_input(key='dated_field_tasks').set_value(2)
+        app.checkbox(key='dated_field_include_weekends').uncheck()
         self.apply(app)
+        self.assertFalse(app.session_state['dated_config']['include_weekends'])
         self.assertEqual(app.session_state['dated_config']['start_date'], '2026-09-16')
         self.assertEqual(app.session_state['dated_config']['months'], 1)
         self.assertEqual(app.session_state['dated_config']['base']['language'], 'en')
@@ -87,13 +89,14 @@ class DatedPlannerCLITests(unittest.TestCase):
             output = root / 'pdf'
             command = [sys.executable, str(ENTRYPOINT.parent / 'generate_dated_planner.py'),
                        '--config', str(config), '--months', '1', '--language', 'en',
-                       '--week-pages', '2', '--weekly-tasks', '12', '--output-dir', str(output)]
+                       '--week-pages', '2', '--weekly-tasks', '12', '--no-include-weekends', '--output-dir', str(output)]
             run = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)
             result = json.loads(run.stdout)
             self.assertEqual(result['config']['months'], 1)
             self.assertEqual(result['config']['week_pages'], 2)
             self.assertEqual(result['config']['weekly_tasks'], 12)
+            self.assertFalse(result['config']['include_weekends'])
             self.assertEqual(result['config']['base']['language'], 'en')
             pdf = Path(result['file'])
             self.assertEqual(pdf.parent, output)

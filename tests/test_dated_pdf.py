@@ -6,6 +6,25 @@ from pypdf import PdfReader
 
 
 class DatedPDFTests(unittest.TestCase):
+    def test_weekend_calendar_cells_remain_without_links_and_navigation_skips_them(self):
+        config, reader = self.book(include_weekends=False)
+        home = self.destinations(reader, reader.pages[0])
+        january = reader.pages[home["calendar-2027-01"]]
+        links = self.destinations(reader, january)
+        self.assertNotIn("2027-01-02", links)
+        self.assertNotIn("2027-01-03", links)
+        self.assertIn("2", january.extract_text().split())
+        self.assertIn("3", january.extract_text().split())
+        friday, monday = links["2027-01-01"], links["2027-01-04"]
+        self.assertEqual(self.destinations(reader, reader.pages[friday])["Next day"], monday)
+        self.assertEqual(self.destinations(reader, reader.pages[monday])["Previous day"], friday)
+        self.assertEqual(self.destinations(reader, reader.pages[friday + 2])["Next"], monday)
+        weekly = self.destinations(reader, reader.pages[home["week-2026-12-28"]])
+        self.assertNotIn("2027-01-02", weekly)
+        self.assertEqual(weekly["2027-01-01"], friday)
+        for page in reader.pages:
+            self.destinations(reader, page)  # Every internal link must resolve.
+
     def book(self, **kwargs):
         from dated_planner_config import DatedPlannerConfig
         from dated_planner_pdf import generate_dated_pdf

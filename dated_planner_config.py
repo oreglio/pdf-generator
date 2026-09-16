@@ -14,8 +14,11 @@ class DatedPlannerConfig:
     months: int = 3
     week_pages: int = 1
     weekly_tasks: int = 40
+    include_weekends: bool = True
 
     def __post_init__(self):
+        if type(self.include_weekends) is not bool:
+            raise ValueError("include_weekends doit être un booléen.")
         if not isinstance(self.base, PlannerConfig):
             raise ValueError("La configuration du backlog doit être un PlannerConfig.")
         for name, low, high in (
@@ -48,8 +51,13 @@ class DatedPlannerConfig:
 
     @property
     def dates(self):
-        return tuple(self.start + timedelta(days=offset)
-                     for offset in range((self.end_date - self.start).days + 1))
+        candidates = (self.start + timedelta(days=offset)
+                      for offset in range((self.end_date - self.start).days + 1))
+        return tuple(value for value in candidates if self.includes_day(value))
+
+    def includes_day(self, value):
+        return (type(value) is date and self.start <= value <= self.end_date
+                and (self.include_weekends or value.weekday() < 5))
 
     @property
     def weeks(self):
@@ -76,18 +84,19 @@ class DatedPlannerConfig:
 
     @property
     def pdf_filename(self):
+        suffix = "" if self.include_weekends else "-weekdays"
         return (f"dated-aipaper-{self.base.typography}-{self.base.language}-"
-                f"{self.start_date}-{self.end_date.isoformat()}.pdf")
+                f"{self.start_date}-{self.end_date.isoformat()}{suffix}.pdf")
 
     def day_number(self, value):
-        if type(value) is not date or not self.start <= value <= self.end_date:
+        if not self.includes_day(value):
             raise ValueError("La journée doit appartenir à la période du carnet.")
-        return (value - self.start).days + 1
+        return self.dates.index(value) + 1
 
     def week_for_day(self, number):
         if type(number) is not int or not 1 <= number <= len(self.dates):
             raise ValueError("Le numéro de journée doit appartenir au carnet.")
-        value = self.start + timedelta(days=number - 1)
+        value = self.dates[number - 1]
         return value - timedelta(days=value.weekday())
 
     def week_key(self, monday):

@@ -169,7 +169,7 @@ class DatedPlannerPages(PlannerPages):
             for col, value in enumerate(days):
                 x = LEFT + week_width + col * cell
                 in_month = value.month == month.month
-                enabled = in_month and self.schedule.start <= value <= self.schedule.end_date
+                enabled = in_month and self.schedule.includes_day(value)
                 self.c.setFillGray(1 if col < 5 else 0.965)
                 self.c.setStrokeGray(0.80 if enabled else 0.92)
                 self.c.setLineWidth(0.45)
@@ -204,7 +204,7 @@ class DatedPlannerPages(PlannerPages):
             value = monday + timedelta(days=col)
             label = f"{WEEKDAYS[self.config.language][col]} {value.day:02d}"
             x = LEFT + col * (cell + 5)
-            if self.schedule.start <= value <= self.schedule.end_date:
+            if self.schedule.includes_day(value):
                 self.pill(x, H - 130, cell, 25, label, self.day_key(value), title=value.isoformat(), size=7)
             else:
                 self.text(x + cell / 2, H - 121, label, 7, gray=0.7, align="center")

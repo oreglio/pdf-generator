@@ -54,7 +54,9 @@ def render_dated_planner_ui():
             with c2:
                 months = st.selectbox('Durée', [1, 2, 3], index=config.months - 1,
                                       format_func=lambda n: f'{n} mois', key='dated_field_months')
-            st.caption('Tous les jours sont inclus, week-ends compris. Les semaines commencent le lundi.')
+            include_weekends = st.checkbox('Inclure les week-ends', value=config.include_weekends,
+                                           key='dated_field_include_weekends')
+            st.caption('Sans week-ends : moins de pages Meeting et Notes. Le calendrier reste complet.')
             st.markdown('**Vos actions de la semaine**')
             c1, c2 = st.columns(2)
             with c1:
@@ -95,7 +97,8 @@ def render_dated_planner_ui():
                                      notes_pages=notes, typography=typography, title=title,
                                      list_names=tuple(names.splitlines()), language=language)
                 config = DatedPlannerConfig(base=base, start_date=start.isoformat(), months=months,
-                                            week_pages=week_pages, weekly_tasks=weekly_tasks)
+                                            week_pages=week_pages, weekly_tasks=weekly_tasks,
+                                            include_weekends=include_weekends)
             except ValueError as error:
                 config = DatedPlannerConfig.from_dict(st.session_state.dated_config)
                 st.error(str(error))
