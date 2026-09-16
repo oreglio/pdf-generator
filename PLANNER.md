@@ -95,6 +95,80 @@ Les paramètres absents prennent leur valeur par défaut. Les limites et les
 valeurs sont validées avant génération. `--days`, `--font` et `--language` remplacent leurs
 valeurs JSON ; `--all-variants` génère les trois polices.
 
+## Support, confort et pages facultatives
+
+Ces réglages valent pour les deux modes. Ils sont tous facultatifs : sans eux,
+le carnet est exactement celui décrit plus bas.
+
+### Format de la tablette
+
+| Famille | Modèles | Surface utile |
+| --- | --- | --- |
+| Viwoods | AiPaper 10,65″, AiPaper Mini 8,2″ | 163 × 217 mm, 125 × 167 mm |
+| BOOX | Go 10.3, Note Air4 C, Note Max 13,3″ | 157 × 210 mm, 157 × 210 mm, 203 × 271 mm |
+| iPad | Pro 11″ (M4/M5), Pro 13″ (M4/M5) | 160 × 233 mm, 199 × 265 mm |
+| Personnalisé | Largeur et hauteur en mm | 100 à 400 mm de large, 150 à 400 mm de haut |
+
+Les dimensions viennent des fiches officielles
+([Viwoods](https://viwoods.com/pages/compare-aipapermini),
+[BOOX](https://shop.boox.com/products/notemax),
+[Apple](https://support.apple.com/en-us/119891)) et sont converties en points
+PDF avec la densité du panneau. Ce sont des **proportions et des surfaces
+utiles**, pas un export raster : le PDF garde son texte et ses tracés
+vectoriels. Les barres d’outils des lecteurs réduisent la surface visible :
+tester en affichage pleine page. Le format personnalisé est portrait
+uniquement ; la hauteur minimale de 150 mm est celle qui permet encore de
+dessiner les blocs d’un Meeting au-dessus de la zone d’écriture.
+
+Marges, barre latérale et pied de page gardent leur taille physique sur tous
+les appareils ; seule la colonne d’écriture suit la page. Aucune déformation
+anisotrope n’est appliquée.
+
+```bash
+venv/bin/python generate_planner.py --device boox-note-max
+venv/bin/python generate_planner.py --device custom --custom-width-mm 150 --custom-height-mm 210
+```
+
+### Confort d’écriture et répartition sur plusieurs feuillets
+
+`--density standard` (défaut) ou `--density comfortable`. Le mode aéré écarte
+les lignes. Quand une liste ne tient plus, elle est **répartie sur plusieurs
+feuillets équilibrés** plutôt que tronquée :
+
+| Profil | Tâches par feuillet | 40 tâches |
+| --- | --- | --- |
+| AiPaper standard | 40 | 1 feuillet |
+| AiPaper aéré | 32 | 2 feuillets de 20 |
+| AiPaper Mini standard | 26 | 2 feuillets de 20 |
+| Note Max standard | 52 | 1 feuillet |
+
+Aucune ligne n’est perdue ni dupliquée et les numéros restent continus.
+La première feuille garde la destination historique `list-1` ; les suivantes
+deviennent `list-1-page-2`. Les onglets de liste ouvrent toujours la première
+feuille ; les notes d’une tâche reviennent à la feuille portant sa ligne.
+
+### Fonds d’écriture
+
+`--meeting-note-style` et `--task-note-style` acceptent `lined`, `dots`, `grid`
+et `blank`. Les défauts — `lined` pour les pages Notes, `dots` pour les pages de
+contexte — reproduisent exactement le rendu historique. Le fond ne couvre que la
+zone d’écriture : jamais un titre, un lien ni la barre latérale.
+
+### Composition des Meetings
+
+`--meeting-layout classic` (défaut) garde Objectives / Agenda / Notes.
+`--meeting-layout notes_actions` donne des notes dominantes puis
+**Décisions / Actions**, avec exactement les mêmes destinations.
+
+### Fiches projet
+
+`--project-count` (0 à 12, zéro par défaut) et `--project-notes-pages` (0 à 4).
+À zéro, aucune page ni aucun lien de projet n’est produit. Sinon, un index
+**Projets** puis une fiche par projet : objectif, cinq prochaines actions avec
+une place fixe pour une référence backlog manuscrite, décisions et notes, puis
+ses pages de notes. Ancres `projects`, `project-N` et `project-N-notes-P`.
+Une fiche ne recopie pas les notes détaillées du backlog.
+
 ## Contenu et navigation
 
 - Format AiPaper : **1 920 × 2 560 px à 300 ppp**, soit 162,56 × 216,75 mm.
@@ -129,8 +203,9 @@ Dans la barre latérale, choisir **Viwoods daté**. Le mode **Viwoods AiPaper**
 reste le carnet non daté habituel, sélectionné par défaut. Les réglages,
 téléchargements et aperçus des deux modes sont indépendants.
 
-Choisir une **date de début**, une durée de **1, 2 ou 3 mois**, puis une à trois
-pages d’actions par semaine (jusqu’à 40 actions par page). Cliquer sur
+Choisir une **date de début**, une durée de **1, 2, 3, 6 ou 12 mois** — ou une
+date de fin exacte — puis une à trois pages d’actions par semaine (jusqu’à 40
+actions par page). Cliquer sur
 **Appliquer et actualiser l’aperçu**, puis **Générer mon carnet daté**.
 Les jours incluent les week-ends. La période va du début inclus à la veille de
 la même date N mois plus tard : du 16 septembre au 15 décembre pour trois mois.
@@ -158,6 +233,40 @@ La période exacte est affichée avant génération.
   autre semaine. Les notes détaillées restent dans le backlog. La génération
   produit un carnet vierge et ne récupère pas les annotations d’un ancien PDF.
 
+### Périodes longues et dates exactes
+
+`--months` accepte les entiers de 1 à 12 ; les interfaces proposent les cinq
+durées rapides 1, 2, 3, 6 et 12. Une période de douze mois commençant au milieu
+d’un mois traverse **treize mois calendaires affichés**.
+
+Au-delà de trois mois, la navigation change : la barre latérale indexe les
+**mois** au lieu de toutes les semaines, l’accueil affiche une grille de mois
+plutôt que l’index complet des semaines, les pages hebdomadaires gagnent un pas
+**‹ W37  W39 ›** et les pages Notes une pastille vers les tâches de leur
+semaine. L’année apparaît sous chaque onglet de mois dès que la période
+traverse deux années. Les carnets d’un à trois mois conservent exactement la
+navigation d’origine.
+
+`--end-date AAAA-MM-JJ` fixe une fin **inclusive** et remplace alors le calcul
+par mois. La période est limitée à 366 jours. Sont refusées, avec un message
+permettant de corriger : une fin antérieure au début, une date illisible et une
+période ne contenant aucune journée générable — par exemple un week-end seul
+avec les week-ends exclus. Le choix de la navigation longue suit la période
+effective, pas le seul nombre de mois.
+
+### Pages hebdomadaires et mensuelles facultatives
+
+| Option | Effet | Ancre |
+| --- | --- | --- |
+| `--monthly-priorities` | Une page Priorités après chaque calendrier | `month-plan-AAAA-MM` |
+| `--weekly-overview` | Une vue « sept jours » avant les tâches de la semaine | `week-overview-AAAA-MM-JJ` |
+| `--weekly-review` | Un bilan Terminé / À reporter / À retenir après les tâches | `week-review-AAAA-MM-JJ` |
+
+Les ancres hebdomadaires portent la date du lundi ISO. Sur la vue « sept
+jours », les jours hors période et les week-ends exclus restent visibles mais
+n’ouvrent aucun Meeting inexistant. Une page Priorités d’un mois partiel affiche
+la période réellement couverte, par exemple **16.09 — 30.09.2026**.
+
 Commandes indépendantes du générateur non daté :
 
 ```bash
@@ -165,6 +274,14 @@ venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 1
 venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3 --language en
 venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3 --week-pages 2 --weekly-tasks 40
 venv/bin/python generate_dated_planner.py --config chemin/reglages-dates.json
+
+# Une année sur un grand écran, avec les priorités mensuelles
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 12 \
+    --device boox-note-max --monthly-priorities
+
+# Dates exactes, fin incluse, avec la vue hebdomadaire et son bilan
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --end-date 2026-12-31 \
+    --weekly-overview --weekly-review --meeting-layout notes_actions
 ```
 
 Sans `--start-date`, la date du jour est utilisée. Les PDF et rapports sont dans
@@ -204,7 +321,12 @@ venv/bin/python -m unittest discover -s tests -v
 
 `planner_config.py` contient les valeurs par défaut, `planner_pages.py` les
 mises en page, `planner_pdf.py` l’assemblage, `generate_planner.py` la commande
-et `planner_ui.py` l’interface. Les PDF sont vectoriels ; les grilles de points
+et `planner_ui.py` l’interface.
+`planner_formats.py` publie le catalogue d’appareils, `planner_layout.py` la
+géométrie d’une instance de pages, `planner_manifest.py` la liste ordonnée des
+pages d’un carnet — source unique du nombre de pages et des destinations —,
+`planner_note_styles.py` les fonds d’écriture et `planner_project_pages.py` les
+fiches projet. Les PDF sont vectoriels ; les grilles de points
 réutilisent un seul Form XObject par police.
 `planner_i18n.py` regroupe les traductions des textes du PDF.
 La variante datée possède ses propres modules `dated_planner_config.py`,
@@ -220,7 +342,9 @@ guide. Aucune commande ci-dessus ne déploie le projet.
 Git exclut `venv/`, `output/`, `tmp/`, `archives/` et les configurations personnelles.
 Les anciennes versions restent dans les archives locales, sans être publiées.
 Les deux carnets de démonstration français et anglais sont versionnés dans
-`examples/` et téléchargeables depuis le README. Pour les actualiser après une
+`examples/` et téléchargeables depuis le README. Les exemples des évolutions —
+année complète, petit écran, toutes les options, grand écran aéré — sont dans
+`examples/evolution/`, séparés des fichiers historiques. Pour les actualiser après une
 modification des modèles, régénérer les deux langues, puis copier les PDF :
 
 ```bash
@@ -229,3 +353,31 @@ venv/bin/python generate_planner.py --language en
 cp output/pdf/aipaper-manrope-200j.pdf examples/
 cp output/pdf/aipaper-manrope-en-200d.pdf examples/
 ```
+
+## Repères de performance
+
+Mesures sur un Mac Apple Silicon, carnet daté annuel du 16 septembre 2026 au
+15 septembre 2027, backlog complet de 10 × 40 tâches :
+
+| Carnet | Pages | Durée | Taille | Pic mémoire |
+| --- | --- | --- | --- | --- |
+| Annuel, réglages standard | 1 972 | 10,8 s | 17,8 Mo | 213 Mo |
+| Annuel, toutes les options | 2 161 | 12,1 s | 19,8 Mo | 282 Mo |
+
+Ces chiffres décrivent la génération, pas la fluidité de lecture : un carnet de
+deux mille pages ne s’ouvre pas à la même vitesse dans tous les lecteurs PDF.
+Sur un serveur partagé, prévoir cette durée et cette mémoire par génération.
+
+## Ce qui est vérifié, et ce qui ne l’est pas
+
+- **Vérifié automatiquement :** régénération des quatre carnets de référence,
+  identique octet pour octet ; audit pypdf de 37 profils livrés — nombre de
+  pages, clés uniques, destinations résolues, rectangles cliquables contenus
+  dans leur page et taille de page conforme à l’appareil.
+- **Vérifié visuellement :** rendus Poppler de l’accueil, d’un mois à six
+  rangées, des semaines, des Meetings, des pages Notes, du backlog, des
+  contextes et de toutes les pages facultatives, sur quatre formats
+  représentatifs.
+- **Non testé :** l’écriture au stylet et la précision tactile sur les
+  tablettes autres que le Viwoods AiPaper. Ces profils sont **« format vérifié,
+  usage sur appareil non testé »**.

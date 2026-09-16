@@ -6,6 +6,9 @@ ses propres dépendances et fichiers Docker ; l'interface Streamlit existante
 reste disponible avec ses commandes habituelles.
 
 Dans l'interface, choisir **Carnet daté** ou **Carnet libre**.
+La colonne de réglages suit cinq sections : **01 / Support & format**,
+**02 / Votre rythme**, **03 / Backlog & contexte**, **04 / Style & langue** et
+**05 / Projets**, puis les titres, les profils et l'import/export.
 Pour les carnets Viwoods, modifier les réglages, actualiser l'aperçu puis générer
 et télécharger le carnet complet. Les réglages s'exportent en JSON pour être
 réimportés plus tard. L'aperçu image vérifie la mise en page ; les liens internes
@@ -20,11 +23,35 @@ toutes les listes et leurs pages de contexte.
 | Essai du carnet libre | Trois journées, avec toutes les listes et leurs pages de contexte | Contrôle du nombre de pages et des réglages conservés |
 | JSON Viwoods | Import, export, validation et conservation du dernier document en cas d'import invalide | Parcours navigateur vérifiés, dont un carnet anglais Atkinson de huit pages |
 | Bureau | Même interface dans une fenêtre pywebview | Ouverture macOS et apparition du dialogue d'enregistrement vérifiées ; confirmation du dialogue et écriture finale non validées |
+| Support & format | Famille → Modèle, confort d'écriture, format personnalisé en millimètres | Deux clients simultanés dessinant deux appareils différents, et 37 profils audités avec pypdf |
+| Réglages conservés | Derniers réglages valides par mode et profils nommés, dans le navigateur | Restauration après rechargement de page et après redémarrage Docker avec le volume existant |
 
 Les aperçus Viwoods contiennent des pages d'exemple sans navigation active. Les
 PDF complets conservent leurs liens internes. Les styles de l'interface et les
 polices sont servis localement ; le contrôle navigateur n'a relevé aucune
 ressource externe.
+
+## Réglages conservés et profils
+
+Folio enregistre dans le navigateur, sous une seule clé versionnée
+`folio_preferences` de `app.storage.user` :
+
+- les **derniers réglages valides** de chaque mode, écrits après une
+  application réussie, un import valide ou une génération — jamais pendant la
+  saisie, jamais un brouillon invalide ;
+- jusqu'à **vingt profils nommés**, identifiés par UUID et non par un chemin
+  dérivé de leur nom, avec Enregistrer, Charger, Renommer et Supprimer.
+
+Une confirmation n'est demandée que pour **remplacer** un profil portant déjà ce
+nom ou pour en **supprimer** un. Les noms sont limités à 48 caractères.
+
+Ce stockage identifie un navigateur, pas un compte authentifié : deux visiteurs
+ne partagent aucun dictionnaire. Des données corrompues ou d'une autre version
+sont ignorées, Folio repart de ses valeurs par défaut avec un message, et
+l'import JSON reste disponible. **Aucun PDF généré n'est conservé côté serveur.**
+
+L'export JSON reste le moyen portable de sauvegarde : il traverse les
+navigateurs et les machines, contrairement à ce stockage local.
 
 ## Installation locale
 
@@ -189,7 +216,9 @@ Le JSON exporté permet de retrouver les réglages et de régénérer le carnet.
 Vérifications effectuées sur macOS et dans Docker Linux ARM64 : construction de
 l'image Python 3.12, démarrage HTTP, état de santé du conteneur, génération et
 conversion PNG pour les deux modes, exécution sans privilèges, clé de session
-avec permissions `0600` et écriture dans le volume Compose. L'interface
+avec permissions `0600` et écriture dans le volume Compose. Les réglages d'une
+session ont également survécu à un `docker restart` avec le volume existant,
+sans modifier les paramètres d'hébergement. L'interface
 a également été contrôlée dans le navigateur à une largeur mobile de 390 px.
 Les plateformes natives Windows/Linux et le déploiement sur un VPS réel n'ont
 pas été testés. La confirmation manuelle du dialogue système reste à vérifier
@@ -205,7 +234,16 @@ sur chaque plateforme ; son résultat est simulé dans les tests automatisés.
   fonctionnent sans l'application ni connexion réseau, selon le lecteur PDF.
 - **Accès :** l’application ne propose pas de comptes utilisateurs. Pour un
   usage privé, activer l’authentification de cette application dans Coolify.
-- **Charge :** un carnet complet peut dépasser mille pages. Tester les volumes
+- **Réglages conservés :** ils appartiennent à un navigateur et à sa clé de
+  session. Vider les données du site, changer de machine ou perdre
+  `NICEGUI_STORAGE_SECRET` les rend illisibles. Exporter le JSON pour un
+  archivage durable.
+- **Formats :** les surfaces des tablettes viennent des fiches officielles et
+  les rendus sont audités, mais l'écriture au stylet n'a été essayée que sur le
+  Viwoods AiPaper. Les autres profils sont « format vérifié, usage sur appareil
+  non testé ».
+- **Charge :** un carnet complet peut dépasser mille pages. Un carnet annuel de
+  1 972 pages demande environ 11 secondes et 213 Mo de mémoire par génération. Tester les volumes
   et délais sur le VPS cible ; ce prototype ne constitue pas une validation de
   capacité ni une file de travaux distribuée.
 

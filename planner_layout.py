@@ -7,7 +7,7 @@ page, so the layout scales without any anisotropic distortion.
 
 from dataclasses import dataclass
 
-from planner_formats import DENSITIES, DeviceFormat, resolve_format
+from planner_formats import DEFAULT_DEVICE, DENSITIES, DEVICES, DeviceFormat, resolve_format
 
 
 MARGIN = 24
@@ -15,6 +15,7 @@ RAIL_GUTTER = 49
 RAIL_WIDTH = 39
 # (note rules, backlog task rows, weekly task rows) for each writing comfort.
 ROW_HEIGHTS = {"standard": (22, 22.5, 20), "comfortable": (28, 28.5, 26)}
+REFERENCE_HEIGHT = DEVICES[DEFAULT_DEVICE].height_pt
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,10 @@ class PageLayout:
     def writing_height(self):
         """Vertical space a full-page writing area can use."""
         return self.height - 111 - self.body_bottom
+
+    def scaled(self, value):
+        """A reference measure grown or shrunk with the page, exact at 1:1."""
+        return value * (self.height / REFERENCE_HEIGHT)
 
     def background_spacing(self, style):
         """A grid wants finer squares than a ruled page wants lines."""

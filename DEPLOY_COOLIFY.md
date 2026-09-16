@@ -105,10 +105,24 @@ Un volume préexistant doit également être accessible à l’UID 10001. Enregi
 puis appliquer le montage au déploiement.
 [Stockage persistant Coolify](https://coolify.io/docs/applications/configuration/persistent-storage).
 
-**Les réglages courants et PDF sont en mémoire**, pas archivés dans ce volume.
-Avant de fermer une session ou redéployer, télécharger les PDF et exporter les
-réglages JSON. Ce JSON permet de régénérer le carnet, y compris le choix d’inclure
-ou non les week-ends. Conserver vos exports sur votre ordinateur et dans vos sauvegardes.
+Ce volume conserve désormais, par navigateur, les **derniers réglages valides**
+de chaque mode et les **profils nommés** de Folio, sous la clé versionnée
+`folio_preferences`. Ils survivent à un redémarrage du conteneur et à un
+redéploiement tant que le volume et `NICEGUI_STORAGE_SECRET` restent les mêmes.
+Vérifié : après `docker restart` avec le volume existant, la session retrouve
+son titre de carnet et ses profils, sans message d’erreur.
+
+**Les PDF générés ne sont jamais archivés côté serveur**, et les réglages en
+cours de saisie restent en mémoire. Avant de fermer une session ou de
+redéployer, télécharger les PDF et exporter les réglages JSON. Ce JSON permet de
+régénérer le carnet — appareil, confort, durée ou dates exactes, pages
+facultatives et choix d’inclure ou non les week-ends — et traverse les
+navigateurs, contrairement au stockage ci-dessus. Conserver vos exports sur
+votre ordinateur et dans vos sauvegardes.
+
+Changer `NICEGUI_STORAGE_SECRET` ou supprimer le volume rend les réglages
+enregistrés illisibles : Folio repart alors de ses valeurs par défaut avec un
+message, sans bloquer l’application.
 
 L’application n’a pas de comptes utilisateurs. Si vous souhaitez un accès privé,
 activer l’option **HTTP Basic Authentication** de cette application dans Coolify,

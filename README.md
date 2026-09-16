@@ -19,6 +19,65 @@ Ouvrir [localhost:8080](http://127.0.0.1:8080).
 Dans le carnet daté, décochez **Inclure les week-ends** pour supprimer leurs
 pages Meeting et Notes tout en conservant le calendrier complet.
 
+Folio rouvre vos derniers réglages valides, séparément pour chaque mode, et
+garde des profils nommés dans votre navigateur.
+
+## Choisir sa tablette, sa durée et ses pages
+
+Trois réglages déterminent la forme du carnet, quel que soit le mode.
+
+**Support & format.** Famille → Modèle : Viwoods AiPaper et AiPaper Mini,
+BOOX Go 10.3, Note Air4 C et Note Max, iPad Pro 11″ et 13″ (M4/M5), ou un
+format personnalisé de 100 à 400 mm de large et de 150 à 400 mm de haut, en
+portrait. Les dimensions viennent des fiches officielles ; le PDF reste
+vectoriel, ce n’est pas un export à la résolution de l’écran.
+
+**Confort d’écriture.** *Standard* ou *Aéré*. Aéré écarte les lignes. Quand une
+liste ne tient plus sur une feuille — petit écran ou mode aéré — elle se
+poursuit sur un feuillet suivant, réparti équitablement : **aucune tâche n’est
+retirée et aucun texte n’est réduit à une taille illisible**. Le nombre total de
+pages est affiché avant génération.
+
+**Durée.** Le carnet daté accepte 1, 2, 3, 6 ou 12 mois, ou une date de fin
+exacte et inclusive jusqu’à 366 jours. Au-delà de trois mois, la barre latérale
+indexe les mois plutôt que toutes les semaines ; chaque calendrier ouvre ses
+semaines et ses journées, et les pages hebdomadaires gagnent un pas
+« semaine précédente / suivante ».
+
+### Pages facultatives
+
+Toutes désactivées par défaut : un carnet créé avec les réglages d’origine reste
+identique à ce qu’il était.
+
+| Page | Contenu | Où elle se place |
+| --- | --- | --- |
+| Priorités du mois | Trois priorités, leurs échéances, les semaines du mois, un espace libre | Après chaque calendrier |
+| Sept jours | Une zone d’écriture par jour, plus un espace de planification | Avant les tâches de la semaine |
+| Bilan hebdomadaire | Terminé / À reporter / À retenir | Après les tâches de la semaine |
+| Meeting simplifié | Notes dominantes, puis Décisions / Actions | Remplace la composition Objectives / Agenda |
+| Fonds d’écriture | Ligné, pointillé, quadrillé ou blanc | Zone d’écriture des pages Notes et Contexte |
+| Fiches projet | Objectif, prochaines actions, décisions, notes | Index Projets en fin de carnet |
+
+Une fiche projet ne recopie pas les notes détaillées du backlog : elle réserve
+une place fixe pour y écrire sa référence. Les références manuscrites restent
+des annotations et ne créent jamais de liens.
+
+### Exemples de ces évolutions
+
+Séparés des carnets historiques, dans
+[`examples/evolution/`](examples/evolution/) :
+
+| Exemple | Contenu | Taille |
+| --- | --- | --- |
+| [Carnet annuel AiPaper](examples/evolution/annuel-aipaper-12-mois.pdf?raw=true) | 12 mois, 13 calendriers, 53 semaines, barre de mois · 902 pages | ≈ 7 Mo |
+| [AiPaper Mini, 3 mois](examples/evolution/aipaper-mini-90-jours.pdf?raw=true) | Petit écran, listes de 40 tâches réparties sur deux feuillets · 425 pages | ≈ 3 Mo |
+| [Toutes les options, 3 mois](examples/evolution/options-completes-3-mois.pdf?raw=true) | Priorités, sept jours, bilan, Meeting simplifié, quadrillage et projets · 326 pages | ≈ 3 Mo |
+| [BOOX Note Max, aéré](examples/evolution/boox-note-max-aere-60-jours.pdf?raw=true) | Grand écran 13,3″, confort aéré, carnet libre de 60 journées · 287 pages | ≈ 1 Mo |
+
+Formats vérifiés par mesure et par audit des liens. **Usage sur appareil non
+testé** en dehors du Viwoods AiPaper : les proportions et la place d’écriture
+sont contrôlées, l’écriture au stylet sur chaque tablette ne l’est pas.
+
 ## Viwoods AiPaper : Meetings & actions
 
 Le nouveau carnet comprend 200 Meetings non datés, deux pages de notes par
@@ -84,9 +143,16 @@ Exemples distincts, du **16 septembre au 15 décembre 2026** : 91 journées,
 ```bash
 venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3
 venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3 --language en
+
+# Une année, sur un BOOX Note Max, avec les priorités mensuelles
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 12 \
+    --device boox-note-max --monthly-priorities
+
+# Des dates exactes, fin incluse
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --end-date 2026-12-31
 ```
 
-La date de début et la durée (1, 2 ou 3 mois) se choisissent aussi dans l’interface.
+La date de début et la durée se choisissent aussi dans l’interface.
 Les sorties datées vont dans `output/pdf/dated/`. **Le générateur et les deux PDF
 non datés restent inchangés** ; un test compare leur régénération octet pour octet
 aux exemples publiés. [Détails de la variante datée](PLANNER.md#variante-datée).

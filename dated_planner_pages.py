@@ -254,7 +254,8 @@ class DatedPlannerPages(PlannerPages):
         cell = (self.width - week_width) / 7
         weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(month.year, month.month)
         top = self.h - 145
-        row_height = min(59, (top - self.layout.footer_rule - 14) / len(weeks))
+        row_height = min(self.layout.scaled(59),
+                         (top - self.layout.footer_rule - 14) / len(weeks))
         self.text(self.left + 11, top + 15, "W", 7, gray=MUTED, align="center")
         for col, name in enumerate(WEEKDAYS[self.config.language]):
             self.text(self.left + week_width + col * cell + cell / 2, top + 15,
