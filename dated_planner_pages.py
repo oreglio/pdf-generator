@@ -209,19 +209,27 @@ class DatedPlannerPages(PlannerPages):
             else:
                 self.text(x + cell / 2, H - 121, label, 7, gray=0.7, align="center")
         rows = ceil(self.schedule.weekly_tasks / 2)
-        col_width = (WIDTH - 20) / 2
+        left_width = (WIDTH - 20) * 0.55
+        right_width = WIDTH - 20 - left_width
         reference_width, reference_gap = 22, 7
         reference_step = reference_width + reference_gap
         reference_end = 2 * reference_step + reference_width
         task_start = reference_end + 11
         reference_labels = ("BKLG", "#", self.label("JOUR", "DAY"))
         if self.schedule.weekly_tasks > 1:
-            divider_x = LEFT + WIDTH / 2
+            divider_x = LEFT + left_width + 10
             self.line(divider_x, H - 148, divider_x, H - 168 - (rows - 1) * 20,
                       gray=0, width=0.25)
         for index in range(self.schedule.weekly_tasks):
             col, row = divmod(index, rows)
-            x, y = LEFT + col * (col_width + 20), H - 165 - row * 20
+            col_width = left_width if col == 0 else right_width
+            x = LEFT if col == 0 else LEFT + left_width + 20
+            y = H - 165 - row * 20
+            if col == 1:
+                if row == 0:
+                    self.text(x, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
+                self.line(x, y, x + col_width, y)
+                continue
             for field, label in enumerate(reference_labels):
                 field_x = x + field * reference_step
                 if row == 0:
