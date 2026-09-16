@@ -6,17 +6,10 @@ from pathlib import Path
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from planner_layout import make_layout
+from planner_layout import INK, MUTED, RULE, make_layout  # noqa: F401  (re-exported)
 from planner_manifest import list_key, sheet_key, sheet_of
 from planner_note_styles import draw_note_background
-
-
-INK = 0.12
-MUTED = 0.37
-RULE = 0.70
-
-
-from planner_project_pages import ProjectPages  # noqa: E402  (needs MUTED above)
+from planner_project_pages import ProjectPages
 
 
 def register_fonts(variant):

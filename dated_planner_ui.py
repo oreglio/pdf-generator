@@ -122,7 +122,8 @@ def render_dated_planner_ui():
                                              value='\n'.join(config.base.project_names),
                                              key='dated_field_project_names',
                                              help='Facultatif. 24 caractères maximum par nom.')
-                st.caption('Zéro fiche : aucune page ni aucun lien de projet.')
+                st.caption('Les noms au-delà du nombre de fiches ne sont pas utilisés. '
+                           'Zéro fiche : aucune page ni aucun lien de projet.')
             with st.expander('Langue, typographie et titres'):
                 language = st.selectbox('Langue du PDF', list(LANGUAGES),
                                          index=list(LANGUAGES).index(config.base.language),

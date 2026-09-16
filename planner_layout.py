@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from planner_formats import DEFAULT_DEVICE, DENSITIES, DEVICES, DeviceFormat, resolve_format
 
 
+# Ink levels shared by every page template.
+INK = 0.12
+MUTED = 0.37
+RULE = 0.70
+
 MARGIN = 24
 RAIL_GUTTER = 49
 RAIL_WIDTH = 39

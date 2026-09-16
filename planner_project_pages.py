@@ -7,7 +7,7 @@ reference stays an annotation; it never becomes a link.
 
 from math import ceil
 
-from planner_pages import MUTED
+from planner_layout import MUTED
 
 
 class ProjectPages:

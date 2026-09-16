@@ -738,9 +738,11 @@ class PlannerWorkspace:
                                         base.project_notes_pages, 0, 4)
                         self.field('project_names', ui.textarea(
                             'Noms des projets', value='\n'.join(base.project_names))).props('rows=3')
-                        ui.label('Zéro fiche : aucune page ni aucun lien de projet. Une fiche garde '
-                                 'objectif, prochaines actions, décisions et notes, avec une place '
-                                 'fixe pour votre référence backlog écrite à la main.').classes('muted')
+                        ui.label('Un nom par ligne ; les noms au-delà du nombre de fiches ne sont '
+                                 'pas utilisés. Zéro fiche : aucune page ni aucun lien de projet. '
+                                 'Une fiche garde objectif, prochaines actions, décisions et notes, '
+                                 'avec une place fixe pour votre référence backlog écrite à la '
+                                 'main.').classes('muted')
                 with ui.expansion('Titre & noms des listes'):
                     with ui.column().classes('w-full gap-4'):
                         self.field('title', ui.input('Titre du carnet', value=base.title)).props('maxlength=48')

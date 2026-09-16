@@ -4,8 +4,9 @@
 exactly, operation for operation, so the published notebooks stay identical.
 """
 
+from planner_layout import RULE
+
 NOTE_STYLES = {"lined": "Ligné", "dots": "Pointillé", "grid": "Quadrillé", "blank": "Blanc"}
-RULE = 0.70
 DOT_GRAY = 0.52
 DOT_RADIUS = 0.42
 GRID_GRAY = 0.74
