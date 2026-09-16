@@ -7,6 +7,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 from planner_layout import make_layout
+from planner_manifest import list_key, sheet_key, sheet_of
 
 
 INK = 0.12
@@ -102,14 +103,20 @@ class PlannerPages:
     def rail(self, active=None):
         self.line(self.w - 39, 69, self.w - 39, self.h - 31, gray=0.85)
         self.text(self.w - 19, self.h - 39, self.tr("JOURS"), 6.5, bold=True, align="center")
-        day_height = 26 if self.config.index_pages <= 5 else 20
-        day_step = day_height + 4
-        for block in range(self.config.index_pages):
-            first = block * 40 + 1
-            last = min(first + 39, self.config.days)
+        blocks = self.config.index_pages
+        per_index = self.config.days_per_index
+        day_step = min(30, (self.h - 146) / (blocks + self.config.list_count))
+        day_height = day_step - 4
+        for block in range(blocks):
+            first = block * per_index + 1
+            last = min(first + per_index - 1, self.config.days)
             y = self.h - 51 - day_height - block * day_step
             self.pill(self.w - 32, y, 26, day_height, "", f"days-{block}",
                       title=f"Index {first:03d}–{last:03d}")
+            if day_height < 20:  # Too short for two numbers and an arrow.
+                self.text(self.w - 19, y + (day_height - 6.5) / 2 + 1, f"{first:03d}",
+                          6.5, bold=True, align="center")
+                continue
             self.text(self.w - 19, y + day_height - 8, f"{first:03d}", 6.5, bold=True, align="center")
             self.text(self.w - 19, y + 3, f"{last:03d}", 6.5, bold=True, align="center")
             center_y = y + day_height / 2
@@ -120,7 +127,7 @@ class PlannerPages:
             triangle.close()
             self.c.setFillGray(0)
             self.c.drawPath(triangle, stroke=0, fill=1)
-        todo_label_y = self.h - 63 - self.config.index_pages * day_step
+        todo_label_y = self.h - 63 - blocks * day_step
         self.text(self.w - 19, todo_label_y, "TODO", 6.5, bold=True, align="center")
         self.link(self.tr("Mes listes"), "home", (self.w - 34, todo_label_y - 7, self.w - 4, todo_label_y + 9))
         todo_top = todo_label_y - 10
@@ -136,7 +143,7 @@ class PlannerPages:
         self.text(self.left, 25, self.tr("Accueil"), 8, bold=True)
         self.link(self.tr("Accueil"), "home", (self.left, 15, self.left + 49, 40))
         self.text(self.left + 63, 25, self.tr("Journées"), 8, bold=True)
-        block = (day - 1) // 40 if day else 0
+        block = (day - 1) // self.config.days_per_index if day else 0
         self.link(self.tr("Journees"), f"days-{block}", (self.left + 60, 15, self.left + 120, 40))
         if context:
             label, target, title = context
@@ -188,6 +195,23 @@ class PlannerPages:
             x += 14
         self.c.endForm()
 
+    def draw(self, spec):
+        """Draw one manifest entry; the manifest owns the order and the keys."""
+        if spec.kind == "home":
+            return self.home()
+        if spec.kind == "day-index":
+            return self.day_index(spec)
+        if spec.kind == "meeting":
+            return self.meeting(int(spec.reference))
+        if spec.kind == "meeting-notes":
+            return self.meeting_notes(int(spec.reference), spec.part)
+        if spec.kind == "task-list":
+            return self.task_list(spec)
+        if spec.kind == "task-notes":
+            number, item = (int(value) for value in spec.reference.split("-"))
+            return self.task_notes(number, item, spec.part)
+        raise ValueError(f"Type de page inconnu : {spec.kind}")
+
     def home(self):
         self.start("home", outline=self.config.title)
         self.header(self.tr("VIWOODS AIPAPER / CARNET NON DATÉ"), self.config.title)
@@ -195,26 +219,33 @@ class PlannerPages:
         self.text(self.left, self.h - 119, self.tr("Mes journées"), 15, bold=True)
         self.text(self.right, self.h - 118, self.tr("Première journée >"), 8, align="right", gray=MUTED)
         self.link(self.tr("Premiere journee"), "day-1", (self.right - 105, self.h - 126, self.right, self.h - 106))
-        columns = min(5, self.config.index_pages)
+        blocks = self.config.index_pages
+        per_index = self.config.days_per_index
+        columns = min(5, blocks)
+        index_rows = ceil(blocks / columns)
+        index_step = self.layout.fit(self.h - 154, 32, index_rows * 2)
         index_width = (self.width - 7 * (columns - 1)) / columns
-        for block in range(self.config.index_pages):
+        for block in range(blocks):
             row, col = divmod(block, columns)
-            first = block * 40 + 1
-            last = min(first + 39, self.config.days)
+            first = block * per_index + 1
+            last = min(first + per_index - 1, self.config.days)
             label = f"{first:03d}–{last:03d}"
-            self.pill(self.left + col * (index_width + 7), self.h - 154 - row * 32,
-                      index_width, 26, label, f"days-{block}",
+            self.pill(self.left + col * (index_width + 7), self.h - 154 - row * index_step,
+                      index_width, min(26, index_step - 6), label, f"days-{block}",
                       title=self.tr("Journees {label}", label=label), size=8)
-        index_extra = (ceil(self.config.index_pages / columns) - 1) * 32
+        index_extra = (index_rows - 1) * index_step
         self.text(self.left, self.h - 214 - index_extra, self.tr("Mes listes"), 15, bold=True)
         self.text(self.right, self.h - 214 - index_extra, self.tr("{count} tâches / liste", count=self.config.tasks_per_list), 8,
                   align="right", gray=MUTED)
         gap = 12
         cell_w = (self.width - gap) / 2
+        list_top = self.h - 250 - index_extra
+        list_step = self.layout.fit(list_top, 44, ceil(self.config.list_count / 2),
+                                    floor=self.layout.footer_rule + 22)
         for number in range(1, self.config.list_count + 1):
             row, col = divmod(number - 1, 2)
             x = self.left + col * (cell_w + gap)
-            y = self.h - 250 - index_extra - row * 44
+            y = list_top - row * list_step
             self.line(x, y - 8, x + cell_w, y - 8)
             self.text(x, y + 6, f"{number:02d}", 13, bold=True)
             self.text(x + 28, y + 7, self.config.list_name(number), 9,
@@ -224,19 +255,19 @@ class PlannerPages:
         self.footer(next_page=(self.tr("Journées"), "days-0"))
         self.end()
 
-    def day_index(self, block):
-        first = block * 40 + 1
-        last = min(first + 39, self.config.days)
+    def day_index(self, spec):
+        block, first, last = int(spec.reference), spec.first_item, spec.last_item
         self.start(f"days-{block}", outline=self.tr("Journées {first:03d}-{last:03d}", first=first, last=last), level=1)
         self.header(self.tr("INDEX DES JOURNÉES"), self.tr("Journées"),
                     subtitle=f"{first:03d} - {last:03d}")
         self.rail()
         cols, gap = 4, 10
         cell_w = (self.width - gap * (cols - 1)) / cols
+        row_step = self.layout.fit(self.h - 154, 43, ceil((last - first + 1) / cols))
         for day in range(first, last + 1):
             row, col = divmod(day - first, cols)
             x = self.left + col * (cell_w + gap)
-            y = self.h - 154 - row * 43
+            y = self.h - 154 - row * row_step
             self.text(x, y + 12, f"{day:03d}", 12, bold=True, numeric=True)
             self.text(x + cell_w - 2, y + 13, ">", 10, align="right", gray=MUTED)
             self.line(x, y + 5, x + cell_w, y + 5)
@@ -291,17 +322,27 @@ class PlannerPages:
                     next_page=next_page, next_width=76)
         self.end()
 
-    def task_list(self, number):
-        self.start(f"list-{number}", outline=f"TODO {number:02d} - {self.config.list_name(number)}", level=1)
-        self.header(self.tr("TODO / LISTE {number:02d}", number=number), self.config.list_name(number))
+    def list_geometry(self, spec):
+        """Rows, column width and vertical step shared by both editions."""
+        rows = ceil((spec.last_item - spec.first_item + 1) / 2)
+        step = self.layout.fit(self.h - 126, self.layout.task_row_height, rows)
+        return rows, (self.width - 20) / 2, step
+
+    def task_list(self, spec):
+        number, sheet, total = int(spec.reference), spec.sheet, spec.sheets
+        self.start(spec.key, level=1, outline=(
+            f"TODO {number:02d} - {self.config.list_name(number)}" if sheet == 1 else None))
+        self.header(self.tr("TODO / LISTE {number:02d}", number=number),
+                    self.config.list_name(number),
+                    subtitle=None if total == 1 else
+                    f"{spec.first_item:02d} – {spec.last_item:02d}   /   {sheet:02d}/{total:02d}")
         self.link(self.tr("Retour aux listes"), "home", (self.left, self.h - 43, self.left + 110, self.h - 22))
         self.rail(active=number)
-        rows = ceil(self.config.tasks_per_list / 2)
-        col_w = (self.width - 20) / 2
-        for item in range(1, self.config.tasks_per_list + 1):
-            col, row = divmod(item - 1, rows)
+        rows, col_w, row_step = self.list_geometry(spec)
+        for index, item in enumerate(range(spec.first_item, spec.last_item + 1)):
+            col, row = divmod(index, rows)
             x = self.left + col * (col_w + 20)
-            y = self.h - 126 - row * 22.5
+            y = self.h - 126 - row * row_step
             self.line(x, y, x + 21, y)
             self.text(x + 26, y + 2, "·", 8, gray=MUTED, align="center")
             self.text(x + 32, y + 2, f"{item:02d}", 7.5, gray=MUTED, numeric=True)
@@ -310,15 +351,27 @@ class PlannerPages:
             target = f"task-{number}-{item}-1"
             self.link(self.tr("Tache {number:02d}-{item:02d}", number=number, item=item), target,
                       (x + col_w - 22, y - 5, x + col_w + 2, y + 17))
-        next_page = (self.tr("Liste"), f"list-{number + 1}") if number < self.config.list_count else (self.tr("Accueil"), "home")
-        self.footer(next_page=next_page)
+        if sheet < total:
+            next_page = (f"{sheet + 1}/{total}", sheet_key(f"list-{number}", sheet + 1))
+        elif number < self.config.list_count:
+            next_page = (self.tr("Liste"), f"list-{number + 1}")
+        else:
+            next_page = (self.tr("Accueil"), "home")
+        self.footer(next_page=next_page,
+                    previous=sheet_key(f"list-{number}", sheet - 1) if sheet > 1 else None,
+                    previous_label=f"{sheet - 1}/{total}" if sheet > 1 else None)
         self.end()
 
     def task_notes(self, number, item, part):
         self.start(f"task-{number}-{item}-{part}")
         self.header(f"{self.config.list_name(number).upper()} — NOTES {part:02d}/{self.config.detail_pages:02d}",
                     f"{number:02d}-{item:02d}")
-        self.link(self.tr("Retour liste {number:02d}", number=number), f"list-{number}", (self.left, self.h - 43, self.right, self.h - 22))
+        total_tasks, capacity = self.config.tasks_per_list, self.layout.backlog_capacity
+        sheets = self.config.list_sheets
+        sheet = sheet_of(item, total_tasks, capacity)
+        home_sheet = list_key(number, item, total_tasks, capacity)
+        self.link(self.tr("Retour liste {number:02d}", number=number), home_sheet,
+                  (self.left, self.h - 43, self.right, self.h - 22))
         self.rail(active=number)
         self.text(self.left + 115, self.h - 48, self.tr("Sujet"), 7, gray=MUTED)
         self.line(self.left + 115, self.h - 74, self.right, self.h - 74, gray=0.55)
@@ -326,7 +379,9 @@ class PlannerPages:
         previous = f"task-{number}-{item}-{part - 1}" if part > 1 else None
         next_page = (f"Notes {part + 1}", f"task-{number}-{item}-{part + 1}") if part < self.config.detail_pages else None
         list_label = self.tr("Liste {number:02d}", number=number)
-        self.footer(context=("< " + list_label, f"list-{number}", list_label),
+        # A split list keeps one tab per list: name the exact sheet in the footer.
+        sheet_label = list_label if sheets == 1 else f"{list_label} {sheet}/{sheets}"
+        self.footer(context=("< " + list_label, home_sheet, sheet_label),
                     previous=previous, previous_label=f"Notes {part - 1}" if part > 1 else None,
                     next_page=next_page, next_width=76)
         self.end()

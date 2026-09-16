@@ -6,6 +6,7 @@ from reportlab.pdfgen import canvas
 
 from dated_planner_pages import DatedPlannerPages
 from planner_layout import make_layout
+from planner_manifest import build_manifest, first_of
 
 
 def _canvas(config, target):
@@ -24,22 +25,10 @@ def _canvas(config, target):
 def generate_dated_pdf(config, target):
     pdf = _canvas(config, target)
     pages = DatedPlannerPages(pdf, config)
-    pages.home()
-    for index in range(len(config.calendar_months)):
-        pages.calendar(index)
-    for monday in config.weeks:
-        for part in range(1, config.week_pages + 1):
-            pages.weekly(monday, part)
-    for day in range(1, len(config.dates) + 1):
-        pages.meeting(day)
-        for part in range(1, config.base.notes_pages + 1):
-            pages.meeting_notes(day, part)
-    for number in range(1, config.base.list_count + 1):
-        pages.task_list(number)
-        for item in range(1, config.base.tasks_per_list + 1):
-            for part in range(1, config.base.detail_pages + 1):
-                pages.task_notes(number, item, part)
-    if pages.ordinal != config.total_pages:
+    manifest = build_manifest(config)
+    for spec in manifest:
+        pages.draw(spec)
+    if pages.ordinal != len(manifest):
         raise RuntimeError("Le nombre de pages datées ne correspond pas à la configuration.")
     pdf.save()
     return pages.ordinal
@@ -48,9 +37,8 @@ def generate_dated_pdf(config, target):
 def generate_dated_samples(config, target):
     pdf = _canvas(config, target)
     pages = DatedPlannerPages(pdf, config, interactive=False)
-    pages.calendar(0)
-    pages.weekly(config.weeks[0], 1)
-    pages.meeting(1)
-    pages.task_list(1)
-    pages.task_notes(1, 1, 1)
+    manifest = build_manifest(config)
+    for kind in ("calendar", "weekly", "meeting", "task-list", "task-notes"):
+        pages.draw(first_of(manifest, kind))
     pdf.save()
+    return pages.ordinal

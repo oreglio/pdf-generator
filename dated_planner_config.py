@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
 
 from planner_config import PlannerConfig
+from planner_manifest import dated_manifest, sheets
 
 
 MONTH_RANGE = (1, 12)
@@ -104,10 +105,14 @@ class DatedPlannerConfig:
         return replace(self.base, days=len(self.dates))
 
     @property
+    def week_sheets(self):
+        """Sheets one weekly list needs on this device and writing comfort."""
+        capacity = self.render_config.layout.weekly_capacity
+        return len(sheets(self.weekly_tasks, capacity))
+
+    @property
     def total_pages(self):
-        return (1 + len(self.calendar_months) + len(self.weeks) * self.week_pages
-                + len(self.dates) * (1 + self.base.notes_pages)
-                + self.base.list_count + self.base.task_count * self.base.detail_pages)
+        return len(dated_manifest(self))
 
     @property
     def pdf_filename(self):

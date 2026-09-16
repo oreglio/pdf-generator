@@ -1,9 +1,10 @@
 """Dated navigation and layouts, isolated from the reproducible undated edition."""
 
 import calendar
-from datetime import timedelta
+from datetime import date, timedelta
 from math import ceil
 
+from planner_manifest import sheet_key
 from planner_pages import PlannerPages, INK, MUTED
 
 
@@ -162,13 +163,15 @@ class DatedPlannerPages(PlannerPages):
         self.text(self.left, self.h - 198, self.label("Mes semaines", "My weeks"), 13, bold=True)
         columns = min(7, len(self.schedule.weeks))
         width = (self.width - 6 * (columns - 1)) / columns
+        week_step = self.layout.fit(self.h - 231, 31,
+                                    ceil(len(self.schedule.weeks) / columns) * 2)
         for index, monday in enumerate(self.schedule.weeks):
             row, col = divmod(index, columns)
-            x, y = self.left + col * (width + 6), self.h - 231 - row * 31
+            x, y = self.left + col * (width + 6), self.h - 231 - row * week_step
             sunday = monday + timedelta(days=6)
             date_range = (f"{monday.day:02d}–{sunday:%d/%m}" if monday.month == sunday.month
                           else f"{monday:%d/%m}–{sunday:%d/%m}")
-            self.pill(x, y, width, 25, "", self.week_target(monday),
+            self.pill(x, y, width, min(25, week_step - 6), "", self.week_target(monday),
                       title=self.schedule.week_key(monday))
             self.text(x + width / 2, y + 14, self.week_label(monday), 8,
                       bold=True, align="center")
@@ -180,13 +183,16 @@ class DatedPlannerPages(PlannerPages):
         """Long periods: a readable grid of months instead of 53 week buttons."""
         months = self.schedule.calendar_months
         columns = min(4, len(months))
+        rows = ceil(len(months) / columns)
+        month_step = self.layout.fit(self.h - 154, 34, rows * 3)
         width = (self.width - 7 * (columns - 1)) / columns
         for index, month in enumerate(months):
             row, col = divmod(index, columns)
-            self.pill(self.left + col * (width + 7), self.h - 154 - row * 34, width, 27,
+            self.pill(self.left + col * (width + 7), self.h - 154 - row * month_step, width,
+                      min(27, month_step - 7),
                       f"{self.month_name(month).capitalize()} {month.year}",
                       self.month_key(month), title=self.month_key(month), size=8)
-        bottom = self.h - 154 - (ceil(len(months) / columns) - 1) * 34
+        bottom = self.h - 154 - (rows - 1) * month_step
         self.text(self.left, bottom - 26, self.label(
             "Chaque calendrier ouvre ses semaines et ses journées.",
             "Each calendar opens its weeks and its days."), 8, gray=MUTED, max_width=self.width - 130)
@@ -196,6 +202,13 @@ class DatedPlannerPages(PlannerPages):
                              f"First week · {self.week_label(first)}"),
                   self.week_target(first), title=self.schedule.week_key(first), size=7.5)
         return bottom - 66
+
+    def draw(self, spec):
+        if spec.kind == "calendar":
+            return self.calendar(spec)
+        if spec.kind == "weekly":
+            return self.weekly(spec)
+        return super().draw(spec)
 
     def home(self):
         self.current_date = self.active_week = None
@@ -207,9 +220,11 @@ class DatedPlannerPages(PlannerPages):
         backlog_y = self.home_months() if self.schedule.long_navigation else self.home_weeks()
         self.text(self.left, backlog_y, "Backlog", 15, bold=True)
         cell = (self.width - 12) / 2
+        backlog_step = self.layout.fit(backlog_y - 33, 46, ceil(self.config.list_count / 2),
+                                       floor=self.layout.footer_rule + 22)
         for number in range(1, self.config.list_count + 1):
             row, col = divmod(number - 1, 2)
-            x, y = self.left + col * (cell + 12), backlog_y - 33 - row * 46
+            x, y = self.left + col * (cell + 12), backlog_y - 33 - row * backlog_step
             self.text(x, y, f"{number:02d}", 13, bold=True)
             if number <= len(self.config.list_names) and self.config.list_names[number - 1].strip():
                 self.text(x + 28, y + 1, self.config.list_names[number - 1], 9, max_width=cell - 44)
@@ -220,8 +235,9 @@ class DatedPlannerPages(PlannerPages):
         self.footer(next_page=(self.label("Commencer", "Start"), "day-1"))
         self.end()
 
-    def calendar(self, index):
-        month = self.schedule.calendar_months[index]
+    def calendar(self, spec):
+        month = date.fromisoformat(spec.reference).replace(day=1)
+        index = self.schedule.calendar_months.index(month)
         self.current_date = month
         self.active_week = None
         self.start(self.month_key(month), outline=f"{self.month_name(month).capitalize()} {month.year}", level=1)
@@ -229,12 +245,14 @@ class DatedPlannerPages(PlannerPages):
         self.rail()
         week_width, gap = 29, 3
         cell = (self.width - week_width) / 7
-        top, row_height = self.h - 145, 59
+        weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(month.year, month.month)
+        top = self.h - 145
+        row_height = min(59, (top - self.layout.footer_rule - 14) / len(weeks))
         self.text(self.left + 11, top + 15, "W", 7, gray=MUTED, align="center")
         for col, name in enumerate(WEEKDAYS[self.config.language]):
             self.text(self.left + week_width + col * cell + cell / 2, top + 15,
                       name.upper(), 7, bold=True, gray=MUTED, align="center")
-        for row, days in enumerate(calendar.Calendar(firstweekday=0).monthdatescalendar(month.year, month.month)):
+        for row, days in enumerate(weeks):
             monday = days[0]
             y = top - (row + 1) * row_height
             if monday in self.schedule.weeks:
@@ -261,17 +279,21 @@ class DatedPlannerPages(PlannerPages):
                     next_page=(self.month_name(following).capitalize(), self.month_key(following)) if following else None)
         self.end()
 
-    def weekly(self, monday, part):
+    def weekly(self, spec):
+        monday, part = date.fromisoformat(spec.reference), spec.part
         self.active_week = monday
         self.current_date = max(monday, self.schedule.start)
         first = max(monday, self.schedule.start)
         last = min(monday + timedelta(days=6), self.schedule.end_date)
         iso_year = monday.isocalendar().year
-        self.start(self.week_target(monday, part),
-                   outline=f"{self.week_label(monday)} / {iso_year}" if part == 1 else None, level=1)
+        tasks = spec.last_item - spec.first_item + 1
+        subtitle = f"{first:%d.%m} — {last:%d.%m.%Y}   /   {part:02d}/{self.schedule.week_pages:02d}"
+        if spec.sheets > 1:
+            subtitle += f"   ·   {self.label('feuille', 'sheet')} {spec.sheet}/{spec.sheets}"
+        self.start(spec.key, level=1, outline=(
+            f"{self.week_label(monday)} / {iso_year}" if part == 1 and spec.sheet == 1 else None))
         self.header(f"{self.week_label(monday)} / {iso_year} — " + self.label("TÂCHES", "TASKS"),
-                    self.label("Ma semaine", "Weekly tasks"),
-                    subtitle=f"{first:%d.%m} — {last:%d.%m.%Y}   /   {part:02d}/{self.schedule.week_pages:02d}")
+                    self.label("Ma semaine", "Weekly tasks"), subtitle=subtitle)
         self.rail()
         cell = (self.width - 6 * 5) / 7
         for col in range(7):
@@ -282,7 +304,8 @@ class DatedPlannerPages(PlannerPages):
                 self.pill(x, self.h - 130, cell, 25, label, self.day_key(value), title=value.isoformat(), size=7)
             else:
                 self.text(x + cell / 2, self.h - 121, label, 7, gray=0.7, align="center")
-        rows = ceil(self.schedule.weekly_tasks / 2)
+        rows = ceil(tasks / 2)
+        row_step = self.layout.fit(self.h - 165, self.layout.weekly_row_height, rows)
         reference_width, reference_gap = 22, 7
         reference_step = reference_width + reference_gap
         reference_end = 2 * reference_step + reference_width
@@ -290,15 +313,15 @@ class DatedPlannerPages(PlannerPages):
         right_width = (self.width - 20 - task_start) / 2
         left_width = task_start + right_width
         reference_labels = ("BKLG", "#", self.label("JOUR", "DAY"))
-        if self.schedule.weekly_tasks > 1:
+        if tasks > 1:
             divider_x = self.left + left_width + 10
-            self.line(divider_x, self.h - 148, divider_x, self.h - 168 - (rows - 1) * 20,
+            self.line(divider_x, self.h - 148, divider_x, self.h - 168 - (rows - 1) * row_step,
                       gray=0, width=0.25)
-        for index in range(self.schedule.weekly_tasks):
+        for index in range(tasks):
             col, row = divmod(index, rows)
             col_width = left_width if col == 0 else right_width
             x = self.left if col == 0 else self.left + left_width + 20
-            y = self.h - 165 - row * 20
+            y = self.h - 165 - row * row_step
             if col == 1:
                 if row == 0:
                     self.text(x, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
@@ -326,11 +349,23 @@ class DatedPlannerPages(PlannerPages):
             if index + 1 < len(self.schedule.weeks):
                 neighbour = self.schedule.weeks[index + 1]
                 steps["next_week"] = (self.week_label(neighbour), self.week_target(neighbour))
-        self.footer(previous=self.week_target(monday, part - 1) if part > 1 else None,
-                    previous_label=f"Page {part - 1}" if part > 1 else None,
-                    next_page=(f"Page {part + 1}", self.week_target(monday, part + 1))
-                    if part < self.schedule.week_pages else None, **steps)
+        chain = [(number, sheet) for number in range(1, self.schedule.week_pages + 1)
+                 for sheet in range(1, spec.sheets + 1)]
+        position = chain.index((part, spec.sheet))
+        if position:
+            target, label = self.week_step(monday, chain[position - 1], part, spec.sheets)
+            steps["previous"], steps["previous_label"] = target, label
+        if position + 1 < len(chain):
+            target, label = self.week_step(monday, chain[position + 1], part, spec.sheets)
+            steps["next_page"] = (label, target)
+        self.footer(**steps)
         self.end()
+
+    def week_step(self, monday, step, part, sheets):
+        """(destination, label) of a neighbouring sheet of the same week."""
+        number, sheet = step
+        target = sheet_key(self.week_target(monday, number), sheet)
+        return target, (f"{sheet}/{sheets}" if number == part else f"Page {number}")
 
     def meeting(self, day):
         value = self.schedule.dates[day - 1]
@@ -391,14 +426,14 @@ class DatedPlannerPages(PlannerPages):
             eyebrow = "BACKLOG"
         super().header(eyebrow, title, subtitle=subtitle)
 
-    def task_list(self, number):
+    def task_list(self, spec):
         self.current_date = self.active_week = None
-        if self.config.tasks_per_list > 1:
-            rows = ceil(self.config.tasks_per_list / 2)
+        if spec.last_item > spec.first_item:
+            rows, _, row_step = self.list_geometry(spec)
             divider_x = self.left + self.width / 2
-            self.line(divider_x, self.h - 114, divider_x, self.h - 129 - (rows - 1) * 22.5,
+            self.line(divider_x, self.h - 114, divider_x, self.h - 129 - (rows - 1) * row_step,
                       gray=0, width=0.25)
-        super().task_list(number)
+        super().task_list(spec)
 
     def task_notes(self, number, item, part):
         self.current_date = self.active_week = None

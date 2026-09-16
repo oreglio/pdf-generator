@@ -3,9 +3,10 @@
 from dataclasses import asdict, dataclass
 from math import ceil
 
-from planner_formats import DEFAULT_DEVICE, DEVICES, DENSITIES
+from planner_formats import DEFAULT_DEVICE, DEVICES
 from planner_i18n import LANGUAGES, translate
 from planner_layout import make_layout
+from planner_manifest import sheets, undated_manifest
 
 
 PAGE_WIDTH = DEVICES[DEFAULT_DEVICE].width_pt
@@ -69,8 +70,21 @@ class PlannerConfig:
         return f"-{device}" + ("" if self.density == "standard" else "-aere")
 
     @property
+    def days_per_index(self):
+        """Days one index page holds, from the room the device actually has."""
+        return self.layout.index_capacity
+
+    @property
     def index_pages(self):
-        return ceil(self.days / 40)
+        return ceil(self.days / self.days_per_index)
+
+    @property
+    def tasks_per_list_page(self):
+        return self.layout.backlog_capacity
+
+    @property
+    def list_sheets(self):
+        return len(sheets(self.tasks_per_list, self.tasks_per_list_page))
 
     @property
     def task_count(self):
@@ -78,8 +92,7 @@ class PlannerConfig:
 
     @property
     def total_pages(self):
-        return (1 + self.index_pages + self.days * (1 + self.notes_pages)
-                + self.list_count + self.task_count * self.detail_pages)
+        return len(undated_manifest(self))
 
     def list_name(self, number):
         if number <= len(self.list_names) and self.list_names[number - 1]:

@@ -7,6 +7,7 @@ from reportlab.pdfgen import canvas
 
 from planner_config import TYPOGRAPHIES
 from planner_layout import make_layout
+from planner_manifest import build_manifest, first_of
 from planner_pages import PlannerPages
 
 
@@ -21,19 +22,10 @@ def generate_pdf(config, target):
     pdf.setAuthor("AiPaper Planner")
     pdf.setSubject(config.text("Meetings non datés et tâches partagées - Viwoods AiPaper"))
     pages = PlannerPages(pdf, config)
-    pages.home()
-    for block in range(config.index_pages):
-        pages.day_index(block)
-    for day in range(1, config.days + 1):
-        pages.meeting(day)
-        for number in range(1, config.notes_pages + 1):
-            pages.meeting_notes(day, number)
-    for number in range(1, config.list_count + 1):
-        pages.task_list(number)
-        for item in range(1, config.tasks_per_list + 1):
-            for part in range(1, config.detail_pages + 1):
-                pages.task_notes(number, item, part)
-    if pages.ordinal != config.total_pages:
+    manifest = build_manifest(config)
+    for spec in manifest:
+        pages.draw(spec)
+    if pages.ordinal != len(manifest):
         raise RuntimeError("Le nombre de pages générées ne correspond pas à la configuration.")
     pdf.save()
     return pages.ordinal
@@ -45,10 +37,11 @@ def generate_samples(config, target):
                         pagesize=make_layout(config).pagesize, pageCompression=1, invariant=1)
     pdf.setTitle(config.text("Aperçu - ") + config.title)
     pages = PlannerPages(pdf, config, interactive=False)
-    pages.meeting(1)
-    pages.task_list(1)
-    pages.task_notes(1, 1, 1)
+    manifest = build_manifest(config)
+    for kind in ("meeting", "task-list", "task-notes"):
+        pages.draw(first_of(manifest, kind))
     pdf.save()
+    return pages.ordinal
 
 
 def generate_comparison(config, target):
@@ -84,7 +77,8 @@ def generate_comparison(config, target):
         current = replace(config, typography=key)
         page = PlannerPages(pdf, current, interactive=False)
         page.ordinal = ordinal
-        for draw in (lambda: page.meeting(1), lambda: page.task_list(1), lambda: page.task_notes(1, 1, 1)):
-            draw()
+        manifest = build_manifest(current)
+        for kind in ("meeting", "task-list", "task-notes"):
+            page.draw(first_of(manifest, kind))
         ordinal += 3
     pdf.save()

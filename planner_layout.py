@@ -37,10 +37,33 @@ class PageLayout:
     def pagesize(self):
         return (self.width, self.height)
 
+    def _rows(self, top_offset, step):
+        """Rows fitting between a top offset and the footer, at least one."""
+        return max(1, int((self.height - top_offset - 59) // step) + 1)
+
+    @property
+    def backlog_capacity(self):
+        """Backlog tasks a single list sheet can hold, in two columns."""
+        return self._rows(126, self.task_row_height) * 2
+
+    @property
+    def weekly_capacity(self):
+        return self._rows(165, self.weekly_row_height) * 2
+
+    @property
+    def index_capacity(self):
+        """Days a single undated index page can hold, in four columns."""
+        return self._rows(154, 43) * 4
+
     @property
     def writing_height(self):
         """Vertical space a full-page writing area can use."""
         return self.height - 111 - self.body_bottom
+
+    def fit(self, top, step, count, floor=None):
+        """Shrink a vertical step so `count` rows stay above the footer."""
+        floor = self.footer_rule + 14 if floor is None else floor
+        return step if count < 2 else min(step, (top - floor) / (count - 1))
 
 
 def make_layout(config):

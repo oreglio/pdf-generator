@@ -10,7 +10,10 @@ from dataclasses import dataclass
 
 MM = 72 / 25.4
 CUSTOM = "custom"
-CUSTOM_RANGE_MM = (100.0, 400.0)
+# A page shorter than 150 mm cannot hold the Meeting blocks above the writing
+# area, so the documented minimum height stays higher than the minimum width.
+CUSTOM_WIDTH_MM = (100.0, 400.0)
+CUSTOM_HEIGHT_MM = (150.0, 400.0)
 DENSITIES = {"standard": "Standard", "comfortable": "Aéré"}
 BRANDS = {"viwoods": "Viwoods", "boox": "BOOX", "ipad": "iPad", CUSTOM: "Personnalisé"}
 
@@ -70,13 +73,13 @@ def devices_of(brand):
     return tuple(device for device in CATALOGUE if device.brand == brand)
 
 
-def _millimetres(value, name):
+def _millimetres(value, name, bounds):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} doit être un nombre de millimètres.")
     value = float(value)
-    low, high = CUSTOM_RANGE_MM
+    low, high = bounds
     if value != value or value in (float("inf"), float("-inf")) or not low <= value <= high:
-        raise ValueError(f"{name} doit être compris entre {low:.0f} et {high:.0f} mm.")
+        raise ValueError(f"{name} doit être comprise entre {low:.0f} et {high:.0f} mm.")
     return value
 
 
@@ -88,8 +91,8 @@ def resolve_format(config):
     if key == CUSTOM:
         if width_mm is None or height_mm is None:
             raise ValueError("Un format personnalisé demande une largeur et une hauteur en mm.")
-        width = _millimetres(width_mm, "La largeur")
-        height = _millimetres(height_mm, "La hauteur")
+        width = _millimetres(width_mm, "La largeur", CUSTOM_WIDTH_MM)
+        height = _millimetres(height_mm, "La hauteur", CUSTOM_HEIGHT_MM)
         if width > height:
             raise ValueError("Cette livraison ne dessine que des pages portrait : "
                              "la largeur doit rester inférieure ou égale à la hauteur.")

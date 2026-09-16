@@ -45,15 +45,14 @@ def generate_artifact(mode: str, payload: dict, *, samples: bool = False,
         config = replace(config, days=min(config.days, 3))
     output = BytesIO()
     if samples:
+        # The preview draws one page per section: the manifest says how many.
         if mode == 'dated':
-            generate_dated_samples(config, output)
+            pages = generate_dated_samples(config, output)
             filename = f'aipaper-dated-preview-{config.base.language}.pdf'
-            pages = 5
         else:
-            generate_samples(config, output)
+            pages = generate_samples(config, output)
             filename = ('aipaper-apercu.pdf' if config.language == 'fr'
                         else 'aipaper-preview-en.pdf')
-            pages = 3
     else:
         engine = generate_dated_pdf if mode == 'dated' else generate_pdf
         pages = engine(config, output)
