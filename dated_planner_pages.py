@@ -115,9 +115,16 @@ class DatedPlannerPages(PlannerPages):
         width = (WIDTH - 6 * (columns - 1)) / columns
         for index, monday in enumerate(self.schedule.weeks):
             row, col = divmod(index, columns)
-            self.pill(LEFT + col * (width + 6), H - 221 - row * 31, width, 25,
-                      self.week_label(monday), self.week_target(monday),
-                      title=self.schedule.week_key(monday), size=8)
+            x, y = LEFT + col * (width + 6), H - 221 - row * 31
+            sunday = monday + timedelta(days=6)
+            date_range = (f"{monday.day:02d}–{sunday.day:02d}" if monday.month == sunday.month
+                          else f"{monday:%d/%m}–{sunday:%d/%m}")
+            self.pill(x, y, width, 25, "", self.week_target(monday),
+                      title=self.schedule.week_key(monday))
+            self.text(x + width / 2, y + 14, self.week_label(monday), 8,
+                      bold=True, align="center")
+            self.text(x + width / 2, y + 4, date_range, 6, gray=MUTED,
+                      align="center", max_width=width - 6)
         self.text(LEFT, H - 287, "Backlog", 15, bold=True)
         cell = (WIDTH - 12) / 2
         for number in range(1, self.config.list_count + 1):
