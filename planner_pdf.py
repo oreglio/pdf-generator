@@ -18,7 +18,7 @@ def generate_pdf(config, target):
                         pageCompression=1, invariant=1, pdfVersion=(1, 4))
     pdf.setTitle(config.title)
     pdf.setAuthor("AiPaper Planner")
-    pdf.setSubject("Meetings non datés et tâches partagées - Viwoods AiPaper")
+    pdf.setSubject(config.text("Meetings non datés et tâches partagées - Viwoods AiPaper"))
     pages = PlannerPages(pdf, config)
     pages.home()
     for block in range(config.index_pages):
@@ -42,7 +42,7 @@ def generate_samples(config, target):
     """Three visual-only pages: no dangling destinations to omitted pages."""
     pdf = canvas.Canvas(str(target) if isinstance(target, Path) else target,
                         pagesize=(PAGE_WIDTH, PAGE_HEIGHT), pageCompression=1, invariant=1)
-    pdf.setTitle("Aperçu - " + config.title)
+    pdf.setTitle(config.text("Aperçu - ") + config.title)
     pages = PlannerPages(pdf, config, interactive=False)
     pages.meeting(1)
     pages.task_list(1)
@@ -54,26 +54,26 @@ def generate_comparison(config, target):
     """Ten visual-only pages with the same layouts at the same physical size."""
     pdf = canvas.Canvas(str(target) if isinstance(target, Path) else target,
                         pagesize=(PAGE_WIDTH, PAGE_HEIGHT), pageCompression=1, invariant=1)
-    pdf.setTitle("AiPaper - comparaison des polices")
+    pdf.setTitle(config.text("AiPaper - comparaison des polices"))
     page = PlannerPages(pdf, config, interactive=False)
     page.start("comparison")
-    page.header("VIWOODS AIPAPER / ESSAI TYPOGRAPHIQUE", "Trois façons de lire.")
-    page.text(LEFT, PAGE_HEIGHT - 119, "Même format. Même contenu. Trois rendus.", 11)
-    entries = (("01", "Manrope", "Pages 2 à 4 / fin et équilibré."),
-               ("02", "Manrope contraste", "Pages 5 à 7 / traits plus présents."),
-               ("03", "Atkinson Hyperlegible Next", "Pages 8 à 10 / lettres très différenciées."))
+    page.header(config.text("VIWOODS AIPAPER / ESSAI TYPOGRAPHIQUE"), config.text("Trois façons de lire."))
+    page.text(LEFT, PAGE_HEIGHT - 119, config.text("Même format. Même contenu. Trois rendus."), 11)
+    entries = (("01", "Manrope", config.text("Pages 2 à 4 / fin et équilibré.")),
+               ("02", config.text("Manrope contraste"), config.text("Pages 5 à 7 / traits plus présents.")),
+               ("03", "Atkinson Hyperlegible Next", config.text("Pages 8 à 10 / lettres très différenciées.")))
     for i, (number, title, description) in enumerate(entries):
         y = PAGE_HEIGHT - 190 - i * 78
         page.text(LEFT, y, number, 12, gray=0.4)
         page.text(LEFT + 35, y, title, 16, bold=True, max_width=WIDTH - 35)
         page.text(LEFT + 35, y - 22, description, 9, gray=0.35)
         page.line(LEFT, y - 40, RIGHT, y - 40)
-    page.text(LEFT, 139, "Sur la tablette", 13, bold=True)
+    page.text(LEFT, 139, config.text("Sur la tablette"), 13, bold=True)
     for i, line in enumerate((
-        "Affichez une page entière, avec le même zoom pour les trois essais.",
-        "Comparez les petits numéros, les onglets et les lignes d’écriture.",
-        "Ces pages comparent le rendu : leurs onglets ne sont pas actifs.",
-        "Pour tester les liens, ouvrez l’un des trois carnets complets.",
+        config.text("Affichez une page entière, avec le même zoom pour les trois essais."),
+        config.text("Comparez les petits numéros, les onglets et les lignes d’écriture."),
+        config.text("Ces pages comparent le rendu : leurs onglets ne sont pas actifs."),
+        config.text("Pour tester les liens, ouvrez l’un des trois carnets complets."),
     )):
         page.text(LEFT, 116 - i * 17, line, 9, max_width=WIDTH)
     page.end()

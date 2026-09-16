@@ -9,6 +9,31 @@ ENTRYPOINT = Path(__file__).resolve().parents[1] / "pdf_generator_ui.py"
 
 
 class PlannerUITests(unittest.TestCase):
+    def test_pdf_language_switch_generates_english_and_preserves_french_default(self):
+        import io
+        from pypdf import PdfReader
+
+        app = AppTest.from_file(str(ENTRYPOINT)).run(timeout=20)
+        self.assertTrue(any(s.key == "planner_field_language" for s in app.selectbox))
+        self.assertEqual(app.selectbox(key="planner_field_language").value, "fr")
+        app.selectbox(key="planner_field_language").set_value("en")
+        app.number_input(key="planner_field_days").set_value(1)
+        app.number_input(key="planner_field_lists").set_value(1)
+        app.number_input(key="planner_field_tasks").set_value(1)
+        self.apply(app)
+        preview = PdfReader(io.BytesIO(app.session_state["planner_preview"]["pdf"]))
+        self.assertIn("Date / period", preview.pages[0].extract_text())
+        app.button(key="planner_generate").click().run(timeout=20)
+        self.assertFalse(app.exception)
+        result = app.session_state["planner_download"]
+        self.assertEqual(result["name"], "aipaper-manrope-en-1d.pdf")
+        self.assertIn("My lists", PdfReader(io.BytesIO(result["data"])).pages[0].extract_text())
+        app.selectbox(key="planner_field_language").set_value("fr")
+        self.apply(app)
+        self.assertNotIn("planner_download", app.session_state)
+        preview = PdfReader(io.BytesIO(app.session_state["planner_preview"]["pdf"]))
+        self.assertIn("Date / période", preview.pages[0].extract_text())
+
     def apply(self, app):
         button = next(button for button in app.button if button.label == "Appliquer et actualiser l’aperçu")
         button.click().run(timeout=20)

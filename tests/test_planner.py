@@ -151,6 +151,39 @@ class PlannerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.Config.from_dict(value)
 
+    def test_english_edition_preserves_layout_and_navigation(self):
+        self.assertIn("language", self.Config.__dataclass_fields__)
+        french = self.book()
+        english = self.book(language="en")
+        expected = {0: ("UNDATED NOTEBOOK", "My days", "My lists", "4 tasks / list"),
+                    1: ("DAY INDEX", "Days"), 2: ("DAY 001", "Date / period", "Day"),
+                    3: ("Date / subject",), 8: ("TODO / LIST 01", "List 01"),
+                    9: ("LIST 01 — NOTES 01/02", "Subject")}
+        for index, labels in expected.items():
+            for label in labels:
+                self.assertIn(label, english.pages[index].extract_text())
+        self.assertIn("Mes journées", french.pages[0].extract_text())
+        self.assertEqual(len(french.pages), len(english.pages))
+        for fr, en in zip(french.pages, english.pages):
+            self.assertEqual(fr.mediabox, en.mediabox)
+            self.assertEqual(list(self.links(french, fr).values()), list(self.links(english, en).values()))
+            self.assertEqual([a.get_object()["/Rect"] for a in fr["/Annots"]],
+                             [a.get_object()["/Rect"] for a in en["/Annots"]])
+        self.assertEqual(self.links(english, english.pages[9])["Back to list 01"], 8)
+        self.assertIn("Undated meetings", english.metadata.subject)
+
+    def test_language_roundtrip_custom_names_and_separate_filenames(self):
+        self.assertIn("language", self.Config.__dataclass_fields__)
+        config = self.Config(language="en", list_names=("Travail",))
+        self.assertEqual(self.Config.from_dict(config.to_dict()), config)
+        self.assertEqual(config.list_name(1), "Travail")
+        self.assertEqual(config.list_name(2), "List 02")
+        self.assertEqual(self.Config().pdf_filename, "aipaper-manrope-200j.pdf")
+        self.assertEqual(config.pdf_filename, "aipaper-manrope-en-200d.pdf")
+        for language in ("de", None, [], True):
+            with self.assertRaises(ValueError):
+                self.Config(language=language)
+
 
 if __name__ == "__main__":
     unittest.main()
