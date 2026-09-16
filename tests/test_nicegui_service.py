@@ -27,11 +27,25 @@ class NiceGUIServiceTests(unittest.TestCase):
                                         months=1, week_pages=2, weekly_tasks=4)
 
     def test_json_roundtrip_preserves_all_configuration_fields(self):
-        for mode, config in (('undated', self.base), ('dated', self.dated)):
-            with self.subTest(mode=mode):
+        rich = replace(self.base, device='boox-note-max', density='comfortable',
+                       meeting_note_style='grid', task_note_style='blank',
+                       meeting_layout='notes_actions', project_count=2,
+                       project_names=('Folio',), project_notes_pages=2)
+        custom = replace(self.base, device='custom', custom_width_mm=150.0,
+                         custom_height_mm=210.0)
+        dated = replace(self.dated, base=rich, months=12, monthly_priorities=True,
+                        weekly_overview=True, weekly_review=True)
+        exact = replace(self.dated, end_date_override='2027-01-15')
+        for mode, config in (('undated', self.base), ('dated', self.dated),
+                             ('undated', rich), ('undated', custom),
+                             ('dated', dated), ('dated', exact)):
+            with self.subTest(mode=mode, config=config):
                 payload = json.loads(json.dumps(config.to_dict()))
                 self.assertEqual(self.service.parse_config(mode, payload), config)
                 self.assertEqual(payload, json.loads(json.dumps(config.to_dict())))
+        # Every field of both configurations must survive the round trip.
+        self.assertEqual(set(rich.to_dict()), set(PlannerConfig.__dataclass_fields__))
+        self.assertEqual(set(dated.to_dict()), set(DatedPlannerConfig.__dataclass_fields__))
 
     def test_full_pdf_bytes_and_navigation_match_each_existing_engine(self):
         for language, typography in product(('fr', 'en'),

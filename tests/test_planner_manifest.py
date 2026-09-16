@@ -194,6 +194,37 @@ class SplitRenderingTests(unittest.TestCase):
             for ref in page.get("/Annots", []):
                 self.assertIn(ref.get_object()["/Dest"][0].idnum, ids)
 
+    def test_previews_gain_a_page_for_every_optional_section(self):
+        from dated_planner_pdf import generate_dated_samples
+        from planner_manifest import preview_kinds
+        from planner_pdf import generate_samples
+        base = PlannerConfig(days=2, list_count=1, tasks_per_list=2, detail_pages=1)
+        self.assertEqual(preview_kinds(build_manifest(base), 'undated'),
+                         ('meeting', 'task-list', 'task-notes'))
+        with_projects = replace(base, project_count=2, project_notes_pages=1)
+        self.assertEqual(preview_kinds(build_manifest(with_projects), 'undated'),
+                         ('meeting', 'task-list', 'task-notes',
+                          'projects-index', 'project', 'project-notes'))
+        output = io.BytesIO()
+        self.assertEqual(generate_samples(with_projects, output), 6)
+        self.assertEqual(len(PdfReader(output).pages), 6)
+
+        plain = DatedPlannerConfig(base=base, start_date='2026-09-16', months=1)
+        self.assertEqual(preview_kinds(build_manifest(plain), 'dated'),
+                         ('calendar', 'weekly', 'meeting', 'task-list', 'task-notes'))
+        rich = DatedPlannerConfig(base=with_projects, start_date='2026-09-16', months=1,
+                                  monthly_priorities=True, weekly_overview=True,
+                                  weekly_review=True)
+        self.assertEqual(preview_kinds(build_manifest(rich), 'dated'),
+                         ('calendar', 'month-plan', 'week-overview', 'weekly', 'week-review',
+                          'meeting', 'task-list', 'task-notes',
+                          'projects-index', 'project', 'project-notes'))
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_samples(rich, output), 11)
+        reader = PdfReader(output)
+        self.assertEqual(len(reader.pages), 11)
+        self.assertTrue(all(not page.get('/Annots') for page in reader.pages))
+
     def test_previews_follow_the_manifest_instead_of_a_fixed_count(self):
         from dated_planner_pdf import generate_dated_samples
         from planner_pdf import generate_samples

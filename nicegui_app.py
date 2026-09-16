@@ -18,6 +18,7 @@ from dated_planner_config import DatedPlannerConfig, month_choices, month_label
 import nicegui_preferences as preferences
 from nicegui_jobs import cpu_job, shutdown_jobs
 from nicegui_service import generate_artifact, parse_config, render_preview
+from planner_manifest import build_manifest, preview_kinds
 from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
 from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES, devices_of
 from planner_note_styles import NOTE_STYLES
@@ -25,8 +26,12 @@ from planner_i18n import LANGUAGES
 
 ROOT = Path(__file__).resolve().parent
 MODES = {'dated': 'Carnet daté', 'undated': 'Carnet libre'}
-KINDS = {'dated': ['Calendrier', 'Semaine', 'Meeting', 'Backlog', 'Contexte'],
-         'undated': ['Meeting', 'Liste TODO', 'Contexte']}
+KIND_LABELS = {'calendar': 'Calendrier', 'month-plan': 'Priorités',
+               'week-overview': 'Sept jours', 'weekly': 'Semaine', 'week-review': 'Bilan',
+               'meeting': 'Meeting', 'task-list': 'Backlog', 'task-notes': 'Contexte',
+               'projects-index': 'Projets', 'project': 'Fiche projet',
+               'project-notes': 'Notes projet'}
+UNDATED_LABELS = {'task-list': 'Liste TODO'}
 CSS = '''
 @font-face { font-family: Manrope; src: url('/planner-fonts/Manrope-Regular.ttf'); font-weight: 400; }
 @font-face { font-family: Manrope; src: url('/planner-fonts/Manrope-Bold.ttf'); font-weight: 700; }
@@ -162,6 +167,12 @@ class PlannerWorkspace:
     def base_config(self):
         return self.config.base if self.mode == 'dated' else self.config
 
+    def preview_tabs(self):
+        """One tab per section the applied configuration actually produces."""
+        kinds = preview_kinds(build_manifest(self.config), self.mode)
+        labels = dict(KIND_LABELS, **(UNDATED_LABELS if self.mode == 'undated' else {}))
+        return [labels.get(kind, kind) for kind in kinds]
+
     def whole(self, value, message='Complétez les champs numériques avec des nombres entiers.'):
         if isinstance(value, bool) or not isinstance(value, (int, float)) \
                 or not math.isfinite(value) or value != int(value):
@@ -214,6 +225,8 @@ class PlannerWorkspace:
             self.sample = None
             self.images.clear()
             self.output = None
+            self.kind = min(self.kind, len(self.preview_tabs()) - 1)
+            self.preview_tabs_area.refresh()
             self.preview_area.refresh()
         self.dirty = False
         self.error = ''
@@ -628,6 +641,14 @@ class PlannerWorkspace:
             self.busy = False
 
     @ui.refreshable
+    def preview_tabs_area(self):
+        ui.toggle(dict(enumerate(self.preview_tabs())), value=self.kind,
+                  on_change=self.change_kind) \
+            .props('unelevated toggle-color=primary color=transparent text-color=grey-8') \
+            .classes('preview-tabs') \
+            .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+
+    @ui.refreshable
     def preview_area(self):
         with ui.element('div').classes('paper-wrap'):
             if self.kind in self.images:
@@ -746,7 +767,7 @@ class PlannerWorkspace:
                 with ui.row().classes('preview-toolbar'):
                     ui.label('Votre carnet, page par page').classes('text-base font-bold')
                     ui.label('APERÇU').classes('eyebrow')
-                ui.toggle(dict(enumerate(KINDS[self.mode])), value=self.kind, on_change=self.change_kind).props('unelevated toggle-color=primary color=transparent text-color=grey-8').classes('preview-tabs').bind_enabled_from(self, 'busy', backward=lambda value: not value)
+                self.preview_tabs_area()
                 self.preview_area()
                 ui.label('Les liens sont actifs dans le carnet complet. L’aperçu sert à vérifier la mise en page.').classes('muted')
                 with ui.expansion('Se repérer dans le carnet').classes('w-full'):

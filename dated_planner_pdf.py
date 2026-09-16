@@ -6,7 +6,7 @@ from reportlab.pdfgen import canvas
 
 from dated_planner_pages import DatedPlannerPages
 from planner_layout import make_layout
-from planner_manifest import build_manifest, first_of
+from planner_manifest import build_manifest, preview_specs
 
 
 def _canvas(config, target):
@@ -37,8 +37,7 @@ def generate_dated_pdf(config, target):
 def generate_dated_samples(config, target):
     pdf = _canvas(config, target)
     pages = DatedPlannerPages(pdf, config, interactive=False)
-    manifest = build_manifest(config)
-    for kind in ("calendar", "weekly", "meeting", "task-list", "task-notes"):
-        pages.draw(first_of(manifest, kind))
+    for spec in preview_specs(build_manifest(config), "dated"):
+        pages.draw(spec)
     pdf.save()
     return pages.ordinal

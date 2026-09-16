@@ -159,6 +159,28 @@ def build_manifest(config) -> tuple[PageSpec, ...]:
     return undated_manifest(config)
 
 
+# One representative page per section, in the order a reader meets them.
+PREVIEW_KINDS = {
+    "undated": ("meeting", "task-list", "task-notes",
+                "projects-index", "project", "project-notes"),
+    "dated": ("calendar", "month-plan", "week-overview", "weekly", "week-review",
+              "meeting", "task-list", "task-notes",
+              "projects-index", "project", "project-notes"),
+}
+
+
+def preview_specs(manifest: tuple[PageSpec, ...], mode: str) -> tuple[PageSpec, ...]:
+    """The pages a visual preview shows, skipping sections the notebook omits."""
+    available = {}
+    for spec in manifest:
+        available.setdefault(spec.kind, spec)
+    return tuple(available[kind] for kind in PREVIEW_KINDS[mode] if kind in available)
+
+
+def preview_kinds(manifest: tuple[PageSpec, ...], mode: str) -> tuple[str, ...]:
+    return tuple(spec.kind for spec in preview_specs(manifest, mode))
+
+
 def first_of(manifest: tuple[PageSpec, ...], kind: str) -> PageSpec:
     """The representative page of a section, used by the visual previews."""
     for spec in manifest:

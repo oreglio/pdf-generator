@@ -7,7 +7,7 @@ from reportlab.pdfgen import canvas
 
 from planner_config import TYPOGRAPHIES
 from planner_layout import make_layout
-from planner_manifest import build_manifest, first_of
+from planner_manifest import build_manifest, preview_specs
 from planner_pages import PlannerPages
 
 
@@ -37,9 +37,8 @@ def generate_samples(config, target):
                         pagesize=make_layout(config).pagesize, pageCompression=1, invariant=1)
     pdf.setTitle(config.text("Aperçu - ") + config.title)
     pages = PlannerPages(pdf, config, interactive=False)
-    manifest = build_manifest(config)
-    for kind in ("meeting", "task-list", "task-notes"):
-        pages.draw(first_of(manifest, kind))
+    for spec in preview_specs(build_manifest(config), "undated"):
+        pages.draw(spec)
     pdf.save()
     return pages.ordinal
 
@@ -79,6 +78,6 @@ def generate_comparison(config, target):
         page.ordinal = ordinal
         manifest = build_manifest(current)
         for kind in ("meeting", "task-list", "task-notes"):
-            page.draw(first_of(manifest, kind))
+            page.draw(next(spec for spec in manifest if spec.kind == kind))
         ordinal += 3
     pdf.save()

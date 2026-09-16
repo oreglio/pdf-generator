@@ -11,11 +11,16 @@ from dated_planner_config import DatedPlannerConfig, month_choices, month_label
 from dated_planner_pdf import generate_dated_pdf, generate_dated_samples
 from planner_config import PlannerConfig, TYPOGRAPHIES
 from planner_formats import CUSTOM, DENSITIES, DEVICES
+from planner_manifest import build_manifest, preview_kinds
 from planner_ui import device_form
 from planner_i18n import LANGUAGES
 
 
-PREVIEW_KINDS = ('Calendrier', 'Semaine', 'Meeting', 'Backlog', 'Contexte')
+KIND_LABELS = {'calendar': 'Calendrier', 'month-plan': 'Priorités',
+               'week-overview': 'Sept jours', 'weekly': 'Semaine', 'week-review': 'Bilan',
+               'meeting': 'Meeting', 'task-list': 'Backlog', 'task-notes': 'Contexte',
+               'projects-index': 'Projets', 'project': 'Fiche projet',
+               'project-notes': 'Notes projet'}
 LAYOUT_VERSION = 'dated-12:'
 
 
@@ -187,7 +192,9 @@ def render_dated_planner_ui():
 
     with preview:
         st.subheader('Votre carnet, page par page')
-        kind = st.radio('Type de page', PREVIEW_KINDS, horizontal=True, label_visibility='collapsed',
+        kinds = preview_kinds(build_manifest(config), 'dated')
+        labels = tuple(KIND_LABELS.get(kind, kind) for kind in kinds)
+        kind = st.radio('Type de page', labels, horizontal=True, label_visibility='collapsed',
                         key='dated_preview_kind')
         cached = st.session_state.get('dated_preview')
         if cached is None or cached['key'] != signature:
@@ -214,12 +221,13 @@ def render_dated_planner_ui():
                     images.append(image.getvalue())
                 cached['images'] = images
             width_option = 'use_container_width' if 'use_container_width' in inspect.signature(st.image).parameters else 'use_column_width'
-            st.image(cached['images'][PREVIEW_KINDS.index(kind)], **{width_option: True})
+            st.image(cached['images'][labels.index(kind) if kind in labels else 0],
+                     **{width_option: True})
         except (ImportError, OSError) as error:
             st.info('L’aperçu image nécessite Poppler. Le PDF d’aperçu reste disponible ci-dessous.')
             st.caption(str(error))
         st.caption('Les liens sont actifs dans le carnet complet. Ces cinq pages servent à vérifier la mise en page.')
-        st.download_button('Télécharger les 5 pages d’aperçu', data=cached['pdf'],
+        st.download_button(f'Télécharger les {len(labels)} pages d’aperçu', data=cached['pdf'],
                            file_name=f'aipaper-dated-preview-{config.base.language}.pdf',
                            mime='application/pdf', key='dated_preview_download')
         with st.expander('Du Meeting au backlog, et retour'):

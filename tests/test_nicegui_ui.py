@@ -29,7 +29,7 @@ def workspace(mode='undated'):
     state.client = nullcontext()
     state.mode = mode
     state.configs['undated'] = PlannerConfig(days=4, list_count=1, tasks_per_list=1)
-    for name in ('metrics', 'preview_area', 'download_area', 'format_chip'):
+    for name in ('metrics', 'preview_area', 'download_area', 'format_chip', 'preview_tabs_area'):
         setattr(state, name, SimpleNamespace(refresh=lambda: None))
     async def refresh_body():
         await asyncio.sleep(0)

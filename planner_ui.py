@@ -11,7 +11,13 @@ from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
 from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
+from planner_manifest import build_manifest, preview_kinds
 from planner_pdf import generate_pdf, generate_samples
+
+
+PREVIEW_LABELS = {"meeting": "Meetings", "task-list": "Liste TODO", "task-notes": "Contexte",
+                  "projects-index": "Projets", "project": "Fiche projet",
+                  "project-notes": "Notes projet"}
 
 
 def device_options():
@@ -186,7 +192,9 @@ def render_planner_ui():
 
     with preview:
         st.subheader("Aperçu à l’échelle de la page")
-        kind = st.radio("Type de page", ["Meetings", "Liste TODO", "Contexte"], horizontal=True,
+        labels = tuple(PREVIEW_LABELS.get(kind, kind)
+                       for kind in preview_kinds(build_manifest(config), "undated"))
+        kind = st.radio("Type de page", labels, horizontal=True,
                         label_visibility="collapsed", key="planner_preview_kind")
         key = "layout-33:" + json.dumps(config.to_dict(), sort_keys=True)
         cached = st.session_state.get("planner_preview")
@@ -214,12 +222,13 @@ def render_planner_ui():
                     images.append(image.getvalue())
                 cached["images"] = images
             width_option = "use_container_width" if "use_container_width" in inspect.signature(st.image).parameters else "use_column_width"
-            st.image(cached["images"][["Meetings", "Liste TODO", "Contexte"].index(kind)], **{width_option: True})
+            st.image(cached["images"][labels.index(kind) if kind in labels else 0],
+                     **{width_option: True})
         except (ImportError, OSError) as error:
             st.info("L’aperçu image nécessite Poppler. Le PDF d’aperçu reste disponible ci-dessous.")
             st.caption(str(error))
         st.caption("Aperçu visuel uniquement. Les liens sont actifs dans le carnet généré.")
-        st.download_button("Télécharger ces 3 pages d’aperçu", data=cached["pdf"],
+        st.download_button(f"Télécharger ces {len(labels)} pages d’aperçu", data=cached["pdf"],
                            file_name="aipaper-apercu.pdf" if config.language == "fr" else "aipaper-preview-en.pdf",
                            mime="application/pdf", key="planner_preview_download")
         with st.expander("Comment retrouver mes tâches et ma journée ?"):
