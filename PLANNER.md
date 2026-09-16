@@ -143,3 +143,13 @@ guide. Aucune commande ci-dessus ne déploie le projet.
 
 Git exclut `venv/`, `output/`, `tmp/`, `archives/` et les configurations personnelles.
 Les anciennes versions restent dans les archives locales, sans être publiées.
+Les deux carnets de démonstration français et anglais sont versionnés dans
+`examples/` et téléchargeables depuis le README. Pour les actualiser après une
+modification des modèles, régénérer les deux langues, puis copier les PDF :
+
+```bash
+venv/bin/python generate_planner.py
+venv/bin/python generate_planner.py --language en
+cp output/pdf/aipaper-manrope-200j.pdf examples/
+cp output/pdf/aipaper-manrope-en-200d.pdf examples/
+```
