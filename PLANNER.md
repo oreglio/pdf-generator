@@ -102,9 +102,12 @@ valeurs JSON ; `--all-variants` génère les trois polices.
 - 200 Meetings non datés : cinq Objectives, Agenda libre, Notes et deux pages
   de notes supplémentaires. **‹ Jour ›** saute directement au Meeting voisin.
 - Sur les pages Notes, **‹ Meeting 003** revient au tableau de bord correspondant.
+  **MEETING 003** dans l’en-tête est également cliquable et ouvre ce même Meeting.
   **Notes 2 ›** et **‹ Notes 1** naviguent entre les notes ; **Jour suivant ›**
   ouvre le prochain Meeting. Sur la dernière journée, **Index ›** ramène à son index.
 - 10 listes de 40 tâches avec deux pages de contexte chacune.
+  En bas de ces notes : **‹ Liste 01** revient à la liste, **Notes 2 ›** et
+  **‹ Notes 1** naviguent entre les pages de contexte de la même tâche.
 - 1 accueil et 5 index de 40 journées, ordonnées de gauche à droite.
 - À droite : les cinq groupes **JOURS**, puis les dix **TODO**. Depuis une tâche,
   groupe de journées → numéro de journée permet le retour en deux clics.
