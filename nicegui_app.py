@@ -18,6 +18,7 @@ from dated_planner_config import DatedPlannerConfig, month_choices, month_label
 from nicegui_jobs import cpu_job, shutdown_jobs
 from nicegui_service import generate_artifact, parse_config, render_preview
 from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES, devices_of
 from planner_i18n import LANGUAGES
 
 ROOT = Path(__file__).resolve().parent
@@ -47,6 +48,9 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .q-field--outlined .q-field__control { border-radius: 8px; background: #fff; }
 .q-btn { border-radius: 8px; text-transform: none; font-weight: 700; letter-spacing: 0; }
 .mode-switch .q-btn { font-size: 12px; padding: 9px 16px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #43514c;
+  background: #eceee8; border: 1px solid #dee2d8; border-radius: 999px; padding: 6px 13px; white-space: nowrap; }
+.chip b { font-weight: 700; color: #222c2a; }
 .metrics { display: grid; grid-template-columns: repeat(3, 1fr); border-block: 1px solid #dedfd9; padding: 18px 0; width: 100%; }
 .metric-value { font-size: 23px; font-weight: 700; letter-spacing: -.8px; }
 .preview-panel { background: #eceee8; border: 1px solid #e0e3dc; border-radius: 12px; padding: 22px; min-height: 680px; width: 100%; gap: 16px; }
@@ -70,6 +74,7 @@ class PlannerWorkspace:
     def __init__(self, initial_mode='dated'):
         self.mode = initial_mode
         self.configs = {'dated': DatedPlannerConfig(), 'undated': PlannerConfig()}
+        self.family = None
         self.fields = {}
         self.busy = False
         self.dirty = False
@@ -98,20 +103,36 @@ class PlannerWorkspace:
         control.bind_enabled_from(self, 'busy', backward=lambda value: not value)
         return control.props('outlined dense').classes('w-full')
 
-    def number(self, key, label, value, minimum, maximum):
-        return self.field(key, ui.number(label, value=value, min=minimum, max=maximum, step=1, precision=0))
+    def number(self, key, label, value, minimum, maximum, **props):
+        return self.field(key, ui.number(label, value=value, min=minimum, max=maximum,
+                                         step=1, precision=0, **props))
+
+    def base_config(self):
+        return self.config.base if self.mode == 'dated' else self.config
+
+    def whole(self, value, message='Complétez les champs numériques avec des nombres entiers.'):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) \
+                or not math.isfinite(value) or value != int(value):
+            raise ValueError(message)
+        return int(value)
 
     def read_config(self):
         base = self.config.base if self.mode == 'dated' else self.config
         payload = base.to_dict()
         for key in ('list_count', 'tasks_per_list', 'detail_pages', 'notes_pages', 'days'):
             if key in self.fields:
-                value = self.fields[key].value
-                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value != int(value):
-                    raise ValueError('Complétez les champs numériques avec des nombres entiers.')
-                payload[key] = int(value)
+                payload[key] = self.whole(self.fields[key].value)
         for key in ('language', 'typography', 'title'):
             payload[key] = self.fields[key].value
+        payload['density'] = self.fields['density'].value
+        device = self.fields['device'].value if 'device' in self.fields else CUSTOM
+        payload['device'] = device
+        payload['custom_width_mm'] = payload['custom_height_mm'] = None
+        if device == CUSTOM:
+            for key, side in (('custom_width_mm', 'largeur'), ('custom_height_mm', 'hauteur')):
+                payload[key] = float(self.whole(
+                    self.fields[key].value if key in self.fields else None,
+                    f'Indiquez la {side} du format personnalisé, en millimètres entiers.'))
         payload['list_names'] = self.fields['list_names'].value.splitlines()
         if self.mode == 'dated':
             dated = self.config.to_dict()
@@ -119,10 +140,7 @@ class PlannerWorkspace:
             dated['start_date'] = self.fields['start_date'].value
             dated['include_weekends'] = self.fields['include_weekends'].value
             for key in ('months', 'week_pages', 'weekly_tasks'):
-                value = self.fields[key].value
-                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value != int(value):
-                    raise ValueError('Complétez les champs numériques avec des nombres entiers.')
-                dated[key] = int(value)
+                dated[key] = self.whole(self.fields[key].value)
             return parse_config(self.mode, dated)
         return parse_config(self.mode, payload)
 
@@ -137,6 +155,7 @@ class PlannerWorkspace:
         self.dirty = False
         self.error = ''
         self.metrics.refresh()
+        self.format_chip.refresh()
 
     async def switch_mode(self, event):
         if self.busy:
@@ -265,9 +284,59 @@ class PlannerWorkspace:
             self.activity = ''
             self.download_area.refresh()
 
+    def control(self, element):
+        return element.props('outlined dense').classes('w-full') \
+            .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+
+    def change_family(self, event):
+        if self.busy:
+            return
+        self.family = event.value
+        self.device_fields.refresh()
+        self.mark_dirty()
+
+    @ui.refreshable
+    def device_fields(self):
+        base = self.base_config()
+        for key in ('device', 'density', 'custom_width_mm', 'custom_height_mm'):
+            self.fields.pop(key, None)
+        family = self.family or (CUSTOM if base.device == CUSTOM else DEVICES[base.device].brand)
+        with ui.element('div').classes('fields'):
+            self.control(ui.select(BRANDS, value=family, label='Famille',
+                                   on_change=self.change_family))
+            if family != CUSTOM:
+                models = {device.key: device.label for device in devices_of(family)}
+                chosen = base.device if base.device in models else next(iter(models))
+                self.field('device', ui.select(models, value=chosen, label='Modèle'))
+            else:
+                self.field('density', ui.select(DENSITIES, value=base.density,
+                                                label='Confort d’écriture'))
+        if family == CUSTOM:
+            with ui.element('div').classes('fields'):
+                self.number('custom_width_mm', 'Largeur', base.custom_width_mm or 163,
+                            100, 400, suffix='mm')
+                self.number('custom_height_mm', 'Hauteur', base.custom_height_mm or 217,
+                            150, 400, suffix='mm')
+            ui.label('Portrait uniquement pour cette livraison : la largeur reste '
+                     'inférieure ou égale à la hauteur.').classes('muted')
+        else:
+            self.field('density', ui.select(DENSITIES, value=base.density,
+                                            label='Confort d’écriture'))
+        ui.label('Aéré écrit plus au large : une liste qui ne tient plus se poursuit '
+                 'sur un feuillet suivant, sans perdre une seule tâche.').classes('muted')
+
+    @ui.refreshable
+    def format_chip(self):
+        layout = self.base_config().layout
+        ui.html(f'<span class="chip">{layout.device.label} · {layout.device.summary}</span>',
+                sanitize=False)
+
     @ui.refreshable
     def metrics(self):
         config = self.config
+        layout = self.base_config().layout
+        ui.label(f'Format appliqué · {layout.device.label} · {layout.device.summary} · '
+                 f'{layout.backlog_capacity} tâches par feuillet').classes('muted')
         if self.mode == 'dated':
             ui.label(f'{config.start_date} → {config.end_date:%Y-%m-%d}').classes('muted')
             values = [(len(config.dates), 'journées'), (len(config.weeks), 'semaines'), (config.total_pages, 'pages')]
@@ -346,6 +415,7 @@ class PlannerWorkspace:
     @ui.refreshable
     def body(self):
         self.fields = {}
+        self.family = None
         dated = self.mode == 'dated'
         config = self.config
         base = config.base if dated else config
@@ -354,11 +424,14 @@ class PlannerWorkspace:
                 ui.label('VOTRE CARNET, À VOTRE MESURE').classes('eyebrow')
                 ui.html('<h1>Une place pour chaque idée.</h1>', sanitize=False)
                 ui.label('Calendrier, semaines et backlog reliés.' if dated else 'Des journées libres. Des listes qui gardent le contexte.').classes('muted')
-            ui.label('Viwoods AiPaper · 1 920 × 2 560').classes('muted')
+            self.format_chip()
         with ui.element('div').classes('workspace'):
             with ui.column().classes('settings'):
                 with ui.column().classes('w-full gap-3'):
-                    ui.label('01 / Votre rythme').classes('section-title')
+                    ui.label('01 / Support & format').classes('section-title')
+                    self.device_fields()
+                with ui.column().classes('w-full gap-3 pt-2'):
+                    ui.label('02 / Votre rythme').classes('section-title')
                     if dated:
                         with ui.element('div').classes('fields'):
                             self.field('start_date', ui.input('À partir du', value=config.start_date)).props('type=date')
@@ -373,13 +446,13 @@ class PlannerWorkspace:
                     else:
                         self.number('days', 'Journées non datées', base.days, 1, 400)
                     self.number('notes_pages', 'Pages Notes après chaque Meeting', base.notes_pages, 0, 3)
-                with ui.expansion('02 / Backlog & contexte' if dated else '02 / Listes & contexte', value=True):
+                with ui.expansion('03 / Backlog & contexte' if dated else '03 / Listes & contexte', value=True):
                     with ui.column().classes('w-full gap-4'):
                         with ui.element('div').classes('fields'):
                             self.number('list_count', 'Listes', base.list_count, 1, 10)
                             self.number('tasks_per_list', 'Tâches / liste', base.tasks_per_list, 1, 40)
                         self.number('detail_pages', 'Pages de contexte / tâche', base.detail_pages, 1, 5)
-                with ui.expansion('03 / Style & langue', value=True):
+                with ui.expansion('04 / Style & langue', value=True):
                     with ui.column().classes('w-full gap-4'):
                         self.field('language', ui.select(LANGUAGES, value=base.language, label='Langue du PDF'))
                         self.field('typography', ui.select(TYPOGRAPHIES, value=base.typography, label='Typographie'))

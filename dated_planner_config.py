@@ -118,7 +118,8 @@ class DatedPlannerConfig:
     def pdf_filename(self):
         suffix = "" if self.include_weekends else "-weekdays"
         return (f"dated-aipaper-{self.base.typography}-{self.base.language}-"
-                f"{self.start_date}-{self.end_date.isoformat()}{suffix}.pdf")
+                f"{self.start_date}-{self.end_date.isoformat()}{suffix}"
+                f"{self.base.format_suffix}.pdf")
 
     def day_number(self, value):
         if not self.includes_day(value):

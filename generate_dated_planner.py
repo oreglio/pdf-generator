@@ -10,6 +10,7 @@ from pathlib import Path
 from dated_planner_config import MONTH_RANGE, DatedPlannerConfig
 from dated_planner_pdf import generate_dated_pdf
 from planner_config import TYPOGRAPHIES
+from planner_formats import CUSTOM, DENSITIES, DEVICES
 from planner_i18n import LANGUAGES
 
 
@@ -23,6 +24,11 @@ def main():
     parser.add_argument('--weekly-tasks', type=int, help='Actions par liste hebdomadaire, de 1 à 40')
     parser.add_argument('--include-weekends', action=argparse.BooleanOptionalAction, default=None,
                         help='Inclure les Meeting/Notes du week-end (par défaut oui ; --no-include-weekends pour les exclure)')
+    parser.add_argument('--device', choices=list(DEVICES) + [CUSTOM],
+                        help='Modèle de tablette ; custom demande les deux dimensions en mm')
+    parser.add_argument('--density', choices=DENSITIES, help='Confort d’écriture : standard ou comfortable')
+    parser.add_argument('--custom-width-mm', type=float, help='Largeur du format personnalisé, en mm')
+    parser.add_argument('--custom-height-mm', type=float, help='Hauteur du format personnalisé, en mm')
     parser.add_argument('--language', choices=LANGUAGES, help='Langue du PDF (fr par défaut)')
     parser.add_argument('--font', choices=TYPOGRAPHIES)
     parser.add_argument('--output-dir', type=Path,
@@ -37,6 +43,9 @@ def main():
             base_overrides['language'] = args.language
         if args.font is not None:
             base_overrides['typography'] = args.font
+        base_overrides.update({name: getattr(args, name) for name in
+                               ('device', 'density', 'custom_width_mm', 'custom_height_mm')
+                               if getattr(args, name) is not None})
         config = replace(config, base=replace(config.base, **base_overrides), **overrides)
     except (ValueError, TypeError, OSError) as error:
         parser.error(str(error))

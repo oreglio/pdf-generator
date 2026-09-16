@@ -10,6 +10,8 @@ import streamlit as st
 from dated_planner_config import DatedPlannerConfig, month_choices, month_label
 from dated_planner_pdf import generate_dated_pdf, generate_dated_samples
 from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_formats import CUSTOM, DENSITIES, DEVICES
+from planner_ui import device_form
 from planner_i18n import LANGUAGES
 
 
@@ -20,7 +22,7 @@ LAYOUT_VERSION = 'dated-12:'
 def render_dated_planner_ui():
     st.title('Meetings & actions · daté')
     st.markdown('Une semaine pour agir. Un backlog pour garder le contexte.')
-    st.caption('Viwoods AiPaper · 1 920 × 2 560 px · calendrier, semaines et journées reliés')
+    st.caption('Calendrier, semaines et journées reliés · au format de votre tablette')
 
     if 'dated_config' not in st.session_state:
         st.session_state.dated_config = DatedPlannerConfig().to_dict()
@@ -46,6 +48,8 @@ def render_dated_planner_ui():
     with settings:
         st.subheader('Votre période')
         with st.form('dated_settings'):
+            with st.expander('Support & format', expanded=True):
+                surface = device_form(config.base, 'dated')
             c1, c2 = st.columns(2)
             with c1:
                 start = st.date_input('À partir du', value=date.fromisoformat(config.start_date),
@@ -98,7 +102,8 @@ def render_dated_planner_ui():
             try:
                 base = PlannerConfig(list_count=lists, tasks_per_list=tasks, detail_pages=details,
                                      notes_pages=notes, typography=typography, title=title,
-                                     list_names=tuple(names.splitlines()), language=language)
+                                     list_names=tuple(names.splitlines()), language=language,
+                                     **surface)
                 config = DatedPlannerConfig(base=base, start_date=start.isoformat(), months=months,
                                             week_pages=week_pages, weekly_tasks=weekly_tasks,
                                             include_weekends=include_weekends)
@@ -113,6 +118,9 @@ def render_dated_planner_ui():
         st.caption('Appliquez vos modifications pour actualiser la période, l’aperçu et le PDF.')
         st.divider()
         st.markdown(f"**Du {date.fromisoformat(config.start_date):%d/%m/%Y} au {config.end_date:%d/%m/%Y}**")
+        layout = config.base.layout
+        st.caption(f'{layout.device.label} · {layout.device.summary} · '
+                   f'{layout.weekly_capacity} actions par feuillet hebdomadaire')
         m1, m2, m3 = st.columns(3)
         m1.metric('Journées', len(config.dates))
         m2.metric('Semaines', len(config.weeks))

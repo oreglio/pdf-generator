@@ -28,7 +28,7 @@ def workspace(mode='undated'):
     state.client = nullcontext()
     state.mode = mode
     state.configs['undated'] = PlannerConfig(days=4, list_count=1, tasks_per_list=1)
-    for name in ('metrics', 'preview_area', 'download_area'):
+    for name in ('metrics', 'preview_area', 'download_area', 'format_chip'):
         setattr(state, name, SimpleNamespace(refresh=lambda: None))
     async def refresh_body():
         await asyncio.sleep(0)
@@ -47,6 +47,46 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         state.apply_draft()
         self.assertFalse(state.config.include_weekends)
         self.assertTrue(all(day.weekday() < 5 for day in state.config.dates))
+
+    def test_two_clients_can_draw_two_devices_at_the_same_time(self):
+        import io
+        from pypdf import PdfReader
+        from nicegui_service import generate_artifact
+        mini, maximum = workspace(), workspace()
+        mini.fields['device'].value = 'viwoods-aipaper-mini'
+        maximum.fields['device'].value = 'boox-note-max'
+        maximum.fields['density'].value = 'comfortable'
+        mini.apply_draft()
+        maximum.apply_draft()
+        self.assertEqual(mini.config.device, 'viwoods-aipaper-mini')
+        self.assertEqual(mini.config.density, 'standard')
+        self.assertEqual(maximum.config.device, 'boox-note-max')
+        widths = []
+        for state in (mini, maximum):
+            artifact = generate_artifact('undated', state.config.to_dict())
+            widths.append(float(PdfReader(io.BytesIO(artifact.pdf_bytes))
+                                .pages[0].mediabox.width))
+            self.assertIn(state.config.device, artifact.filename)
+        self.assertLess(widths[0], widths[1])
+        self.assertEqual(workspace().config.device, 'viwoods-aipaper')
+        self.assertEqual(workspace().config.pdf_filename, 'aipaper-manrope-4j.pdf')
+
+    def test_custom_format_needs_both_millimetre_fields(self):
+        state = workspace()
+        state.fields['device'].value = 'custom'
+        for width, height in ((None, 210), (150, None), (150, 'x')):
+            state.fields['custom_width_mm'].value = width
+            state.fields['custom_height_mm'].value = height
+            with self.subTest(width=width, height=height), self.assertRaises(ValueError):
+                state.read_config()
+        state.fields['custom_width_mm'].value = 150
+        state.fields['custom_height_mm'].value = 210
+        state.apply_draft()
+        self.assertEqual(state.config.custom_width_mm, 150.0)
+        self.assertEqual(state.config.layout.device.label, '150 × 210 mm')
+        state.fields['device'].value = 'boox-go-103'
+        state.apply_draft()
+        self.assertIsNone(state.config.custom_width_mm)
 
     def test_client_drafts_images_and_documents_are_independent(self):
         first, second = workspace(), workspace()

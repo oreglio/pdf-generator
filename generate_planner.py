@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_formats import CUSTOM, DENSITIES, DEVICES
 from planner_i18n import LANGUAGES
 from planner_pdf import generate_comparison, generate_pdf
 
@@ -18,6 +19,11 @@ def main():
     parser.add_argument("--font", choices=TYPOGRAPHIES)
     parser.add_argument("--language", choices=LANGUAGES, help="Langue du PDF (fr par défaut)")
     parser.add_argument("--days", type=int)
+    parser.add_argument("--device", choices=list(DEVICES) + [CUSTOM],
+                        help="Modèle de tablette ; custom demande les deux dimensions en mm")
+    parser.add_argument("--density", choices=DENSITIES, help="Confort d’écriture : standard ou comfortable")
+    parser.add_argument("--custom-width-mm", type=float, help="Largeur du format personnalisé, en mm")
+    parser.add_argument("--custom-height-mm", type=float, help="Hauteur du format personnalisé, en mm")
     parser.add_argument("--all-variants", action="store_true")
     parser.add_argument("--comparison", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=Path(__file__).resolve().parent / "output/pdf")
@@ -29,6 +35,14 @@ def main():
         config = replace(config, typography=args.font)
     if args.language is not None:
         config = replace(config, language=args.language)
+    surface = {name: getattr(args, name) for name in
+               ("device", "density", "custom_width_mm", "custom_height_mm")
+               if getattr(args, name) is not None}
+    if surface:
+        try:
+            config = replace(config, **surface)
+        except ValueError as error:
+            parser.error(str(error))
     args.output_dir.mkdir(parents=True, exist_ok=True)
     results = []
     for font in TYPOGRAPHIES if args.all_variants else [config.typography]:

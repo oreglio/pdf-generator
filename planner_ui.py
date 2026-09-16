@@ -8,14 +8,49 @@ from dataclasses import replace
 import streamlit as st
 
 from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES
 from planner_i18n import LANGUAGES
 from planner_pdf import generate_pdf, generate_samples
+
+
+def device_options():
+    labels = {key: f"{BRANDS[device.brand]} · {device.label}"
+              for key, device in DEVICES.items()}
+    labels[CUSTOM] = "Personnalisé · dimensions en mm"
+    return labels
+
+
+def device_form(config, prefix):
+    """Shared Support & format block for both Streamlit workspaces."""
+    labels = device_options()
+    keys = list(labels)
+    device = st.selectbox("Modèle de tablette", keys, index=keys.index(config.device),
+                          format_func=labels.get, key=f"{prefix}_field_device")
+    density = st.selectbox("Confort d’écriture", list(DENSITIES),
+                           index=list(DENSITIES).index(config.density),
+                           format_func=DENSITIES.get, key=f"{prefix}_field_density")
+    st.caption("Aéré écrit plus au large. Une liste qui ne tient plus se poursuit "
+               "sur un feuillet suivant : aucune tâche n’est retirée.")
+    c1, c2 = st.columns(2)
+    with c1:
+        width = st.number_input("Largeur (mm)", min_value=100, max_value=400,
+                                value=int(config.custom_width_mm or 163), step=1,
+                                key=f"{prefix}_field_width_mm",
+                                help="Utilisée uniquement par le format personnalisé.")
+    with c2:
+        height = st.number_input("Hauteur (mm)", min_value=150, max_value=400,
+                                 value=int(config.custom_height_mm or 217), step=1,
+                                 key=f"{prefix}_field_height_mm",
+                                 help="Portrait uniquement : hauteur au moins égale à la largeur.")
+    return {"device": device, "density": density,
+            "custom_width_mm": float(width) if device == CUSTOM else None,
+            "custom_height_mm": float(height) if device == CUSTOM else None}
 
 
 def render_planner_ui():
     st.title("Meetings & actions")
     st.markdown("Votre journée reste légère. Vos tâches gardent leur place.")
-    st.caption("Viwoods AiPaper · 1 920 × 2 560 px · 300 ppp · portrait 162,56 × 216,75 mm")
+    st.caption("Votre carnet, au format de votre tablette · portrait · texte et tracés vectoriels")
 
     if "planner_config" not in st.session_state:
         st.session_state.planner_config = PlannerConfig().to_dict()
@@ -41,6 +76,8 @@ def render_planner_ui():
     with settings:
         st.subheader("Votre carnet")
         with st.form("planner_settings"):
+            with st.expander("Support & format", expanded=True):
+                surface = device_form(config, "planner")
             language = st.selectbox("Langue du PDF", options=list(LANGUAGES),
                                     index=list(LANGUAGES).index(config.language),
                                     format_func=LANGUAGES.get, key="planner_field_language")
@@ -71,7 +108,8 @@ def render_planner_ui():
             try:
                 config = PlannerConfig(list_count=lists, tasks_per_list=tasks, detail_pages=details,
                                        days=days, notes_pages=notes_pages, typography=typography,
-                                       title=title, list_names=tuple(names.splitlines()), language=language)
+                                       title=title, list_names=tuple(names.splitlines()),
+                                       language=language, **surface)
             except ValueError as error:
                 config = PlannerConfig.from_dict(st.session_state.planner_config)
                 st.error(str(error))
@@ -82,6 +120,8 @@ def render_planner_ui():
 
         st.caption("Les générations utilisent les réglages appliqués. Cliquez sur Appliquer après une modification.")
         st.divider()
+        st.caption(f"{config.layout.device.label} · {config.layout.device.summary} · "
+                   f"{config.layout.backlog_capacity} tâches par feuillet")
         m1, m2, m3 = st.columns(3)
         m1.metric("Journées", config.days)
         m2.metric("Tâches", config.task_count)

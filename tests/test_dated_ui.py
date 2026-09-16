@@ -104,6 +104,29 @@ class DatedPlannerCLITests(unittest.TestCase):
             self.assertEqual(len(PdfReader(pdf).pages), result['pages'])
             self.assertEqual(json.loads(pdf.with_suffix('.report.json').read_text()), result)
 
+    def test_device_and_comfort_flags_change_the_surface_and_the_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            command = [sys.executable, str(ENTRYPOINT.parent / 'generate_dated_planner.py'),
+                       '--start-date', '2026-09-16', '--months', '1',
+                       '--device', 'boox-note-max', '--density', 'comfortable',
+                       '--output-dir', directory]
+            run = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            result = json.loads(run.stdout)
+            self.assertEqual(result['config']['base']['device'], 'boox-note-max')
+            self.assertEqual(result['config']['base']['density'], 'comfortable')
+            self.assertIn('boox-note-max-aere', result['file'])
+            page = PdfReader(result['file']).pages[0]
+            self.assertAlmostEqual(float(page.mediabox.width), 2400 * 72 / 300, places=3)
+
+    def test_unknown_device_does_not_generate_a_pdf(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = subprocess.run([sys.executable, str(ENTRYPOINT.parent / 'generate_dated_planner.py'),
+                                  '--device', 'custom', '--output-dir', directory],
+                                 capture_output=True, text=True)
+            self.assertEqual(run.returncode, 2)
+            self.assertEqual(list(Path(directory).glob('*.pdf')), [])
+
     def test_invalid_date_does_not_generate_a_pdf(self):
         with tempfile.TemporaryDirectory() as directory:
             run = subprocess.run([sys.executable, str(ENTRYPOINT.parent / 'generate_dated_planner.py'),
