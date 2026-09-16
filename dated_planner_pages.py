@@ -28,6 +28,12 @@ class DatedPlannerPages(PlannerPages):
     def label(self, french, english):
         return french if self.config.language == "fr" else english
 
+    def text(self, x, y, value, size=10, **kwargs):
+        if value == "·":
+            size = 10
+            kwargs["bold"] = True
+        super().text(x, y, value, size, **kwargs)
+
     def month_name(self, value):
         return MONTHS[self.config.language][value.month - 1]
 
@@ -272,7 +278,7 @@ class DatedPlannerPages(PlannerPages):
 
     def header(self, eyebrow, title, *, subtitle=None):
         if eyebrow.startswith("TODO / "):
-            eyebrow = eyebrow.replace("TODO / ", "BACKLOG / ", 1)
+            eyebrow = "BACKLOG"
         super().header(eyebrow, title, subtitle=subtitle)
 
     def task_list(self, number):
