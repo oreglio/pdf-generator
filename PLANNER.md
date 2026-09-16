@@ -31,6 +31,8 @@ Choisir les réglages, cliquer sur **Appliquer et actualiser l’aperçu**, puis
 **Générer mon PDF**. Le mode Viwoods est sélectionné au démarrage ; le générateur
 historique reste accessible à gauche. Les réglages s’importent et s’exportent en
 JSON depuis l’interface.
+Le champ **Langue du PDF** propose **Français** (par défaut) et **English**.
+L’aperçu suit la langue appliquée ; l’interface reste en français.
 
 ## Régénérer sans interface
 
@@ -48,6 +50,9 @@ conserver séparément les carnets annotés sur la tablette.
 Autres commandes :
 
 ```bash
+# Version anglaise, à côté du carnet français conservé
+venv/bin/python generate_planner.py --language en
+
 # Garder une nouvelle version dans un dossier distinct
 venv/bin/python generate_planner.py --output-dir output/mon-essai
 
@@ -65,6 +70,11 @@ venv/bin/python generate_planner.py --help
 ```
 
 Les polices proposées sont `manrope`, `manrope-contrast` et `atkinson`.
+La commande anglaise produit `output/pdf/aipaper-manrope-en-200d.pdf`, également
+de 1 416 pages, avec son rapport `generation-report-en.json`. Les deux langues
+partagent la mise en page et les destinations des liens. Les titres et noms de
+listes personnalisés sont conservés tels quels, sans traduction automatique.
+`--language en --comparison` produit aussi `aipaper-font-comparison-en.pdf`.
 Pour changer les autres options sans interface, utiliser un JSON, par exemple :
 
 ```json
@@ -75,13 +85,14 @@ Pour changer les autres options sans interface, utiliser un JSON, par exemple :
   "tasks_per_list": 40,
   "detail_pages": 2,
   "typography": "manrope",
+  "language": "fr",
   "title": "Meetings & actions",
   "list_names": []
 }
 ```
 
 Les paramètres absents prennent leur valeur par défaut. Les limites et les
-valeurs sont validées avant génération. `--days` et `--font` remplacent leurs
+valeurs sont validées avant génération. `--days`, `--font` et `--language` remplacent leurs
 valeurs JSON ; `--all-variants` génère les trois polices.
 
 ## Contenu et navigation
@@ -117,6 +128,7 @@ venv/bin/python -m unittest discover -s tests -v
 mises en page, `planner_pdf.py` l’assemblage, `generate_planner.py` la commande
 et `planner_ui.py` l’interface. Les PDF sont vectoriels ; les grilles de points
 réutilisent un seul Form XObject par police.
+`planner_i18n.py` regroupe les traductions des textes du PDF.
 
 `requirements-local.txt` décrit l’environnement local validé. Le fichier
 historique `requirements.txt` est conservé pour le déploiement existant.

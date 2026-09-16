@@ -3,6 +3,8 @@
 from dataclasses import asdict, dataclass
 from math import ceil
 
+from planner_i18n import LANGUAGES, translate
+
 
 PAGE_WIDTH = 1920 * 72 / 300
 PAGE_HEIGHT = 2560 * 72 / 300
@@ -23,6 +25,7 @@ class PlannerConfig:
     typography: str = "manrope"
     title: str = "Meetings & actions"
     list_names: tuple = ()
+    language: str = "fr"
 
     def __post_init__(self):
         for name, low, high in (
@@ -34,6 +37,8 @@ class PlannerConfig:
                 raise ValueError(f"{name} doit être un entier entre {low} et {high}.")
         if not isinstance(self.typography, str) or self.typography not in TYPOGRAPHIES:
             raise ValueError("Police inconnue.")
+        if not isinstance(self.language, str) or self.language not in LANGUAGES:
+            raise ValueError("Langue inconnue : choisir fr ou en.")
         if not isinstance(self.title, str) or not self.title.strip() or len(self.title) > 48:
             raise ValueError("Le titre doit contenir entre 1 et 48 caractères.")
         if not isinstance(self.list_names, (tuple, list)) or len(self.list_names) > self.list_count:
@@ -60,7 +65,15 @@ class PlannerConfig:
     def list_name(self, number):
         if number <= len(self.list_names) and self.list_names[number - 1]:
             return self.list_names[number - 1]
-        return f"Liste {number:02d}"
+        return self.text("Liste {number:02d}", number=number)
+
+    def text(self, source, **values):
+        return translate(self.language, source, **values)
+
+    @property
+    def pdf_filename(self):
+        suffix = f"{self.days}j" if self.language == "fr" else f"en-{self.days}d"
+        return f"aipaper-{self.typography}-{suffix}.pdf"
 
     def to_dict(self):
         return asdict(self)

@@ -8,6 +8,7 @@ from dataclasses import replace
 import streamlit as st
 
 from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_i18n import LANGUAGES
 from planner_pdf import generate_pdf, generate_samples
 
 
@@ -40,6 +41,9 @@ def render_planner_ui():
     with settings:
         st.subheader("Votre carnet")
         with st.form("planner_settings"):
+            language = st.selectbox("Langue du PDF", options=list(LANGUAGES),
+                                    index=list(LANGUAGES).index(config.language),
+                                    format_func=LANGUAGES.get, key="planner_field_language")
             typography = st.selectbox("Typographie", options=list(TYPOGRAPHIES),
                                       index=list(TYPOGRAPHIES).index(config.typography),
                                       format_func=TYPOGRAPHIES.get, key="planner_field_typography")
@@ -67,7 +71,7 @@ def render_planner_ui():
             try:
                 config = PlannerConfig(list_count=lists, tasks_per_list=tasks, detail_pages=details,
                                        days=days, notes_pages=notes_pages, typography=typography,
-                                       title=title, list_names=tuple(names.splitlines()))
+                                       title=title, list_names=tuple(names.splitlines()), language=language)
             except ValueError as error:
                 config = PlannerConfig.from_dict(st.session_state.planner_config)
                 st.error(str(error))
@@ -85,7 +89,7 @@ def render_planner_ui():
         short = st.checkbox("Carnet d’essai : seulement 3 journées", key="planner_short",
                             help="Toutes vos listes et fiches de tâches sont conservées, avec tous leurs liens.")
         output_config = replace(config, days=min(config.days, 3)) if short else config
-        signature = "layout-28:" + json.dumps(output_config.to_dict(), sort_keys=True)
+        signature = "layout-29:" + json.dumps(output_config.to_dict(), sort_keys=True)
         download = st.session_state.get("planner_download")
         if download and download["signature"] != signature:
             del st.session_state.planner_download
@@ -95,20 +99,21 @@ def render_planner_ui():
                 buffer = io.BytesIO()
                 generate_pdf(output_config, buffer)
                 download = {"signature": signature, "data": buffer.getvalue(),
-                            "name": f"aipaper-{output_config.typography}-{output_config.days}j.pdf"}
+                            "name": output_config.pdf_filename}
                 st.session_state.planner_download = download
         if download:
             st.success(f"Prêt · {output_config.total_pages:,} pages · {len(download['data']) / 1024**2:.2f} Mo")
             st.download_button("Télécharger le carnet", data=download["data"], file_name=download["name"],
                                mime="application/pdf", use_container_width=True, key="planner_download_button")
         st.download_button("Sauvegarder mes réglages", data=json.dumps(config.to_dict(), ensure_ascii=False, indent=2),
-                           file_name="aipaper-config.json", mime="application/json", key="planner_export")
+                           file_name="aipaper-config.json" if config.language == "fr" else "aipaper-config-en.json",
+                           mime="application/json", key="planner_export")
 
     with preview:
         st.subheader("Aperçu à l’échelle de la page")
         kind = st.radio("Type de page", ["Meetings", "Liste TODO", "Contexte"], horizontal=True,
                         label_visibility="collapsed", key="planner_preview_kind")
-        key = "layout-28:" + json.dumps(config.to_dict(), sort_keys=True)
+        key = "layout-29:" + json.dumps(config.to_dict(), sort_keys=True)
         cached = st.session_state.get("planner_preview")
         if cached is None or cached["key"] != key:
             buffer = io.BytesIO()
@@ -139,7 +144,8 @@ def render_planner_ui():
             st.info("L’aperçu image nécessite Poppler. Le PDF d’aperçu reste disponible ci-dessous.")
             st.caption(str(error))
         st.caption("Aperçu visuel uniquement. Les liens sont actifs dans le carnet généré.")
-        st.download_button("Télécharger ces 3 pages d’aperçu", data=cached["pdf"], file_name="aipaper-apercu.pdf",
+        st.download_button("Télécharger ces 3 pages d’aperçu", data=cached["pdf"],
+                           file_name="aipaper-apercu.pdf" if config.language == "fr" else "aipaper-preview-en.pdf",
                            mime="application/pdf", key="planner_preview_download")
         with st.expander("Comment retrouver mes tâches et ma journée ?"):
             st.markdown("Les onglets **01 à 10** ouvrent toujours les mêmes listes. "
