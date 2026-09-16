@@ -267,6 +267,9 @@ class PlannerPages:
     def meeting_notes(self, day, number):
         self.start(f"day-{day}-notes-{number}")
         self.header(f"MEETING {day:03d} / NOTES {number:02d}", "Notes")
+        meeting_label = f"MEETING {day:03d}"
+        meeting_width = pdfmetrics.stringWidth(meeting_label, self.bold, 8)
+        self.link(meeting_label, f"day-{day}", (LEFT - 3, H - 43, LEFT + meeting_width + 3, H - 22))
         self.rail()
         self.text(LEFT + 183, H - 48, self.tr("Date / sujet"), 7, gray=MUTED)
         self.line(LEFT + 183, H - 74, RIGHT, H - 74, gray=0.55)
@@ -316,8 +319,10 @@ class PlannerPages:
         self.text(LEFT + 115, H - 48, self.tr("Sujet"), 7, gray=MUTED)
         self.line(LEFT + 115, H - 74, RIGHT, H - 74, gray=0.55)
         self.c.doForm(self.dot_form)
-        previous = f"task-{number}-{item}-{part - 1}" if part > 1 else f"list-{number}"
-        next_page = (self.tr("Suite"), f"task-{number}-{item}-{part + 1}") if part < self.config.detail_pages else (self.tr("Liste"), f"list-{number}")
-        self.footer(context=(self.tr("Liste {number:02d}", number=number), f"list-{number}", self.tr("Liste {number:02d}", number=number)),
-                    previous=previous, next_page=next_page)
+        previous = f"task-{number}-{item}-{part - 1}" if part > 1 else None
+        next_page = (f"Notes {part + 1}", f"task-{number}-{item}-{part + 1}") if part < self.config.detail_pages else None
+        list_label = self.tr("Liste {number:02d}", number=number)
+        self.footer(context=("< " + list_label, f"list-{number}", list_label),
+                    previous=previous, previous_label=f"Notes {part - 1}" if part > 1 else None,
+                    next_page=next_page, next_width=76)
         self.end()

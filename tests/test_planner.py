@@ -57,7 +57,32 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(list_links["Tache 02-04"], 24)
         self.assertEqual(self.links(reader, reader.pages[24])["Liste 02"], 17)
         self.assertEqual(self.links(reader, reader.pages[24])["Suite"], 25)
-        self.assertEqual(self.links(reader, reader.pages[25])["Precedent"], 24)
+        self.assertEqual(self.links(reader, reader.pages[25])["Notes 1"], 24)
+
+    def test_task_notes_use_explicit_navigation_without_duplicate_list_links_in_footer(self):
+        for language in ("fr", "en"):
+            for count in (1, 2, 5):
+                reader = self.book(language=language, detail_pages=count)
+                for part in range(1, count + 1):
+                    page = reader.pages[8 + part]
+                    text = page.extract_text()
+                    self.assertIn("< Liste 01" if language == "fr" else "< List 01", text)
+                    links = self.links(reader, page)
+                    footer = [ref.get_object() for ref in page["/Annots"]
+                              if float(ref.get_object()["/Rect"][3]) <= 45]
+                    self.assertEqual(sum(a["/Dest"][0].idnum == reader.pages[8].indirect_reference.idnum
+                                         for a in footer), 1)
+                    if part > 1:
+                        self.assertIn(f"< Notes {part - 1}", text)
+                        self.assertEqual(links[f"Notes {part - 1}"], 8 + part - 1)
+                    else:
+                        self.assertEqual(text.count("<"), 1)
+                    next_label = "Suite" if language == "fr" else "Next"
+                    if part < count:
+                        self.assertIn(f"Notes {part + 1} >", text)
+                        self.assertEqual(links[next_label], 8 + part + 1)
+                    else:
+                        self.assertNotIn(next_label, links)
 
     def test_every_link_resolves_and_click_target_stays_on_page(self):
         reader = self.book()
@@ -115,7 +140,7 @@ class PlannerTests(unittest.TestCase):
             self.assertEqual(self.links(reader, reader.pages[second])[f"Meeting {day:03d}"], meeting)
             self.assertEqual(self.links(reader, reader.pages[second])["Suite"], second + 1 if day < 3 else 1)
 
-    def test_notes_navigation_has_explicit_labels_and_no_duplicate_meeting_backlink(self):
+    def test_notes_navigation_has_explicit_labels_and_clickable_meeting_header(self):
         for language in ("fr", "en"):
             for count in (1, 2, 3):
                 with self.subTest(language=language, notes_pages=count):
@@ -128,7 +153,11 @@ class PlannerTests(unittest.TestCase):
                             text = page.extract_text()
                             self.assertIn(f"< Meeting {day:03d}", text)
                             self.assertEqual(links[f"Meeting {day:03d}"], meeting)
-                            self.assertEqual(list(links.values()).count(meeting), 1)
+                            self.assertEqual(links[f"MEETING {day:03d}"], meeting)
+                            footer = [ref.get_object() for ref in page["/Annots"]
+                                      if float(ref.get_object()["/Rect"][3]) <= 45]
+                            self.assertEqual(sum(a["/Dest"][0].idnum == reader.pages[meeting].indirect_reference.idnum
+                                                 for a in footer), 1)
                             if number > 1:
                                 self.assertIn(f"< Notes {number - 1}", text)
                                 self.assertEqual(links[f"Notes {number - 1}"], meeting + number - 1)
