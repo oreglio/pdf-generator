@@ -209,12 +209,12 @@ class DatedPlannerPages(PlannerPages):
             else:
                 self.text(x + cell / 2, H - 121, label, 7, gray=0.7, align="center")
         rows = ceil(self.schedule.weekly_tasks / 2)
-        left_width = (WIDTH - 20) * 0.55
-        right_width = WIDTH - 20 - left_width
         reference_width, reference_gap = 22, 7
         reference_step = reference_width + reference_gap
         reference_end = 2 * reference_step + reference_width
         task_start = reference_end + 11
+        right_width = (WIDTH - 20 - task_start) / 2
+        left_width = task_start + right_width
         reference_labels = ("BKLG", "#", self.label("JOUR", "DAY"))
         if self.schedule.weekly_tasks > 1:
             divider_x = LEFT + left_width + 10

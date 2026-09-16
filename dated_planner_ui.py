@@ -14,7 +14,7 @@ from planner_i18n import LANGUAGES
 
 
 PREVIEW_KINDS = ('Calendrier', 'Semaine', 'Meeting', 'Backlog', 'Contexte')
-LAYOUT_VERSION = 'dated-11:'
+LAYOUT_VERSION = 'dated-12:'
 
 
 def render_dated_planner_ui():
