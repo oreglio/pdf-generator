@@ -208,7 +208,7 @@ class DatedPlannerPages(PlannerPages):
             x, y = LEFT + col * (col_width + 20), H - 165 - row * 20
             self.c.setStrokeGray(0.55)
             self.c.setLineWidth(0.45)
-            self.c.rect(x, y + 1, 6, 6, fill=0, stroke=1)
+            self.c.circle(x + 3, y + 4, 3, fill=0, stroke=1)
             self.line(x + 12, y, x + 44, y)
             self.text(x + 49, y + 2, "·", 8, gray=MUTED, align="center")
             self.line(x + 55, y, x + col_width, y)
