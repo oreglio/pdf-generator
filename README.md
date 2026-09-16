@@ -42,6 +42,36 @@ Les PDF sont créés dans `output/pdf/`. Dans l’interface, le champ **Langue d
 permet de choisir Français ou English. Le générateur historique reste accessible
 dans la barre latérale de l’interface ; sa documentation suit ci-dessous.
 
+### Variante datée : calendrier, semaines et backlog
+
+Le mode **Viwoods daté** ajoute un calendrier mensuel cliquable, des Meetings
+datés et une à trois listes d’actions par semaine. Les listes actuelles deviennent
+le **backlog permanent**, avec les mêmes fiches de notes détaillées.
+
+- **Calendrier → date → Meeting**, ou numéro **Wxx → actions de la semaine**.
+- **Meeting → semaine → backlog** ; les onglets Wxx permettent de revenir à la
+  semaine choisie depuis chaque liste et chaque fiche de contexte.
+- Dans la semaine, écrire **02-12** pour désigner une tâche du backlog ; dans le
+  backlog, écrire **W38** pour se rappeler la semaine. Ces références restent
+  manuscrites : ce sont les boutons imprimés qui assurent la navigation.
+
+Exemples distincts, du **16 septembre au 15 décembre 2026** : 91 journées,
+14 semaines et 400 tâches permanentes, soit **1 102 pages** par carnet.
+
+| Français | English |
+| --- | --- |
+| [Télécharger le carnet daté](examples/dated/dated-aipaper-manrope-fr-2026-09-16-2026-12-15.pdf?raw=true) | [Download the dated planner](examples/dated/dated-aipaper-manrope-en-2026-09-16-2026-12-15.pdf?raw=true) |
+
+```bash
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3 --language en
+```
+
+La date de début et la durée (1, 2 ou 3 mois) se choisissent aussi dans l’interface.
+Les sorties datées vont dans `output/pdf/dated/`. **Le générateur et les deux PDF
+non datés restent inchangés** ; un test compare leur régénération octet pour octet
+aux exemples publiés. [Détails de la variante datée](PLANNER.md#variante-datée).
+
 A powerful, customizable PDF generator for creating todo lists and detail pages, optimized for A4 paper and e-readers (Boox, reMarkable, etc.).
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)

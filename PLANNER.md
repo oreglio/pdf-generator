@@ -123,6 +123,74 @@ crée un carnet vierge, sans reprendre les notes écrites sur un précédent PDF
 Le comparatif et les trois pages d’aperçu sont visuels ; les carnets complets
 contiennent les liens actifs.
 
+## Variante datée
+
+Dans la barre latérale, choisir **Viwoods daté**. Le mode **Viwoods AiPaper**
+reste le carnet non daté habituel, sélectionné par défaut. Les réglages,
+téléchargements et aperçus des deux modes sont indépendants.
+
+Choisir une **date de début**, une durée de **1, 2 ou 3 mois**, puis une à trois
+pages d’actions par semaine (jusqu’à 40 actions par page). Cliquer sur
+**Appliquer et actualiser l’aperçu**, puis **Générer mon carnet daté**.
+Les jours incluent les week-ends. La période va du début inclus à la veille de
+la même date N mois plus tard : du 16 septembre au 15 décembre pour trois mois.
+Si cette date n’existe pas dans le mois d’arrivée, elle est ramenée au dernier
+jour du mois avant de retirer un jour (31 janvier → 27 février hors année bissextile).
+La période exacte est affichée avant génération.
+
+- Le calendrier mensuel ouvre chaque Meeting par sa date ; les numéros de
+  semaine ouvrent les listes hebdomadaires. Les jours hors période sont grisés
+  et ne possèdent aucun lien.
+- Chaque semaine dispose de liens vers les Meetings de ses sept jours inclus.
+  Les actions hebdomadaires n’ont pas de sous-pages de notes.
+- Le backlog reprend les listes et contextes permanents du carnet non daté.
+  Les onglets **Wxx** de chaque page ouvrent directement la semaine choisie.
+- Les semaines suivent ISO 8601 (lundi–dimanche). L’année ISO figure dans leur
+  en-tête ; par exemple, le 1er janvier 2027 appartient à **W53 / 2026**.
+- Le champ court d’une action hebdomadaire reçoit une référence comme **02-12**.
+  Le champ libre d’une tâche du backlog peut recevoir **W38**. Les références
+  manuscrites ne créent pas de liens et aucun retour dynamique n’est simulé.
+- Reporter une action signifie recopier son texte et sa référence vers une
+  autre semaine. Les notes détaillées restent dans le backlog. La génération
+  produit un carnet vierge et ne récupère pas les annotations d’un ancien PDF.
+
+Commandes indépendantes du générateur non daté :
+
+```bash
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 1
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3 --language en
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3 --week-pages 2 --weekly-tasks 40
+venv/bin/python generate_dated_planner.py --config chemin/reglages-dates.json
+```
+
+Sans `--start-date`, la date du jour est utilisée. Les PDF et rapports sont dans
+`output/pdf/dated/`, avec langue, date de début et date de fin dans le nom.
+Les autres réglages utilisent la configuration JSON exportée par ce mode :
+
+```json
+{
+  "start_date": "2026-09-16",
+  "months": 3,
+  "week_pages": 1,
+  "weekly_tasks": 40,
+  "base": {
+    "language": "fr",
+    "typography": "manrope",
+    "list_count": 10,
+    "tasks_per_list": 40,
+    "detail_pages": 2,
+    "notes_pages": 2
+  }
+}
+```
+
+`base.days` est ignoré dans ce mode : le nombre de jours vient des dates.
+Les anciens JSON non datés restent destinés au mode non daté.
+Les cinq pages d’aperçu (calendrier, semaine, Meeting, backlog, contexte) sont
+visuelles ; les liens sont actifs dans le carnet complet.
+Les exemples datés publiés sont dans `examples/dated/` et se régénèrent avec
+`--start-date 2026-09-16 --months 3`, puis `--language en` pour l’anglais.
+
 ## Tests et fichiers
 
 ```bash
@@ -135,6 +203,10 @@ mises en page, `planner_pdf.py` l’assemblage, `generate_planner.py` la command
 et `planner_ui.py` l’interface. Les PDF sont vectoriels ; les grilles de points
 réutilisent un seul Form XObject par police.
 `planner_i18n.py` regroupe les traductions des textes du PDF.
+La variante datée possède ses propres modules `dated_planner_config.py`,
+`dated_planner_pages.py`, `dated_planner_pdf.py`, `dated_planner_ui.py` et sa
+commande `generate_dated_planner.py`. Elle réutilise les primitives graphiques
+et les fiches du backlog sans modifier le générateur non daté.
 
 `requirements-local.txt` décrit l’environnement local validé. Le fichier
 historique `requirements.txt` est conservé pour le déploiement existant.
