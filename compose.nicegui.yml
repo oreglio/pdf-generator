@@ -1,0 +1,18 @@
+name: notebook-nicegui
+
+services:
+  nicegui:
+    build:
+      context: .
+      dockerfile: Dockerfile.nicegui
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      NICEGUI_STORAGE_SECRET: ${NICEGUI_STORAGE_SECRET:-}
+    volumes:
+      - nicegui-storage:/app/.nicegui
+    init: true
+    restart: unless-stopped
+
+volumes:
+  nicegui-storage:

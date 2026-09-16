@@ -1,0 +1,31 @@
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 notebook
+
+COPY requirements-pdf.txt requirements-nicegui.txt ./
+RUN python -m pip install --no-cache-dir -r requirements-nicegui.txt
+
+COPY nicegui_app.py nicegui_service.py nicegui_jobs.py ./
+COPY planner_config.py planner_i18n.py planner_pages.py planner_pdf.py ./
+COPY dated_planner_config.py dated_planner_pages.py dated_planner_pdf.py ./
+COPY assets/fonts/ ./assets/fonts/
+
+RUN mkdir -p /app/.nicegui \
+    && chown notebook:notebook /app/.nicegui
+
+USER notebook
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=4).close()"
+
+CMD ["python", "nicegui_app.py", "--web", "--host", "0.0.0.0", "--port", "8080"]
