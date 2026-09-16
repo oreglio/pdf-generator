@@ -29,10 +29,18 @@ from gallery_ui import render_gallery_ui
 from config_collector import collect_complete_config
 
 st.set_page_config(
-    page_title="A4 PDF Todo Generator",
+    page_title="Meetings & actions - PDF Generator",
     page_icon="📄",
     layout="wide"  # Changed to wide for side-by-side layout
 )
+
+workspace_mode = st.sidebar.radio(
+    "Votre espace", ["Viwoods AiPaper", "Générateur historique"], key="workspace_mode"
+)
+if workspace_mode == "Viwoods AiPaper":
+    from planner_ui import render_planner_ui
+    render_planner_ui()
+    st.stop()
 
 
 st.title("📄 A4 PDF Todo Generator")
