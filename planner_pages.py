@@ -306,8 +306,7 @@ class PlannerPages:
             self.link(self.tr("Tache {number:02d}-{item:02d}", number=number, item=item), target,
                       (x + col_w - 22, y - 5, x + col_w + 2, y + 17))
         next_page = (self.tr("Liste"), f"list-{number + 1}") if number < self.config.list_count else (self.tr("Accueil"), "home")
-        self.footer(context=(self.tr("{count} tâches", count=self.config.tasks_per_list), f"list-{number}", self.tr("Liste {number:02d}", number=number)),
-                    previous=f"list-{number - 1}" if number > 1 else "home", next_page=next_page)
+        self.footer(next_page=next_page)
         self.end()
 
     def task_notes(self, number, item, part):
