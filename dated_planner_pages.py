@@ -208,6 +208,10 @@ class DatedPlannerPages(PlannerPages):
             return self.calendar(spec)
         if spec.kind == "month-plan":
             return self.month_plan(spec)
+        if spec.kind == "week-overview":
+            return self.week_overview(spec)
+        if spec.kind == "week-review":
+            return self.week_review(spec)
         if spec.kind == "weekly":
             return self.weekly(spec)
         return super().draw(spec)
@@ -324,6 +328,80 @@ class DatedPlannerPages(PlannerPages):
                                f"month-plan-{following:%Y-%m}") if following else None)
         self.end()
 
+    def week_header(self, spec, eyebrow, title):
+        """Shared opening of the three weekly pages of one week."""
+        monday = date.fromisoformat(spec.reference)
+        self.active_week = monday
+        self.current_date = max(monday, self.schedule.start)
+        first = max(monday, self.schedule.start)
+        last = min(monday + timedelta(days=6), self.schedule.end_date)
+        iso_year = monday.isocalendar().year
+        self.start(spec.key, outline=f"{self.week_label(monday)} — {title}", level=2)
+        self.header(f"{self.week_label(monday)} / {iso_year} — " + eyebrow, title,
+                    subtitle=f"{first:%d.%m} — {last:%d.%m.%Y}")
+        self.rail()
+        return monday
+
+    def week_overview(self, spec):
+        """Seven day zones to plan the week; days outside it stay visible."""
+        monday = self.week_header(spec, self.label("EN UN COUP D’ŒIL", "AT A GLANCE"),
+                                  self.label("Mes sept jours", "Week at a glance"))
+        top = self.h - 128
+        floor = self.layout.body_bottom
+        planning = min(96, (top - floor) * 0.22)
+        band = (top - floor - planning - 12) / 7
+        label_width = 68
+        for index in range(7):
+            value = monday + timedelta(days=index)
+            y = top - (index + 1) * band
+            active = self.schedule.includes_day(value)
+            self.line(self.left, y, self.right, y, gray=0.82)
+            self.c.setFillGray(1 if active else 0.965)
+            self.c.setStrokeGray(0.80 if active else 0.92)
+            self.c.setLineWidth(0.45)
+            self.c.roundRect(self.left, y + 3, label_width, band - 6, 3, fill=1, stroke=1)
+            label = f"{WEEKDAYS[self.config.language][index]} {value.day:02d}"
+            self.text(self.left + label_width / 2, y + band / 2 - 3, label, 9, bold=active,
+                      gray=0.12 if active else 0.68, align="center", max_width=label_width - 10)
+            if active:
+                self.link(value.isoformat(), self.day_key(value),
+                          (self.left, y + 3, self.left + label_width, y + band - 3))
+        plan_y = top - 7 * band - 14
+        self.text(self.left, plan_y, self.label("À caler cette semaine", "To place this week"),
+                  8, bold=True, gray=MUTED)
+        self.rules(plan_y - 16, bottom=floor)
+        self.footer(context=(self.week_label(monday), self.week_target(monday),
+                             self.schedule.week_key(monday)),
+                    next_page=(self.label("Tâches", "Tasks"), self.week_target(monday)))
+        self.end()
+
+    def week_review(self, spec):
+        """Done / to carry over / to remember, closing the week that ends."""
+        monday = self.week_header(spec, self.label("BILAN", "REVIEW"),
+                                  self.label("Mon bilan", "Weekly review"))
+        top = self.h - 122
+        floor = self.layout.body_bottom
+        block = (top - floor) / 3
+        sections = ((self.label("Terminé", "Done"), self.label("Ce qui est sorti cette semaine.",
+                                                              "What shipped this week.")),
+                    (self.label("À reporter", "To carry over"),
+                     self.label("À réécrire dans la semaine suivante ou dans le backlog.",
+                                "To rewrite next week or in the backlog.")),
+                    (self.label("À retenir", "To remember"),
+                     self.label("Ce qui mérite d’être relu plus tard.", "Worth reading again later.")))
+        for index, (title, hint) in enumerate(sections):
+            y = top - index * block
+            self.text(self.left, y, title, 13, bold=True)
+            self.text(self.left + 110, y, hint, 7, gray=MUTED, max_width=self.width - 110)
+            self.rules(y - 20, bottom=y - block + 16)
+        index = self.schedule.weeks.index(monday)
+        following = self.schedule.weeks[index + 1] if index + 1 < len(self.schedule.weeks) else None
+        self.footer(context=(self.week_label(monday), self.week_target(monday),
+                             self.schedule.week_key(monday)),
+                    next_page=(self.week_label(following), self.week_target(following))
+                    if following else None)
+        self.end()
+
     def weekly(self, spec):
         monday, part = date.fromisoformat(spec.reference), spec.part
         self.active_week = monday
@@ -394,6 +472,14 @@ class DatedPlannerPages(PlannerPages):
             if index + 1 < len(self.schedule.weeks):
                 neighbour = self.schedule.weeks[index + 1]
                 steps["next_week"] = (self.week_label(neighbour), self.week_target(neighbour))
+        companions = []
+        if self.schedule.weekly_overview:
+            companions.append((self.label("Vue", "Glance"), f"week-overview-{monday.isoformat()}"))
+        if self.schedule.weekly_review:
+            companions.append((self.label("Bilan", "Review"), f"week-review-{monday.isoformat()}"))
+        for order, (label, target) in enumerate(companions):
+            x = self.right - 52 - order * 56
+            self.pill(x, self.h - 46, 52, 21, label, target, title=target, size=7)
         chain = [(number, sheet) for number in range(1, self.schedule.week_pages + 1)
                  for sheet in range(1, spec.sheets + 1)]
         position = chain.index((part, spec.sheet))
@@ -421,16 +507,7 @@ class DatedPlannerPages(PlannerPages):
         self.text(self.left + 183, self.h - 48, self.label("Sujet / temps fort", "Focus / subject"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.rail()
-        mid = self.left + self.width * 0.55
-        self.text(self.left, self.h - 113, "Objectives", 13, bold=True)
-        self.text(mid + 14, self.h - 113, "Agenda", 14, bold=True)
-        self.line(mid, self.h - 106, mid, self.h - 227, gray=0.8)
-        for index in range(5):
-            y = self.h - 134 - index * 21
-            self.text(self.left, y + 4, f"{index + 1:02d}", 7, gray=MUTED, numeric=True)
-            self.line(self.left + 22, y, mid - 15, y)
-        self.text(self.left, self.h - 254, "Notes", 14, bold=True)
-        self.rules(self.h - 286)
+        self.meeting_body()
         next_page = ("Notes 1", f"day-{day}-notes-1") if self.config.notes_pages else None
         self.footer(context=(self.week_label(self.active_week), self.week_target(self.active_week),
                              self.schedule.week_key(self.active_week)), next_page=next_page,

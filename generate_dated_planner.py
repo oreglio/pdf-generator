@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dated_planner_config import MONTH_RANGE, DatedPlannerConfig
 from dated_planner_pdf import generate_dated_pdf
-from planner_config import TYPOGRAPHIES
+from planner_config import MEETING_LAYOUTS, TYPOGRAPHIES
 from planner_formats import CUSTOM, DENSITIES, DEVICES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
@@ -30,6 +30,12 @@ def main():
     parser.add_argument('--density', choices=DENSITIES, help='Confort d’écriture : standard ou comfortable')
     parser.add_argument('--custom-width-mm', type=float, help='Largeur du format personnalisé, en mm')
     parser.add_argument('--custom-height-mm', type=float, help='Hauteur du format personnalisé, en mm')
+    parser.add_argument('--meeting-layout', choices=MEETING_LAYOUTS,
+                        help='Composition des pages Meeting')
+    parser.add_argument('--weekly-overview', action=argparse.BooleanOptionalAction, default=None,
+                        help='Ajouter une vue « sept jours » avant les tâches de la semaine')
+    parser.add_argument('--weekly-review', action=argparse.BooleanOptionalAction, default=None,
+                        help='Ajouter un bilan après les tâches de la semaine')
     parser.add_argument('--meeting-note-style', choices=NOTE_STYLES, help='Fond des pages Notes')
     parser.add_argument('--task-note-style', choices=NOTE_STYLES, help='Fond des pages de contexte')
     parser.add_argument('--monthly-priorities', action=argparse.BooleanOptionalAction, default=None,
@@ -41,7 +47,8 @@ def main():
     args = parser.parse_args()
     try:
         config = DatedPlannerConfig.from_dict(json.loads(args.config.read_text())) if args.config else DatedPlannerConfig()
-        overrides = {name: getattr(args, name) for name in ('start_date', 'months', 'week_pages', 'weekly_tasks', 'include_weekends', 'monthly_priorities')
+        overrides = {name: getattr(args, name) for name in ('start_date', 'months', 'week_pages', 'weekly_tasks', 'include_weekends', 'monthly_priorities',
+                                                           'weekly_overview', 'weekly_review')
                      if getattr(args, name) is not None}
         base_overrides = {}
         if args.language is not None:
@@ -50,7 +57,7 @@ def main():
             base_overrides['typography'] = args.font
         base_overrides.update({name: getattr(args, name) for name in
                                ('device', 'density', 'custom_width_mm', 'custom_height_mm',
-                                'meeting_note_style', 'task_note_style')
+                                'meeting_note_style', 'task_note_style', 'meeting_layout')
                                if getattr(args, name) is not None})
         config = replace(config, base=replace(config.base, **base_overrides), **overrides)
     except (ValueError, TypeError, OSError) as error:

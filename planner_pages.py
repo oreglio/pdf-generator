@@ -287,6 +287,22 @@ class PlannerPages:
         self.rail()
         self.text(self.left + 183, self.h - 48, self.tr("Date / période"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
+        self.meeting_body()
+        next_page = ("Notes", f"day-{day}-notes-1") if self.config.notes_pages else (
+            (self.tr("Suite"), f"day-{day + 1}") if day < self.config.days else ("Index", f"days-{(day - 1) // 40}"))
+        prev = f"day-{day - 1}" if day > 1 else "days-0"
+        self.footer(day=day, previous=prev, next_page=next_page,
+                    next_day=f"day-{day + 1}" if day < self.config.days else None,
+                    previous_day=f"day-{day - 1}" if day > 1 else None)
+        self.end()
+
+    def meeting_body(self):
+        """The written part of a Meeting page; its navigation never changes."""
+        if self.config.meeting_layout == "notes_actions":
+            return self.meeting_notes_actions()
+        return self.meeting_classic()
+
+    def meeting_classic(self):
         mid = self.left + self.width * 0.55
         self.text(self.left, self.h - 113, "Objectives", 13, bold=True)
         self.text(mid + 14, self.h - 113, "Agenda", 14, bold=True)
@@ -297,13 +313,20 @@ class PlannerPages:
             self.line(self.left + 22, y, mid - 15, y)
         self.text(self.left, self.h - 254, "Notes", 14, bold=True)
         self.rules(self.h - 286)
-        next_page = ("Notes", f"day-{day}-notes-1") if self.config.notes_pages else (
-            (self.tr("Suite"), f"day-{day + 1}") if day < self.config.days else ("Index", f"days-{(day - 1) // 40}"))
-        prev = f"day-{day - 1}" if day > 1 else "days-0"
-        self.footer(day=day, previous=prev, next_page=next_page,
-                    next_day=f"day-{day + 1}" if day < self.config.days else None,
-                    previous_day=f"day-{day - 1}" if day > 1 else None)
-        self.end()
+
+    def meeting_notes_actions(self):
+        """Notes take most of the page; decisions and actions close it."""
+        floor = self.layout.body_bottom
+        split = floor + (self.h - 111 - floor) * 0.36
+        self.text(self.left, self.h - 113, "Notes", 14, bold=True)
+        self.rules(self.h - 140, bottom=split + 30)
+        self.line(self.left, split + 18, self.right, split + 18, gray=0.55)
+        mid = self.left + self.width / 2
+        self.text(self.left, split - 4, self.tr("Décisions"), 13, bold=True)
+        self.text(mid + 14, split - 4, self.tr("Actions"), 13, bold=True)
+        self.line(mid, split + 6, mid, floor - 6, gray=0.8)
+        self.rules(split - 26, bottom=floor, right=mid - 14)
+        self.rules(split - 26, bottom=floor, left=mid + 14)
 
     def meeting_notes(self, day, number):
         self.start(f"day-{day}-notes-{number}")

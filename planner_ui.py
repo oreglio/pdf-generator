@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import streamlit as st
 
-from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
 from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
@@ -43,6 +43,9 @@ def device_form(config, prefix):
                                  value=int(config.custom_height_mm or 217), step=1,
                                  key=f"{prefix}_field_height_mm",
                                  help="Portrait uniquement : hauteur au moins égale à la largeur.")
+    layout_choice = st.selectbox("Composition des Meetings", list(MEETING_LAYOUTS),
+                                 index=list(MEETING_LAYOUTS).index(config.meeting_layout),
+                                 format_func=MEETING_LAYOUTS.get, key=f"{prefix}_field_meeting_layout")
     st.markdown("**Fonds d’écriture**")
     c1, c2 = st.columns(2)
     with c1:
@@ -55,7 +58,7 @@ def device_form(config, prefix):
                                   format_func=NOTE_STYLES.get, key=f"{prefix}_field_task_style")
     st.caption("Le fond ne couvre que la zone d’écriture ; titres, liens et barre latérale "
                "restent nets.")
-    return {"device": device, "density": density,
+    return {"device": device, "density": density, "meeting_layout": layout_choice,
             "meeting_note_style": meeting_style, "task_note_style": task_style,
             "custom_width_mm": float(width) if device == CUSTOM else None,
             "custom_height_mm": float(height) if device == CUSTOM else None}

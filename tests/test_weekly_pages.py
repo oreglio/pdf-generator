@@ -1,0 +1,179 @@
+import io
+import unittest
+from dataclasses import replace
+from datetime import date, timedelta
+
+from pypdf import PdfReader
+
+from dated_planner_config import DatedPlannerConfig
+from dated_planner_pdf import generate_dated_pdf
+from planner_config import MEETING_LAYOUTS, PlannerConfig
+from planner_manifest import build_manifest
+from planner_pdf import generate_pdf
+
+
+BASE = PlannerConfig(list_count=1, tasks_per_list=2, detail_pages=1, notes_pages=0)
+
+
+def destinations(reader, page):
+    ids = {p.indirect_reference.idnum: i for i, p in enumerate(reader.pages)}
+    return {str(a.get_object()['/Contents']): ids[a.get_object()['/Dest'][0].idnum]
+            for a in page.get('/Annots', [])}
+
+
+class WeeklyOptionTests(unittest.TestCase):
+    def book(self, **changes):
+        config = DatedPlannerConfig(base=BASE, start_date='2026-09-16', months=1, **changes)
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+        return config, PdfReader(output), {spec.key: index for index, spec
+                                           in enumerate(build_manifest(config))}
+
+    def test_classic_pages_stay_the_default(self):
+        self.assertFalse(DatedPlannerConfig().weekly_overview)
+        self.assertFalse(DatedPlannerConfig().weekly_review)
+        self.assertEqual(PlannerConfig().meeting_layout, 'classic')
+        config, reader, keys = self.book()
+        self.assertFalse(any(key.startswith(('week-overview', 'week-review')) for key in keys))
+
+    def test_each_option_adds_exactly_one_page_per_week(self):
+        plain, _, _ = self.book()
+        for option in ('weekly_overview', 'weekly_review'):
+            with self.subTest(option=option):
+                config, _, keys = self.book(**{option: True})
+                self.assertEqual(config.total_pages - plain.total_pages, len(config.weeks))
+                prefix = 'week-overview-' if option == 'weekly_overview' else 'week-review-'
+                self.assertEqual(sorted(key for key in keys if key.startswith(prefix)),
+                                 sorted(f'{prefix}{monday.isoformat()}' for monday in config.weeks))
+        both, _, _ = self.book(weekly_overview=True, weekly_review=True)
+        self.assertEqual(both.total_pages - plain.total_pages, 2 * len(both.weeks))
+
+    def test_the_overview_sits_before_the_tasks_and_the_review_after(self):
+        config, _, keys = self.book(weekly_overview=True, weekly_review=True, week_pages=2)
+        for monday in config.weeks:
+            with self.subTest(week=monday):
+                self.assertLess(keys[f'week-overview-{monday}'], keys[f'week-{monday}-1'])
+                self.assertLess(keys[f'week-{monday}-2'], keys[f'week-review-{monday}'])
+
+    def test_the_overview_opens_its_days_and_never_a_missing_meeting(self):
+        config, reader, keys = self.book(weekly_overview=True, include_weekends=False)
+        monday = config.weeks[1]
+        page = reader.pages[keys[f'week-overview-{monday}']]
+        links = destinations(reader, page)
+        text = page.extract_text()
+        for offset in range(7):
+            value = monday + timedelta(days=offset)
+            with self.subTest(day=value):
+                self.assertIn(f'{value.day:02d}', text)  # Every day stays visible.
+                if config.includes_day(value):
+                    self.assertEqual(links[value.isoformat()], keys[f'day-{config.day_number(value)}'])
+                else:
+                    self.assertNotIn(value.isoformat(), links)
+        self.assertEqual(links['Next'], keys[f'week-{monday}-1'])
+        self.assertEqual(links[config.week_key(monday)], keys[f'week-{monday}-1'])
+
+    def test_a_week_outside_the_period_keeps_its_days_visible_but_inactive(self):
+        config, reader, keys = self.book(weekly_overview=True)
+        first = config.weeks[0]
+        links = destinations(reader, reader.pages[keys[f'week-overview-{first}']])
+        self.assertNotIn(date(2026, 9, 14).isoformat(), links)
+        self.assertIn(date(2026, 9, 16).isoformat(), links)
+
+    def test_the_review_returns_to_its_tasks_and_opens_the_next_week(self):
+        config, reader, keys = self.book(weekly_review=True)
+        for index, monday in enumerate(config.weeks):
+            links = destinations(reader, reader.pages[keys[f'week-review-{monday}']])
+            with self.subTest(week=monday):
+                self.assertEqual(links[config.week_key(monday)], keys[f'week-{monday}-1'])
+                if index + 1 < len(config.weeks):
+                    self.assertEqual(links['Next'], keys[f'week-{config.weeks[index + 1]}-1'])
+                else:
+                    self.assertNotIn('Next', links)
+        text = reader.pages[keys[f'week-review-{config.weeks[0]}']].extract_text()
+        for section in ('Terminé', 'À reporter', 'À retenir'):
+            self.assertIn(section, text)
+
+    def test_the_task_page_reaches_its_companions_when_they_exist(self):
+        config, reader, keys = self.book(weekly_overview=True, weekly_review=True)
+        monday = config.weeks[0]
+        links = destinations(reader, reader.pages[keys[f'week-{monday}-1']])
+        self.assertEqual(links[f'week-overview-{monday}'], keys[f'week-overview-{monday}'])
+        self.assertEqual(links[f'week-review-{monday}'], keys[f'week-review-{monday}'])
+        _, plain_reader, plain_keys = self.book()
+        plain_links = destinations(plain_reader, plain_reader.pages[plain_keys[f'week-{monday}-1']])
+        self.assertFalse(any(key.startswith('week-overview') for key in plain_links))
+
+    def test_english_labels_and_a_small_screen_keep_every_link_on_the_page(self):
+        config = DatedPlannerConfig(
+            base=replace(BASE, language='en', device='viwoods-aipaper-mini'),
+            start_date='2026-09-16', months=1, weekly_overview=True, weekly_review=True)
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+        reader = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(config))}
+        overview = reader.pages[keys[f'week-overview-{config.weeks[0]}']].extract_text()
+        review = reader.pages[keys[f'week-review-{config.weeks[0]}']].extract_text()
+        self.assertIn('AT A GLANCE', overview)
+        self.assertIn('Week at a glance', overview)
+        self.assertIn('REVIEW', review)
+        for section in ('Done', 'To carry over', 'To remember'):
+            self.assertIn(section, review)
+        width, height = config.base.layout.width, config.base.layout.height
+        ids = {page.indirect_reference.idnum for page in reader.pages}
+        for page in reader.pages:
+            for ref in page.get('/Annots', []):
+                annotation = ref.get_object()
+                self.assertIn(annotation['/Dest'][0].idnum, ids)
+                x0, y0, x1, y1 = map(float, annotation['/Rect'])
+                self.assertTrue(0 <= x0 < x1 <= width + 0.01)
+                self.assertTrue(0 <= y0 < y1 <= height + 0.01)
+
+    def test_invalid_option_values_are_refused(self):
+        for changes in ({'weekly_overview': 1}, {'weekly_review': None},
+                        {'weekly_overview': 'true'}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                DatedPlannerConfig(start_date='2026-09-16', **changes)
+
+
+class MeetingLayoutTests(unittest.TestCase):
+    def test_the_simplified_meeting_keeps_the_same_destinations(self):
+        classic = replace(BASE, days=3, notes_pages=1)
+        simple = replace(classic, meeting_layout='notes_actions')
+        pages = []
+        for config in (classic, simple):
+            output = io.BytesIO()
+            generate_pdf(config, output)
+            pages.append(PdfReader(output))
+        self.assertEqual(len(pages[0].pages), len(pages[1].pages))
+        for first, second in zip(pages[0].pages, pages[1].pages):
+            self.assertEqual([a.get_object()['/Rect'] for a in first.get('/Annots', [])],
+                             [a.get_object()['/Rect'] for a in second.get('/Annots', [])])
+            self.assertEqual(list(destinations(pages[0], first).items()),
+                             list(destinations(pages[1], second).items()))
+        meeting = pages[1].pages[2].extract_text()
+        self.assertIn('Décisions', meeting)
+        self.assertIn('Actions', meeting)
+        self.assertNotIn('Agenda', meeting)
+        self.assertIn('Notes', meeting)
+        self.assertIn('Agenda', pages[0].pages[2].extract_text())
+
+    def test_the_dated_meeting_follows_the_same_choice(self):
+        config = DatedPlannerConfig(base=replace(BASE, meeting_layout='notes_actions'),
+                                    start_date='2026-09-16', months=1)
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+        reader = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(config))}
+        meeting = reader.pages[keys['day-1']]
+        self.assertIn('Décisions', meeting.extract_text())
+        self.assertIn(config.week_key(config.weeks[0]), destinations(reader, meeting))
+
+    def test_unknown_layouts_are_refused(self):
+        self.assertEqual(set(MEETING_LAYOUTS), {'classic', 'notes_actions'})
+        for value in ('simple', None, 1, ''):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                replace(PlannerConfig(), meeting_layout=value)
+
+
+if __name__ == '__main__':
+    unittest.main()

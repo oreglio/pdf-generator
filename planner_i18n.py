@@ -35,6 +35,8 @@ ENGLISH = {
     "{count} tâches": "{count} tasks",
     "Meetings non datés et tâches partagées - Viwoods AiPaper":
         "Undated meetings and shared tasks - Viwoods AiPaper",
+    "Décisions": "Decisions",
+    "Actions": "Actions",
     "Aperçu - ": "Preview - ",
     "AiPaper - comparaison des polices": "AiPaper - font comparison",
     "VIWOODS AIPAPER / ESSAI TYPOGRAPHIQUE": "VIWOODS AIPAPER / FONT COMPARISON",

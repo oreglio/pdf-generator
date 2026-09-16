@@ -12,6 +12,8 @@ from planner_manifest import sheets, undated_manifest
 
 PAGE_WIDTH = DEVICES[DEFAULT_DEVICE].width_pt
 PAGE_HEIGHT = DEVICES[DEFAULT_DEVICE].height_pt
+MEETING_LAYOUTS = {"classic": "Objectifs & agenda",
+                   "notes_actions": "Notes, décisions & actions"}
 TYPOGRAPHIES = {
     "manrope": "Manrope",
     "manrope-contrast": "Manrope - contraste renforcé",
@@ -36,6 +38,7 @@ class PlannerConfig:
     custom_height_mm: float | None = None
     meeting_note_style: str = "lined"
     task_note_style: str = "dots"
+    meeting_layout: str = "classic"
 
     def __post_init__(self):
         for name, low, high in (
@@ -45,6 +48,9 @@ class PlannerConfig:
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{name} doit être un entier entre {low} et {high}.")
+        if self.meeting_layout not in MEETING_LAYOUTS:
+            raise ValueError("Composition de Meeting inconnue : "
+                             + ", ".join(MEETING_LAYOUTS) + ".")
         for name in ("meeting_note_style", "task_note_style"):
             if getattr(self, name) not in NOTE_STYLES:
                 raise ValueError("Fond de notes inconnu : " + ", ".join(NOTE_STYLES) + ".")

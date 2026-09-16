@@ -35,9 +35,12 @@ class DatedPlannerConfig:
     weekly_tasks: int = 40
     include_weekends: bool = True
     monthly_priorities: bool = False
+    weekly_overview: bool = False
+    weekly_review: bool = False
 
     def __post_init__(self):
-        for name in ("include_weekends", "monthly_priorities"):
+        for name in ("include_weekends", "monthly_priorities",
+                     "weekly_overview", "weekly_review"):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"{name} doit être un booléen.")
         if not isinstance(self.base, PlannerConfig):

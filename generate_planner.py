@@ -7,7 +7,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
-from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
 from planner_formats import CUSTOM, DENSITIES, DEVICES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
@@ -25,6 +25,8 @@ def main():
     parser.add_argument("--density", choices=DENSITIES, help="Confort d’écriture : standard ou comfortable")
     parser.add_argument("--custom-width-mm", type=float, help="Largeur du format personnalisé, en mm")
     parser.add_argument("--custom-height-mm", type=float, help="Hauteur du format personnalisé, en mm")
+    parser.add_argument("--meeting-layout", choices=MEETING_LAYOUTS,
+                        help="Composition des pages Meeting")
     parser.add_argument("--meeting-note-style", choices=NOTE_STYLES, help="Fond des pages Notes")
     parser.add_argument("--task-note-style", choices=NOTE_STYLES, help="Fond des pages de contexte")
     parser.add_argument("--all-variants", action="store_true")
@@ -40,7 +42,7 @@ def main():
         config = replace(config, language=args.language)
     surface = {name: getattr(args, name) for name in
                ("device", "density", "custom_width_mm", "custom_height_mm",
-                "meeting_note_style", "task_note_style")
+                "meeting_note_style", "task_note_style", "meeting_layout")
                if getattr(args, name) is not None}
     if surface:
         try:

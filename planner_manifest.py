@@ -122,12 +122,18 @@ def dated_manifest(schedule: "DatedPlannerConfig") -> tuple[PageSpec, ...]:
             pages.append(PageSpec(f"month-plan-{month:%Y-%m}", "month-plan", month.isoformat()))
     week_sheets = sheets(schedule.weekly_tasks, layout.weekly_capacity)
     for monday in schedule.weeks:
+        if getattr(schedule, "weekly_overview", False):
+            pages.append(PageSpec(f"week-overview-{monday.isoformat()}", "week-overview",
+                                  monday.isoformat()))
         for part in range(1, schedule.week_pages + 1):
             target = f"{schedule.week_key(monday)}-{part}"
             for sheet, (first, last) in enumerate(week_sheets, 1):
                 pages.append(PageSpec(sheet_key(target, sheet), "weekly",
                                       monday.isoformat(), part, first, last,
                                       sheet, len(week_sheets)))
+        if getattr(schedule, "weekly_review", False):
+            pages.append(PageSpec(f"week-review-{monday.isoformat()}", "week-review",
+                                  monday.isoformat()))
     pages += _days(len(schedule.dates), base.notes_pages)
     pages += _backlog(base, layout)
     return tuple(pages)
