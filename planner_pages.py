@@ -129,7 +129,8 @@ class PlannerPages:
                       f"{number:02d}", f"list-{number}", selected=number == active,
                       title=self.tr("Liste {number:02d}", number=number), size=9)
 
-    def footer(self, *, day=None, context=None, previous=None, next_page=None, next_day=None, previous_day=None):
+    def footer(self, *, day=None, context=None, previous=None, next_page=None, next_day=None,
+               previous_day=None, previous_label=None, next_width=48):
         self.line(LEFT, 45, RIGHT, 45, gray=0.55)
         self.text(LEFT, 25, self.tr("Accueil"), 8, bold=True)
         self.link(self.tr("Accueil"), "home", (LEFT, 15, LEFT + 49, 40))
@@ -148,13 +149,18 @@ class PlannerPages:
             if next_day:
                 self.text(RIGHT - 94, 25, ">", 8, bold=True, align="center")
                 self.link(self.tr("Jour suivant"), next_day, (RIGHT - 107, 15, RIGHT - 79, 40))
+        elif previous and previous_label:
+            self.text(RIGHT - next_width - 59, 25, "< " + previous_label, 8,
+                      bold=True, max_width=49)
+            self.link(previous_label, previous,
+                      (RIGHT - next_width - 64, 15, RIGHT - next_width - 10, 40))
         elif previous and previous != f"days-{block}":
             self.text(RIGHT - 69, 25, "<", 12, bold=True, align="center")
             self.link(self.tr("Precedent"), previous, (RIGHT - 85, 15, RIGHT - 52, 40))
         if next_page:
             label, target = next_page
-            self.text(RIGHT - 5, 25, label + " >", 8, bold=True, align="right", max_width=43)
-            self.link(self.tr("Suite"), target, (RIGHT - 48, 15, RIGHT, 40))
+            self.text(RIGHT - 5, 25, label + " >", 8, bold=True, align="right", max_width=next_width - 5)
+            self.link(self.tr("Suite"), target, (RIGHT - next_width, 15, RIGHT, 40))
         self.text(W - 19, 25, str(self.ordinal), 7, gray=MUTED, align="center", numeric=True)
 
     def rules(self, top, bottom=67, step=22, *, left=LEFT, right=RIGHT):
@@ -265,15 +271,16 @@ class PlannerPages:
         self.text(LEFT + 183, H - 48, self.tr("Date / sujet"), 7, gray=MUTED)
         self.line(LEFT + 183, H - 74, RIGHT, H - 74, gray=0.55)
         self.rules(H - 111)
-        previous = f"day-{day}-notes-{number - 1}" if number > 1 else f"day-{day}"
+        previous = f"day-{day}-notes-{number - 1}" if number > 1 else None
         if number < self.config.notes_pages:
-            next_page = ("Notes", f"day-{day}-notes-{number + 1}")
+            next_page = (f"Notes {number + 1}", f"day-{day}-notes-{number + 1}")
         elif day < self.config.days:
-            next_page = (self.tr("Jour"), f"day-{day + 1}")
+            next_page = (self.tr("Jour suivant"), f"day-{day + 1}")
         else:
             next_page = ("Index", f"days-{(day - 1) // 40}")
         self.footer(day=day, context=(f"Meeting {day:03d}", f"day-{day}", f"Meeting {day:03d}"),
-                    previous=previous, next_page=next_page)
+                    previous=previous, previous_label=f"Notes {number - 1}" if number > 1 else None,
+                    next_page=next_page, next_width=76)
         self.end()
 
     def task_list(self, number):
