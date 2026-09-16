@@ -17,6 +17,7 @@ def populate_fields(workspace):
     base = config.base if workspace.mode == 'dated' else config
     values = base.to_dict()
     values['list_names'] = '\n'.join(base.list_names)
+    values['project_names'] = '\n'.join(base.project_names)
     if workspace.mode == 'dated':
         values.update({key: value for key, value in config.to_dict().items() if key != 'base'})
         values.pop('days')

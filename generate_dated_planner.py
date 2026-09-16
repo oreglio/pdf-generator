@@ -30,6 +30,10 @@ def main():
     parser.add_argument('--density', choices=DENSITIES, help='Confort d’écriture : standard ou comfortable')
     parser.add_argument('--custom-width-mm', type=float, help='Largeur du format personnalisé, en mm')
     parser.add_argument('--custom-height-mm', type=float, help='Hauteur du format personnalisé, en mm')
+    parser.add_argument('--end-date', dest='end_date_override',
+                        help='Dernier jour inclus, AAAA-MM-JJ ; remplace la durée en mois')
+    parser.add_argument('--project-count', type=int, help='Nombre de fiches projet, de 0 à 12')
+    parser.add_argument('--project-notes-pages', type=int, help='Pages Notes par fiche projet')
     parser.add_argument('--meeting-layout', choices=MEETING_LAYOUTS,
                         help='Composition des pages Meeting')
     parser.add_argument('--weekly-overview', action=argparse.BooleanOptionalAction, default=None,
@@ -48,7 +52,8 @@ def main():
     try:
         config = DatedPlannerConfig.from_dict(json.loads(args.config.read_text())) if args.config else DatedPlannerConfig()
         overrides = {name: getattr(args, name) for name in ('start_date', 'months', 'week_pages', 'weekly_tasks', 'include_weekends', 'monthly_priorities',
-                                                           'weekly_overview', 'weekly_review')
+                                                           'weekly_overview', 'weekly_review',
+                                                           'end_date_override')
                      if getattr(args, name) is not None}
         base_overrides = {}
         if args.language is not None:
@@ -57,7 +62,8 @@ def main():
             base_overrides['typography'] = args.font
         base_overrides.update({name: getattr(args, name) for name in
                                ('device', 'density', 'custom_width_mm', 'custom_height_mm',
-                                'meeting_note_style', 'task_note_style', 'meeting_layout')
+                                'meeting_note_style', 'task_note_style', 'meeting_layout',
+                                'project_count', 'project_notes_pages')
                                if getattr(args, name) is not None})
         config = replace(config, base=replace(config.base, **base_overrides), **overrides)
     except (ValueError, TypeError, OSError) as error:

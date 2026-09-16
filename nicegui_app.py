@@ -84,6 +84,7 @@ class PlannerWorkspace:
         self.mode = initial_mode
         self.configs = {'dated': DatedPlannerConfig(), 'undated': PlannerConfig()}
         self.family = None
+        self.exact_dates = None
         self.preferences = preferences.empty()
         self.storage_off = False
         self.profile_name = None
@@ -170,7 +171,8 @@ class PlannerWorkspace:
     def read_config(self):
         base = self.config.base if self.mode == 'dated' else self.config
         payload = base.to_dict()
-        for key in ('list_count', 'tasks_per_list', 'detail_pages', 'notes_pages', 'days'):
+        for key in ('list_count', 'tasks_per_list', 'detail_pages', 'notes_pages', 'days',
+                    'project_count', 'project_notes_pages'):
             if key in self.fields:
                 payload[key] = self.whole(self.fields[key].value)
         for key in ('language', 'typography', 'title', 'meeting_layout',
@@ -186,6 +188,8 @@ class PlannerWorkspace:
                     self.fields[key].value if key in self.fields else None,
                     f'Indiquez la {side} du format personnalisé, en millimètres entiers.'))
         payload['list_names'] = self.fields['list_names'].value.splitlines()
+        payload['project_names'] = self.fields['project_names'].value.splitlines()[
+            :int(payload.get('project_count') or 0)]
         if self.mode == 'dated':
             dated = self.config.to_dict()
             dated['base'] = payload
@@ -193,8 +197,13 @@ class PlannerWorkspace:
             dated['include_weekends'] = self.fields['include_weekends'].value
             for key in ('monthly_priorities', 'weekly_overview', 'weekly_review'):
                 dated[key] = self.fields[key].value
-            for key in ('months', 'week_pages', 'weekly_tasks'):
+            for key in ('week_pages', 'weekly_tasks'):
                 dated[key] = self.whole(self.fields[key].value)
+            field = self.fields.get('end_date_override')
+            chosen_end = field.value if field is not None else None
+            dated['end_date_override'] = chosen_end or None
+            if not chosen_end:
+                dated['months'] = self.whole(self.fields['months'].value)
             return parse_config(self.mode, dated)
         return parse_config(self.mode, payload)
 
@@ -342,6 +351,35 @@ class PlannerWorkspace:
     def control(self, element):
         return element.props('outlined dense').classes('w-full') \
             .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+
+    def change_period(self, event):
+        if self.busy:
+            return
+        self.exact_dates = bool(event.value)
+        self.period_fields.refresh()
+        self.mark_dirty()
+
+    @ui.refreshable
+    def period_fields(self):
+        config = self.config
+        for key in ('start_date', 'months', 'end_date_override'):
+            self.fields.pop(key, None)
+        exact = (config.end_date_override is not None if self.exact_dates is None
+                 else self.exact_dates)
+        with ui.element('div').classes('fields'):
+            self.field('start_date', ui.input('À partir du', value=config.start_date)).props('type=date')
+            if exact:
+                self.field('end_date_override', ui.input(
+                    'Jusqu’au (inclus)',
+                    value=config.end_date_override or config.end_date.isoformat())).props('type=date')
+            else:
+                self.field('months', ui.select(
+                    {value: month_label(value) for value in month_choices(config.months)},
+                    value=config.months, label='Durée'))
+        self.control(ui.checkbox('Choisir une date de fin exacte', value=exact,
+                                 on_change=self.change_period)).props('dense')
+        if exact:
+            ui.label('La date de fin est incluse et remplace la durée. 366 jours au maximum.').classes('muted')
 
     def change_family(self, event):
         if self.busy:
@@ -613,7 +651,7 @@ class PlannerWorkspace:
     @ui.refreshable
     def body(self):
         self.fields = {}
-        self.family = None
+        self.family = self.exact_dates = None
         dated = self.mode == 'dated'
         config = self.config
         base = config.base if dated else config
@@ -631,11 +669,8 @@ class PlannerWorkspace:
                 with ui.column().classes('w-full gap-3 pt-2'):
                     ui.label('02 / Votre rythme').classes('section-title')
                     if dated:
+                        self.period_fields()
                         with ui.element('div').classes('fields'):
-                            self.field('start_date', ui.input('À partir du', value=config.start_date)).props('type=date')
-                            self.field('months', ui.select(
-                                {value: month_label(value) for value in month_choices(config.months)},
-                                value=config.months, label='Durée'))
                             self.number('week_pages', 'Listes / semaine', config.week_pages, 1, 3)
                             self.number('weekly_tasks', 'Actions / liste', config.weekly_tasks, 1, 40)
                         self.field('include_weekends', ui.checkbox('Inclure les week-ends', value=config.include_weekends))
@@ -674,6 +709,17 @@ class PlannerWorkspace:
                                 NOTE_STYLES, value=base.task_note_style, label='Fond des contextes'))
                         ui.label('Le fond ne change que la zone d’écriture : titres, liens et '
                                  'barre latérale restent nets.').classes('muted')
+                with ui.expansion('05 / Projets'):
+                    with ui.column().classes('w-full gap-4'):
+                        with ui.element('div').classes('fields'):
+                            self.number('project_count', 'Fiches projet', base.project_count, 0, 12)
+                            self.number('project_notes_pages', 'Pages Notes / projet',
+                                        base.project_notes_pages, 0, 4)
+                        self.field('project_names', ui.textarea(
+                            'Noms des projets', value='\n'.join(base.project_names))).props('rows=3')
+                        ui.label('Zéro fiche : aucune page ni aucun lien de projet. Une fiche garde '
+                                 'objectif, prochaines actions, décisions et notes, avec une place '
+                                 'fixe pour votre référence backlog écrite à la main.').classes('muted')
                 with ui.expansion('Titre & noms des listes'):
                     with ui.column().classes('w-full gap-4'):
                         self.field('title', ui.input('Titre du carnet', value=base.title)).props('maxlength=48')

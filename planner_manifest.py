@@ -90,6 +90,18 @@ def _backlog(base: "PlannerConfig", layout) -> list[PageSpec]:
     return pages
 
 
+def _projects(base: "PlannerConfig") -> list[PageSpec]:
+    if not base.project_count:
+        return []
+    pages = [PageSpec("projects", "projects-index", "")]
+    for number in range(1, base.project_count + 1):
+        pages.append(PageSpec(f"project-{number}", "project", str(number)))
+        for part in range(1, base.project_notes_pages + 1):
+            pages.append(PageSpec(f"project-{number}-notes-{part}", "project-notes",
+                                  str(number), part))
+    return pages
+
+
 def _days(count: int, notes_pages: int) -> list[PageSpec]:
     pages = []
     for day in range(1, count + 1):
@@ -109,6 +121,7 @@ def undated_manifest(config: "PlannerConfig") -> tuple[PageSpec, ...]:
                               1, first, last, block + 1, config.index_pages))
     pages += _days(config.days, config.notes_pages)
     pages += _backlog(config, layout)
+    pages += _projects(config)
     return tuple(pages)
 
 
@@ -136,6 +149,7 @@ def dated_manifest(schedule: "DatedPlannerConfig") -> tuple[PageSpec, ...]:
                                   monday.isoformat()))
     pages += _days(len(schedule.dates), base.notes_pages)
     pages += _backlog(base, layout)
+    pages += _projects(base)
     return tuple(pages)
 
 

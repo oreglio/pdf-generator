@@ -238,7 +238,8 @@ class DatedPlannerPages(PlannerPages):
             self.line(x, y - 9, x + cell, y - 9)
             self.link(self.tr("Liste {number:02d}", number=number), f"list-{number}",
                       (x, y - 8, x + cell, y + 22))
-        self.footer(next_page=(self.label("Commencer", "Start"), "day-1"))
+        self.footer(context=self.projects_link(),
+                    next_page=(self.label("Commencer", "Start"), "day-1"))
         self.end()
 
     def calendar(self, spec):

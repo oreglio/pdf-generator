@@ -25,6 +25,8 @@ def main():
     parser.add_argument("--density", choices=DENSITIES, help="Confort d’écriture : standard ou comfortable")
     parser.add_argument("--custom-width-mm", type=float, help="Largeur du format personnalisé, en mm")
     parser.add_argument("--custom-height-mm", type=float, help="Hauteur du format personnalisé, en mm")
+    parser.add_argument("--project-count", type=int, help="Nombre de fiches projet, de 0 à 12")
+    parser.add_argument("--project-notes-pages", type=int, help="Pages Notes par fiche projet")
     parser.add_argument("--meeting-layout", choices=MEETING_LAYOUTS,
                         help="Composition des pages Meeting")
     parser.add_argument("--meeting-note-style", choices=NOTE_STYLES, help="Fond des pages Notes")
@@ -42,7 +44,8 @@ def main():
         config = replace(config, language=args.language)
     surface = {name: getattr(args, name) for name in
                ("device", "density", "custom_width_mm", "custom_height_mm",
-                "meeting_note_style", "task_note_style", "meeting_layout")
+                "meeting_note_style", "task_note_style", "meeting_layout",
+                "project_count", "project_notes_pages")
                if getattr(args, name) is not None}
     if surface:
         try:

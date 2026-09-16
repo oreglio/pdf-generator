@@ -115,6 +115,21 @@ def render_planner_ui():
                                         value=config.tasks_per_list, key="planner_field_tasks")
             details = st.number_input("Pages de contexte par tâche", min_value=1, max_value=5,
                                       value=config.detail_pages, key="planner_field_details")
+            with st.expander("Fiches projet"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    project_count = st.number_input("Fiches projet", min_value=0, max_value=12,
+                                                    value=config.project_count,
+                                                    key="planner_field_projects")
+                with c2:
+                    project_notes = st.number_input("Pages Notes par projet", min_value=0, max_value=4,
+                                                    value=config.project_notes_pages,
+                                                    key="planner_field_project_notes")
+                project_names = st.text_area("Noms des projets : un par ligne",
+                                             value="\n".join(config.project_names),
+                                             key="planner_field_project_names",
+                                             help="Facultatif. 24 caractères maximum par nom.")
+                st.caption("Zéro fiche : aucune page ni aucun lien de projet.")
             with st.expander("Titre et noms des listes"):
                 title = st.text_input("Titre du carnet", value=config.title, max_chars=48, key="planner_field_title")
                 names = st.text_area("Un nom par ligne, dans l’ordre des listes",
@@ -126,7 +141,10 @@ def render_planner_ui():
                 config = PlannerConfig(list_count=lists, tasks_per_list=tasks, detail_pages=details,
                                        days=days, notes_pages=notes_pages, typography=typography,
                                        title=title, list_names=tuple(names.splitlines()),
-                                       language=language, **surface)
+                                       language=language, project_count=project_count,
+                                       project_notes_pages=project_notes,
+                                       project_names=tuple(project_names.splitlines())[:project_count],
+                                       **surface)
             except ValueError as error:
                 config = PlannerConfig.from_dict(st.session_state.planner_config)
                 st.error(str(error))

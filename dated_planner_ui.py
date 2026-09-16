@@ -59,6 +59,15 @@ def render_dated_planner_ui():
                 durations = month_choices(config.months)
                 months = st.selectbox('Durée', durations, index=durations.index(config.months),
                                       format_func=month_label, key='dated_field_months')
+            exact_dates = st.checkbox('Choisir une date de fin exacte',
+                                      value=config.end_date_override is not None,
+                                      key='dated_field_exact_dates')
+            end_date = st.date_input('Jusqu’au (inclus)',
+                                     value=date.fromisoformat(config.end_date_override)
+                                     if config.end_date_override else config.end_date,
+                                     min_value=date.min, max_value=date.max,
+                                     format='DD/MM/YYYY', key='dated_field_end',
+                                     help='Incluse, et limitée à 366 jours. Remplace la durée.')
             include_weekends = st.checkbox('Inclure les week-ends', value=config.include_weekends,
                                            key='dated_field_include_weekends')
             monthly_priorities = st.checkbox('Une page Priorités après chaque calendrier',
@@ -94,6 +103,21 @@ def render_dated_planner_ui():
                                           value=config.base.detail_pages, key='dated_field_details')
                 notes = st.number_input('Pages Notes après chaque Meeting', min_value=0, max_value=3,
                                         value=config.base.notes_pages, key='dated_field_notes')
+            with st.expander('Fiches projet'):
+                c1, c2 = st.columns(2)
+                with c1:
+                    project_count = st.number_input('Fiches projet', min_value=0, max_value=12,
+                                                    value=config.base.project_count,
+                                                    key='dated_field_projects')
+                with c2:
+                    project_notes = st.number_input('Pages Notes par projet', min_value=0, max_value=4,
+                                                    value=config.base.project_notes_pages,
+                                                    key='dated_field_project_notes')
+                project_names = st.text_area('Noms des projets : un par ligne',
+                                             value='\n'.join(config.base.project_names),
+                                             key='dated_field_project_names',
+                                             help='Facultatif. 24 caractères maximum par nom.')
+                st.caption('Zéro fiche : aucune page ni aucun lien de projet.')
             with st.expander('Langue, typographie et titres'):
                 language = st.selectbox('Langue du PDF', list(LANGUAGES),
                                          index=list(LANGUAGES).index(config.base.language),
@@ -112,8 +136,12 @@ def render_dated_planner_ui():
                 base = PlannerConfig(list_count=lists, tasks_per_list=tasks, detail_pages=details,
                                      notes_pages=notes, typography=typography, title=title,
                                      list_names=tuple(names.splitlines()), language=language,
+                                     project_count=project_count,
+                                     project_notes_pages=project_notes,
+                                     project_names=tuple(project_names.splitlines())[:project_count],
                                      **surface)
                 config = DatedPlannerConfig(base=base, start_date=start.isoformat(), months=months,
+                                            end_date_override=end_date.isoformat() if exact_dates else None,
                                             week_pages=week_pages, weekly_tasks=weekly_tasks,
                                             include_weekends=include_weekends,
                                             monthly_priorities=monthly_priorities,

@@ -39,11 +39,15 @@ class PlannerConfig:
     meeting_note_style: str = "lined"
     task_note_style: str = "dots"
     meeting_layout: str = "classic"
+    project_count: int = 0
+    project_names: tuple = ()
+    project_notes_pages: int = 1
 
     def __post_init__(self):
         for name, low, high in (
             ("list_count", 1, 10), ("tasks_per_list", 1, 40),
             ("detail_pages", 1, 5), ("days", 1, 400), ("notes_pages", 0, 3),
+            ("project_count", 0, 12), ("project_notes_pages", 0, 4),
         ):
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
@@ -60,13 +64,17 @@ class PlannerConfig:
             raise ValueError("Langue inconnue : choisir fr ou en.")
         if not isinstance(self.title, str) or not self.title.strip() or len(self.title) > 48:
             raise ValueError("Le titre doit contenir entre 1 et 48 caractères.")
-        if not isinstance(self.list_names, (tuple, list)) or len(self.list_names) > self.list_count:
-            raise ValueError("Il ne peut pas y avoir plus de noms que de listes.")
-        if any(not isinstance(s, str) or len(s) > 24 or '\n' in s for s in self.list_names):
-            raise ValueError("Chaque nom de liste doit tenir sur une ligne de 24 caractères.")
-        if any(ord(c) < 32 for c in self.title + ''.join(self.list_names)):
+        for field, limit, label in (("list_names", self.list_count, "listes"),
+                                    ("project_names", self.project_count, "projets")):
+            names = getattr(self, field)
+            if not isinstance(names, (tuple, list)) or len(names) > limit:
+                raise ValueError(f"Il ne peut pas y avoir plus de noms que de {label}.")
+            if any(not isinstance(s, str) or len(s) > 24 or '\n' in s for s in names):
+                raise ValueError("Chaque nom doit tenir sur une ligne de 24 caractères.")
+            object.__setattr__(self, field, tuple(s.strip() for s in names))
+        if any(ord(c) < 32 for c in self.title + ''.join(self.list_names)
+               + ''.join(self.project_names)):
             raise ValueError("Les caractères de contrôle ne sont pas autorisés.")
-        object.__setattr__(self, "list_names", tuple(s.strip() for s in self.list_names))
         self.layout  # Refuse an unknown device, comfort or custom size right away.
 
     @property
@@ -110,6 +118,11 @@ class PlannerConfig:
         if number <= len(self.list_names) and self.list_names[number - 1]:
             return self.list_names[number - 1]
         return self.text("Liste {number:02d}", number=number)
+
+    def project_name(self, number):
+        if number <= len(self.project_names) and self.project_names[number - 1]:
+            return self.project_names[number - 1]
+        return self.text("Projet {number:02d}", number=number)
 
     def text(self, source, **values):
         return translate(self.language, source, **values)

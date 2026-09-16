@@ -9,6 +9,7 @@ from planner_manifest import dated_manifest, sheets
 
 
 MONTH_RANGE = (1, 12)
+MAX_DAYS = 366
 QUICK_MONTHS = (1, 2, 3, 6, 12)
 
 
@@ -37,6 +38,7 @@ class DatedPlannerConfig:
     monthly_priorities: bool = False
     weekly_overview: bool = False
     weekly_review: bool = False
+    end_date_override: str | None = None
 
     def __post_init__(self):
         for name in ("include_weekends", "monthly_priorities",
@@ -56,10 +58,29 @@ class DatedPlannerConfig:
                 raise ValueError
             if date.fromisoformat(self.start_date).isoformat() != self.start_date:
                 raise ValueError
-            self.end_date
+            if self.end_date_override is None:
+                self.end_date
         except (ValueError, OverflowError) as exc:
             raise ValueError("La date de début doit être une date ISO valide (AAAA-MM-JJ) "
                              "permettant de calculer toute la période.") from exc
+        if self.end_date_override is not None:
+            try:
+                if not isinstance(self.end_date_override, str):
+                    raise ValueError
+                if date.fromisoformat(self.end_date_override).isoformat() != self.end_date_override:
+                    raise ValueError
+            except (ValueError, OverflowError) as exc:
+                raise ValueError("La date de fin doit être une date ISO valide "
+                                 "(AAAA-MM-JJ).") from exc
+            length = (self.end_date - self.start).days + 1
+            if length < 1:
+                raise ValueError("La date de fin ne peut pas précéder la date de début.")
+            if length > MAX_DAYS:
+                raise ValueError(f"Une période de dates exactes couvre au maximum "
+                                 f"{MAX_DAYS} jours ; celle-ci en demande {length}.")
+        if not self.dates:
+            raise ValueError("Cette période ne contient aucune journée à générer. "
+                             "Élargissez-la ou réincluez les week-ends.")
 
     @property
     def start(self):
@@ -67,6 +88,9 @@ class DatedPlannerConfig:
 
     @property
     def end_date(self):
+        """An explicit end wins, inclusive; otherwise the period counts months."""
+        if self.end_date_override is not None:
+            return date.fromisoformat(self.end_date_override)
         month_index = self.start.year * 12 + self.start.month - 1 + self.months
         year, month = divmod(month_index, 12)
         month += 1
@@ -109,7 +133,7 @@ class DatedPlannerConfig:
     @property
     def long_navigation(self):
         """Month tabs replace the full week index once a period stops fitting."""
-        return self.months > 3
+        return len(self.calendar_months) > 4 or len(self.weeks) > 15
 
     @property
     def spans_two_years(self):

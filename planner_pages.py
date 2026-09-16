@@ -16,6 +16,9 @@ MUTED = 0.37
 RULE = 0.70
 
 
+from planner_project_pages import ProjectPages  # noqa: E402  (needs MUTED above)
+
+
 def register_fonts(variant):
     root = Path(__file__).resolve().parent / "assets/fonts"
     if variant == "atkinson":
@@ -36,7 +39,7 @@ def register_fonts(variant):
     return tuple(names)
 
 
-class PlannerPages:
+class PlannerPages(ProjectPages):
     def __init__(self, canvas, config, *, interactive=True):
         self.c = canvas
         self.config = config
@@ -200,6 +203,12 @@ class PlannerPages:
             draw_note_background(self.c, self.task_bounds,
                                  self.config.task_note_style, self.layout.row_height)
 
+    def projects_link(self):
+        """Only produced when the notebook actually holds project sheets."""
+        if not self.config.project_count:
+            return None
+        return (self.tr("Projets"), "projects", self.tr("Projets"))
+
     def draw(self, spec):
         """Draw one manifest entry; the manifest owns the order and the keys."""
         if spec.kind == "home":
@@ -215,6 +224,12 @@ class PlannerPages:
         if spec.kind == "task-notes":
             number, item = (int(value) for value in spec.reference.split("-"))
             return self.task_notes(number, item, spec.part)
+        if spec.kind == "projects-index":
+            return self.projects_index(spec)
+        if spec.kind == "project":
+            return self.project_sheet(spec)
+        if spec.kind == "project-notes":
+            return self.project_notes(spec)
         raise ValueError(f"Type de page inconnu : {spec.kind}")
 
     def home(self):
@@ -257,7 +272,7 @@ class PlannerPages:
                       max_width=cell_w - 44)
             self.text(x + cell_w - 2, y + 6, ">", 11, align="right")
             self.link(self.tr("Liste {number:02d}", number=number), f"list-{number}", (x, y - 7, x + cell_w, y + 28))
-        self.footer(next_page=(self.tr("Journées"), "days-0"))
+        self.footer(context=self.projects_link(), next_page=(self.tr("Journées"), "days-0"))
         self.end()
 
     def day_index(self, spec):
