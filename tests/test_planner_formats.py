@@ -144,6 +144,41 @@ class FormatRenderingTests(unittest.TestCase):
                     self.assertAlmostEqual(box[1], device.height_pt, places=3)
                     self.assertInside(page, box)
 
+    def test_a_large_index_capacity_still_resolves_every_index_link(self):
+        """A device holding more than forty days per index used to dangle."""
+        from planner_pdf import generate_pdf
+        config = replace(PlannerConfig(days=120, list_count=1, tasks_per_list=1,
+                                       detail_pages=1, notes_pages=1),
+                         device="custom", custom_width_mm=300, custom_height_mm=400)
+        self.assertGreater(config.days_per_index, 40)
+        output = io.BytesIO()
+        self.assertEqual(generate_pdf(config, output), config.total_pages)
+        reader = PdfReader(output)
+        ids = {page.indirect_reference.idnum for page in reader.pages}
+        for page in reader.pages:
+            for ref in page.get("/Annots", []):
+                self.assertIn(ref.get_object()["/Dest"][0].idnum, ids)
+
+    def test_a_crowded_rail_never_draws_an_inverted_rectangle(self):
+        """Thirteen months plus ten backlog tabs must share one short column."""
+        from dated_planner_config import DatedPlannerConfig
+        from dated_planner_pdf import generate_dated_pdf
+        base = replace(PlannerConfig(list_count=10, tasks_per_list=2, detail_pages=1,
+                                     notes_pages=0),
+                       device="custom", custom_width_mm=100, custom_height_mm=150)
+        for months in (3, 12):
+            config = DatedPlannerConfig(base=base, start_date="2026-09-16", months=months)
+            with self.subTest(months=months):
+                output = io.BytesIO()
+                self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+                reader = PdfReader(output)
+                for page in reader.pages:
+                    for ref in page.get("/Annots", []):
+                        x0, y0, x1, y1 = map(float, ref.get_object()["/Rect"])
+                        self.assertLess(x0, x1)
+                        self.assertLess(y0, y1, "rectangle inversé dans la barre latérale")
+                        self.assertGreaterEqual(y0, 0)
+
     def test_two_devices_never_share_mutated_geometry(self):
         from planner_pages import PlannerPages
         from reportlab.pdfgen import canvas

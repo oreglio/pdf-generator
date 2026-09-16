@@ -203,6 +203,10 @@ class PlannerPages(ProjectPages):
             draw_note_background(self.c, self.task_bounds,
                                  self.config.task_note_style, self.layout.row_height)
 
+    def index_key(self, day):
+        """The day index holding one day, from the capacity of this device."""
+        return f"days-{(day - 1) // self.config.days_per_index}"
+
     def projects_link(self):
         """Only produced when the notebook actually holds project sheets."""
         if not self.config.project_count:
@@ -304,7 +308,7 @@ class PlannerPages(ProjectPages):
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.meeting_body()
         next_page = ("Notes", f"day-{day}-notes-1") if self.config.notes_pages else (
-            (self.tr("Suite"), f"day-{day + 1}") if day < self.config.days else ("Index", f"days-{(day - 1) // 40}"))
+            (self.tr("Suite"), f"day-{day + 1}") if day < self.config.days else ("Index", self.index_key(day)))
         prev = f"day-{day - 1}" if day > 1 else "days-0"
         self.footer(day=day, previous=prev, next_page=next_page,
                     next_day=f"day-{day + 1}" if day < self.config.days else None,
@@ -359,7 +363,7 @@ class PlannerPages(ProjectPages):
         elif day < self.config.days:
             next_page = (self.tr("Jour suivant"), f"day-{day + 1}")
         else:
-            next_page = ("Index", f"days-{(day - 1) // 40}")
+            next_page = ("Index", self.index_key(day))
         self.footer(day=day, context=(f"< Meeting {day:03d}", f"day-{day}", f"Meeting {day:03d}"),
                     previous=previous, previous_label=f"Notes {number - 1}" if number > 1 else None,
                     next_page=next_page, next_width=76)
