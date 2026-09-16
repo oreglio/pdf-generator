@@ -215,6 +215,10 @@ class DatedPlannerPages(PlannerPages):
         reference_end = 2 * reference_step + reference_width
         task_start = reference_end + 11
         reference_labels = ("BKLG", "#", self.label("JOUR", "DAY"))
+        if self.schedule.weekly_tasks > 1:
+            divider_x = LEFT + WIDTH / 2
+            self.line(divider_x, H - 148, divider_x, H - 168 - (rows - 1) * 20,
+                      gray=0, width=0.25)
         for index in range(self.schedule.weekly_tasks):
             col, row = divmod(index, rows)
             x, y = LEFT + col * (col_width + 20), H - 165 - row * 20
