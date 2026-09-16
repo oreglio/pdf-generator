@@ -3,11 +3,13 @@
 from dataclasses import asdict, dataclass
 from math import ceil
 
+from planner_formats import DEFAULT_DEVICE, DEVICES, DENSITIES
 from planner_i18n import LANGUAGES, translate
+from planner_layout import make_layout
 
 
-PAGE_WIDTH = 1920 * 72 / 300
-PAGE_HEIGHT = 2560 * 72 / 300
+PAGE_WIDTH = DEVICES[DEFAULT_DEVICE].width_pt
+PAGE_HEIGHT = DEVICES[DEFAULT_DEVICE].height_pt
 TYPOGRAPHIES = {
     "manrope": "Manrope",
     "manrope-contrast": "Manrope - contraste renforcé",
@@ -26,6 +28,10 @@ class PlannerConfig:
     title: str = "Meetings & actions"
     list_names: tuple = ()
     language: str = "fr"
+    device: str = DEFAULT_DEVICE
+    density: str = "standard"
+    custom_width_mm: float | None = None
+    custom_height_mm: float | None = None
 
     def __post_init__(self):
         for name, low, high in (
@@ -48,6 +54,19 @@ class PlannerConfig:
         if any(ord(c) < 32 for c in self.title + ''.join(self.list_names)):
             raise ValueError("Les caractères de contrôle ne sont pas autorisés.")
         object.__setattr__(self, "list_names", tuple(s.strip() for s in self.list_names))
+        self.layout  # Refuse an unknown device, comfort or custom size right away.
+
+    @property
+    def layout(self):
+        return make_layout(self)
+
+    @property
+    def format_suffix(self):
+        """Empty for the historical profile, so published names never move."""
+        if self.device == DEFAULT_DEVICE and self.density == "standard":
+            return ""
+        device = self.device if self.device in DEVICES else "custom"
+        return f"-{device}" + ("" if self.density == "standard" else "-aere")
 
     @property
     def index_pages(self):
@@ -73,7 +92,7 @@ class PlannerConfig:
     @property
     def pdf_filename(self):
         suffix = f"{self.days}j" if self.language == "fr" else f"en-{self.days}d"
-        return f"aipaper-{self.typography}-{suffix}.pdf"
+        return f"aipaper-{self.typography}-{suffix}{self.format_suffix}.pdf"
 
     def to_dict(self):
         return asdict(self)

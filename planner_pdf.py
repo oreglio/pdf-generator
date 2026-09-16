@@ -5,8 +5,9 @@ from pathlib import Path
 
 from reportlab.pdfgen import canvas
 
-from planner_config import PAGE_HEIGHT, PAGE_WIDTH, TYPOGRAPHIES
-from planner_pages import PlannerPages, LEFT, RIGHT, WIDTH
+from planner_config import TYPOGRAPHIES
+from planner_layout import make_layout
+from planner_pages import PlannerPages
 
 
 def generate_pdf(config, target):
@@ -14,7 +15,7 @@ def generate_pdf(config, target):
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
         target = str(target)
-    pdf = canvas.Canvas(target, pagesize=(PAGE_WIDTH, PAGE_HEIGHT),
+    pdf = canvas.Canvas(target, pagesize=make_layout(config).pagesize,
                         pageCompression=1, invariant=1, pdfVersion=(1, 4))
     pdf.setTitle(config.title)
     pdf.setAuthor("AiPaper Planner")
@@ -41,7 +42,7 @@ def generate_pdf(config, target):
 def generate_samples(config, target):
     """Three visual-only pages: no dangling destinations to omitted pages."""
     pdf = canvas.Canvas(str(target) if isinstance(target, Path) else target,
-                        pagesize=(PAGE_WIDTH, PAGE_HEIGHT), pageCompression=1, invariant=1)
+                        pagesize=make_layout(config).pagesize, pageCompression=1, invariant=1)
     pdf.setTitle(config.text("Aperçu - ") + config.title)
     pages = PlannerPages(pdf, config, interactive=False)
     pages.meeting(1)
@@ -53,9 +54,10 @@ def generate_samples(config, target):
 def generate_comparison(config, target):
     """Ten visual-only pages with the same layouts at the same physical size."""
     pdf = canvas.Canvas(str(target) if isinstance(target, Path) else target,
-                        pagesize=(PAGE_WIDTH, PAGE_HEIGHT), pageCompression=1, invariant=1)
+                        pagesize=make_layout(config).pagesize, pageCompression=1, invariant=1)
     pdf.setTitle(config.text("AiPaper - comparaison des polices"))
     page = PlannerPages(pdf, config, interactive=False)
+    LEFT, RIGHT, WIDTH, PAGE_HEIGHT = page.left, page.right, page.width, page.h
     page.start("comparison")
     page.header(config.text("VIWOODS AIPAPER / ESSAI TYPOGRAPHIQUE"), config.text("Trois façons de lire."))
     page.text(LEFT, PAGE_HEIGHT - 119, config.text("Même format. Même contenu. Trois rendus."), 11)

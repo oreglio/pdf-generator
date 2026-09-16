@@ -5,7 +5,7 @@ from pathlib import Path
 from reportlab.pdfgen import canvas
 
 from dated_planner_pages import DatedPlannerPages
-from planner_config import PAGE_WIDTH, PAGE_HEIGHT
+from planner_layout import make_layout
 
 
 def _canvas(config, target):
@@ -13,7 +13,7 @@ def _canvas(config, target):
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
         target = str(target)
-    pdf = canvas.Canvas(target, pagesize=(PAGE_WIDTH, PAGE_HEIGHT),
+    pdf = canvas.Canvas(target, pagesize=make_layout(config.render_config).pagesize,
                         pageCompression=1, invariant=1, pdfVersion=(1, 4))
     pdf.setTitle(config.base.title)
     pdf.setAuthor("AiPaper Planner")
