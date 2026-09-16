@@ -57,3 +57,14 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Local planner outputs, archives and user data
+/archives/
+/output/
+/tmp/
+/public_configs/
+/.playwright-mcp/
+/.claude/
+
+# The historical test_*.py rule must not hide the planner test suite
+!/tests/test_*.py

@@ -1,5 +1,47 @@
 # 📝 A4 PDF Todo Generator
 
+## Viwoods AiPaper : Meetings & actions
+
+Le nouveau carnet comprend 200 Meetings non datés, deux pages de notes par
+Meeting, 10 listes de 40 tâches et deux pages de contexte par tâche. Le format
+AiPaper et la police Manrope sont configurés par défaut, avec des liens internes.
+
+### Télécharger les exemples complets
+
+Les deux PDF sont prêts à importer sur la tablette, sans installation :
+
+| Langue / Language | Téléchargement / Download | Contenu | Taille |
+| --- | --- | --- | --- |
+| Français | [Télécharger le carnet PDF](examples/aipaper-manrope-200j.pdf?raw=true) | 1 416 pages | ≈ 9 Mo |
+| English | [Download the PDF notebook](examples/aipaper-manrope-en-200d.pdf?raw=true) | 1,416 pages | ≈ 9 MB |
+
+Chaque carnet contient 200 journées non datées, 400 tâches et **30 533 liens
+internes**. Les versions française et anglaise ont la même mise en page Manrope
+au format Viwoods AiPaper (1 920 × 2 560 px à 300 ppp). Ce sont des carnets vierges
+complets, pas seulement des aperçus. Les exemplaires publiés sont versionnés dans
+[`examples/`](examples/).
+
+### Lancer ou régénérer en local
+
+**[Installation locale et régénération sans interface → PLANNER.md](PLANNER.md)**
+
+```bash
+python3 -m venv venv
+venv/bin/python -m pip install -r requirements-local.txt
+venv/bin/python -m streamlit run pdf_generator_ui.py --server.address=127.0.0.1
+```
+
+Pour régénérer les deux langues sans interface :
+
+```bash
+venv/bin/python generate_planner.py
+venv/bin/python generate_planner.py --language en
+```
+
+Les PDF sont créés dans `output/pdf/`. Dans l’interface, le champ **Langue du PDF**
+permet de choisir Français ou English. Le générateur historique reste accessible
+dans la barre latérale de l’interface ; sa documentation suit ci-dessous.
+
 A powerful, customizable PDF generator for creating todo lists and detail pages, optimized for A4 paper and e-readers (Boox, reMarkable, etc.).
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
@@ -39,8 +81,8 @@ A powerful, customizable PDF generator for creating todo lists and detail pages,
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/pdf-todo-generator.git
-cd pdf-todo-generator
+git clone https://github.com/oreglio/pdf-generator.git
+cd pdf-generator
 ```
 
 2. **Create virtual environment**

@@ -6,6 +6,7 @@ Provides a public gallery interface for sharing configurations
 import streamlit as st
 from public_config_manager import PublicConfigGallery, ConfigThemes
 from datetime import datetime
+from config_collector import collect_complete_config, get_config_summary
 
 def render_gallery_ui(config_manager):
     """Render the configuration gallery UI"""
@@ -159,29 +160,8 @@ def render_gallery_ui(config_manager):
             share_submitted = st.form_submit_button("📤 Publish to Gallery")
             
             if share_submitted:
-                # Collect current configuration
-                current_config = st.session_state.get('current_config', {})
-                if not current_config:
-                    # Build config from session state
-                    current_config = {
-                        'page_format': st.session_state.get('page_format', 'A4 (210×297 mm)'),
-                        'landscape': st.session_state.get('landscape', False),
-                        'items_per_col': st.session_state.get('items_per_col', 20),
-                        'columns': st.session_state.get('columns', 2),
-                        'pages_of_todos': st.session_state.get('pages_of_todos', 30),
-                        'detail_pages_per_todo': st.session_state.get('detail_pages_per_todo', 2),
-                        'margin_left': st.session_state.get('margin_left', 8),
-                        'margin_right': st.session_state.get('margin_right', 8),
-                        'margin_top': st.session_state.get('margin_top', 18),
-                        'margin_bottom': st.session_state.get('margin_bottom', 8),
-                        'dot_spacing': st.session_state.get('dot_spacing', 5.0),
-                        'dot_radius': st.session_state.get('dot_radius', 0.3),
-                        'guide_lines_enabled': st.session_state.get('guide_lines_enabled', False),
-                        'guide_h_color': st.session_state.get('guide_h_color', '#E0E0E0'),
-                        'guide_v_color': st.session_state.get('guide_v_color', '#E0E0E0'),
-                        'guide_h_width': st.session_state.get('guide_h_width', 0.5),
-                        'guide_v_width': st.session_state.get('guide_v_width', 0.5),
-                    }
+                # Collect COMPLETE configuration with ALL fields
+                current_config = collect_complete_config()
                 
                 # Combine selected and custom tags
                 all_tags = selected_tags

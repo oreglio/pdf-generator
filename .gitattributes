@@ -1,0 +1,2 @@
+# Preserve published PDF examples as binary files.
+examples/*.pdf binary
