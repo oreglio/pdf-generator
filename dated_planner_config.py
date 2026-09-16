@@ -7,6 +7,24 @@ from datetime import date, timedelta
 from planner_config import PlannerConfig
 
 
+MONTH_RANGE = (1, 12)
+QUICK_MONTHS = (1, 2, 3, 6, 12)
+
+
+def month_choices(current=None):
+    """The five quick durations, plus any other valid value already chosen."""
+    values = set(QUICK_MONTHS)
+    if type(current) is int and MONTH_RANGE[0] <= current <= MONTH_RANGE[1]:
+        values.add(current)
+    return tuple(sorted(values))
+
+
+def month_label(months, language='fr'):
+    if language == 'en':
+        return '12 months · 1 year' if months == 12 else f'{months} month' + ('s' if months > 1 else '')
+    return '12 mois · 1 an' if months == 12 else f'{months} mois'
+
+
 @dataclass(frozen=True)
 class DatedPlannerConfig:
     base: PlannerConfig = field(default_factory=PlannerConfig)
@@ -22,7 +40,7 @@ class DatedPlannerConfig:
         if not isinstance(self.base, PlannerConfig):
             raise ValueError("La configuration du backlog doit être un PlannerConfig.")
         for name, low, high in (
-            ("months", 1, 3), ("week_pages", 1, 3), ("weekly_tasks", 1, 40),
+            ("months", *MONTH_RANGE), ("week_pages", 1, 3), ("weekly_tasks", 1, 40),
         ):
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
@@ -71,6 +89,15 @@ class DatedPlannerConfig:
         last_index = self.end_date.year * 12 + self.end_date.month - 1
         return tuple(date(index // 12, index % 12 + 1, 1)
                      for index in range(first_index, last_index + 1))
+
+    @property
+    def long_navigation(self):
+        """Month tabs replace the full week index once a period stops fitting."""
+        return self.months > 3
+
+    @property
+    def spans_two_years(self):
+        return self.start.year != self.end_date.year
 
     @property
     def render_config(self):

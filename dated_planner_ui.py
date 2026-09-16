@@ -7,7 +7,7 @@ from datetime import date
 
 import streamlit as st
 
-from dated_planner_config import DatedPlannerConfig
+from dated_planner_config import DatedPlannerConfig, month_choices, month_label
 from dated_planner_pdf import generate_dated_pdf, generate_dated_samples
 from planner_config import PlannerConfig, TYPOGRAPHIES
 from planner_i18n import LANGUAGES
@@ -52,11 +52,14 @@ def render_dated_planner_ui():
                                       min_value=date.min, max_value=date.max,
                                       format='DD/MM/YYYY', key='dated_field_start')
             with c2:
-                months = st.selectbox('Durée', [1, 2, 3], index=config.months - 1,
-                                      format_func=lambda n: f'{n} mois', key='dated_field_months')
+                durations = month_choices(config.months)
+                months = st.selectbox('Durée', durations, index=durations.index(config.months),
+                                      format_func=month_label, key='dated_field_months')
             include_weekends = st.checkbox('Inclure les week-ends', value=config.include_weekends,
                                            key='dated_field_include_weekends')
             st.caption('Sans week-ends : moins de pages Meeting et Notes. Le calendrier reste complet.')
+            st.caption('Au-delà de trois mois, la barre latérale indexe les mois ; '
+                       'chaque calendrier ouvre ses semaines et ses journées.')
             st.markdown('**Vos actions de la semaine**')
             c1, c2 = st.columns(2)
             with c1:

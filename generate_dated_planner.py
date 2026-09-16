@@ -7,7 +7,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
-from dated_planner_config import DatedPlannerConfig
+from dated_planner_config import MONTH_RANGE, DatedPlannerConfig
 from dated_planner_pdf import generate_dated_pdf
 from planner_config import TYPOGRAPHIES
 from planner_i18n import LANGUAGES
@@ -17,7 +17,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, help='Configuration JSON du carnet daté')
     parser.add_argument('--start-date', help='Première journée, au format YYYY-MM-DD')
-    parser.add_argument('--months', type=int, choices=[1, 2, 3], help='Durée en mois calendaires')
+    parser.add_argument('--months', type=int, choices=range(MONTH_RANGE[0], MONTH_RANGE[1] + 1),
+                        metavar='{1..12}', help='Durée en mois calendaires, de 1 à 12')
     parser.add_argument('--week-pages', type=int, choices=[1, 2, 3], help='Listes de tâches par semaine')
     parser.add_argument('--weekly-tasks', type=int, help='Actions par liste hebdomadaire, de 1 à 40')
     parser.add_argument('--include-weekends', action=argparse.BooleanOptionalAction, default=None,

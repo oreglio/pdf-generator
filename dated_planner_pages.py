@@ -5,7 +5,7 @@ from datetime import timedelta
 from math import ceil
 
 from planner_config import PAGE_HEIGHT as H, PAGE_WIDTH as W
-from planner_pages import PlannerPages, LEFT, RIGHT, WIDTH, MUTED
+from planner_pages import PlannerPages, LEFT, RIGHT, WIDTH, INK, MUTED
 
 
 MONTHS = {
@@ -16,6 +16,12 @@ MONTHS = {
 }
 WEEKDAYS = {"fr": ("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"),
             "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")}
+MONTH_TABS = {
+    "fr": ("JANV", "FÉVR", "MARS", "AVR", "MAI", "JUIN", "JUIL", "AOÛT",
+           "SEPT", "OCT", "NOV", "DÉC"),
+    "en": ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG",
+           "SEP", "OCT", "NOV", "DEC"),
+}
 
 
 class DatedPlannerPages(PlannerPages):
@@ -54,16 +60,11 @@ class DatedPlannerPages(PlannerPages):
     def week_target(self, monday, part=1):
         return f"{self.schedule.week_key(monday)}-{part}"
 
-    def rail(self, active=None):
-        self.line(W - 39, 69, W - 39, H - 31, gray=0.85)
-        self.text(W - 19, H - 39, self.label("SEMAINES", "WEEKS"), 5.5, bold=True, align="center")
-        step = min(26, 270 / len(self.schedule.weeks))
-        for index, monday in enumerate(self.schedule.weeks):
-            self.pill(W - 32, H - 50 - (index + 1) * step, 26, step - 3,
-                      self.week_label(monday), self.week_target(monday),
-                      selected=monday == self.active_week, size=7,
-                      title=self.schedule.week_key(monday))
-        label_y = H - 63 - len(self.schedule.weeks) * step
+    def month_tab(self, value):
+        return MONTH_TABS[self.config.language][value.month - 1]
+
+    def backlog_rail(self, label_y, active):
+        """Shared bottom of both rails: the backlog keeps the same tabs."""
         self.text(W - 19, label_y, "BACKLOG", 5.5, bold=True, align="center")
         self.link("Backlog", "home", (W - 34, label_y - 7, W - 4, label_y + 9))
         top = label_y - 10
@@ -73,8 +74,48 @@ class DatedPlannerPages(PlannerPages):
                       f"{number:02d}", f"list-{number}", selected=number == active,
                       title=self.tr("Liste {number:02d}", number=number), size=9)
 
+    def month_rail(self, active=None):
+        """Long periods index their months; weeks stay inside each calendar."""
+        self.line(W - 39, 69, W - 39, H - 31, gray=0.85)
+        self.text(W - 19, H - 39, self.label("MOIS", "MONTHS"), 5.5, bold=True, align="center")
+        months = self.schedule.calendar_months
+        two_years = self.schedule.spans_two_years
+        step = min(26, 300 / len(months))
+        current = self.current_date
+        for index, month in enumerate(months):
+            y = H - 50 - (index + 1) * step
+            height = step - 3
+            selected = (current is not None
+                        and (current.year, current.month) == (month.year, month.month))
+            self.pill(W - 32, y, 26, height, "", self.month_key(month),
+                      selected=selected, title=self.month_key(month))
+            ink = 1 if selected else INK
+            if two_years:
+                self.text(W - 19, y + height - 7, self.month_tab(month), 5.5, bold=True,
+                          gray=ink, align="center", max_width=22)
+                self.text(W - 19, y + 2.5, f"{month.year % 100:02d}", 5,
+                          gray=1 if selected else MUTED, align="center")
+            else:
+                self.text(W - 19, y + (height - 5.5) / 2 + 1, self.month_tab(month), 5.5,
+                          bold=True, gray=ink, align="center", max_width=22)
+        self.backlog_rail(H - 63 - len(months) * step, active)
+
+    def rail(self, active=None):
+        if self.schedule.long_navigation:
+            return self.month_rail(active)
+        self.line(W - 39, 69, W - 39, H - 31, gray=0.85)
+        self.text(W - 19, H - 39, self.label("SEMAINES", "WEEKS"), 5.5, bold=True, align="center")
+        step = min(26, 270 / len(self.schedule.weeks))
+        for index, monday in enumerate(self.schedule.weeks):
+            self.pill(W - 32, H - 50 - (index + 1) * step, 26, step - 3,
+                      self.week_label(monday), self.week_target(monday),
+                      selected=monday == self.active_week, size=7,
+                      title=self.schedule.week_key(monday))
+        self.backlog_rail(H - 63 - len(self.schedule.weeks) * step, active)
+
     def footer(self, *, day=None, context=None, previous=None, next_page=None,
-               next_day=None, previous_day=None, previous_label=None, next_width=76):
+               next_day=None, previous_day=None, previous_label=None, next_width=76,
+               previous_week=None, next_week=None):
         self.line(LEFT, 45, RIGHT, 45, gray=0.55)
         self.text(LEFT, 25, self.tr("Accueil"), 8, bold=True)
         self.link("Home", "home", (LEFT, 15, LEFT + 49, 40))
@@ -85,6 +126,14 @@ class DatedPlannerPages(PlannerPages):
             label, target, title = context
             self.text(LEFT + 140, 25, label, 8, bold=True, max_width=89)
             self.link(title, target, (LEFT + 135, 15, LEFT + 230, 40))
+        elif previous_week or next_week:
+            if previous_week:
+                self.text(LEFT + 140, 25, "< " + previous_week[0], 8, bold=True, max_width=44)
+                self.link("Previous week", previous_week[1], (LEFT + 135, 15, LEFT + 186, 40))
+            if next_week:
+                self.text(LEFT + 238, 25, next_week[0] + " >", 8, bold=True,
+                          align="right", max_width=44)
+                self.link("Next week", next_week[1], (LEFT + 192, 15, LEFT + 238, 40))
         if previous_day or next_day:
             self.text(RIGHT - 110, 25, self.tr("Jour"), 8, bold=True, align="center")
             if previous_day:
@@ -103,13 +152,8 @@ class DatedPlannerPages(PlannerPages):
             self.link("Next", target, (RIGHT - next_width, 15, RIGHT, 40))
         self.text(W - 19, 25, self.ordinal, 7, gray=MUTED, align="center", numeric=True)
 
-    def home(self):
-        self.current_date = self.active_week = None
-        self.start("home", outline=self.config.title)
-        self.header(self.label("VIWOODS AIPAPER / CARNET DATÉ", "VIWOODS AIPAPER / DATED NOTEBOOK"),
-                    self.config.title, subtitle=f"{self.schedule.start:%d.%m.%Y} — {self.schedule.end_date:%d.%m.%Y}")
-        self.rail()
-        self.text(LEFT, H - 117, self.label("Mon calendrier", "My calendar"), 13, bold=True)
+    def home_weeks(self):
+        """Historical layout: every month, then every week of the period."""
         months = self.schedule.calendar_months
         width = (WIDTH - 7 * (len(months) - 1)) / len(months)
         for index, month in enumerate(months):
@@ -131,11 +175,42 @@ class DatedPlannerPages(PlannerPages):
                       bold=True, align="center")
             self.text(x + width / 2, y + 4, date_range, 6, gray=MUTED,
                       align="center", max_width=width - 6)
-        self.text(LEFT, H - 307, "Backlog", 15, bold=True)
+        return H - 307
+
+    def home_months(self):
+        """Long periods: a readable grid of months instead of 53 week buttons."""
+        months = self.schedule.calendar_months
+        columns = min(4, len(months))
+        width = (WIDTH - 7 * (columns - 1)) / columns
+        for index, month in enumerate(months):
+            row, col = divmod(index, columns)
+            self.pill(LEFT + col * (width + 7), H - 154 - row * 34, width, 27,
+                      f"{self.month_name(month).capitalize()} {month.year}",
+                      self.month_key(month), title=self.month_key(month), size=8)
+        bottom = H - 154 - (ceil(len(months) / columns) - 1) * 34
+        self.text(LEFT, bottom - 26, self.label(
+            "Chaque calendrier ouvre ses semaines et ses journées.",
+            "Each calendar opens its weeks and its days."), 8, gray=MUTED, max_width=WIDTH - 130)
+        first = self.schedule.weeks[0]
+        self.pill(RIGHT - 118, bottom - 34, 118, 22,
+                  self.label(f"Première semaine · {self.week_label(first)}",
+                             f"First week · {self.week_label(first)}"),
+                  self.week_target(first), title=self.schedule.week_key(first), size=7.5)
+        return bottom - 66
+
+    def home(self):
+        self.current_date = self.active_week = None
+        self.start("home", outline=self.config.title)
+        self.header(self.label("VIWOODS AIPAPER / CARNET DATÉ", "VIWOODS AIPAPER / DATED NOTEBOOK"),
+                    self.config.title, subtitle=f"{self.schedule.start:%d.%m.%Y} — {self.schedule.end_date:%d.%m.%Y}")
+        self.rail()
+        self.text(LEFT, H - 117, self.label("Mon calendrier", "My calendar"), 13, bold=True)
+        backlog_y = self.home_months() if self.schedule.long_navigation else self.home_weeks()
+        self.text(LEFT, backlog_y, "Backlog", 15, bold=True)
         cell = (WIDTH - 12) / 2
         for number in range(1, self.config.list_count + 1):
             row, col = divmod(number - 1, 2)
-            x, y = LEFT + col * (cell + 12), H - 340 - row * 46
+            x, y = LEFT + col * (cell + 12), backlog_y - 33 - row * 46
             self.text(x, y, f"{number:02d}", 13, bold=True)
             if number <= len(self.config.list_names) and self.config.list_names[number - 1].strip():
                 self.text(x + 28, y + 1, self.config.list_names[number - 1], 9, max_width=cell - 44)
@@ -243,10 +318,19 @@ class DatedPlannerPages(PlannerPages):
                 self.text(x + task_start, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
             self.text(x + reference_end + 5, y + 2, "·", 10, bold=True, gray=MUTED, align="center")
             self.line(x + task_start, y, x + col_width, y)
+        steps = {}
+        if self.schedule.long_navigation:
+            index = self.schedule.weeks.index(monday)
+            if index:
+                neighbour = self.schedule.weeks[index - 1]
+                steps["previous_week"] = (self.week_label(neighbour), self.week_target(neighbour))
+            if index + 1 < len(self.schedule.weeks):
+                neighbour = self.schedule.weeks[index + 1]
+                steps["next_week"] = (self.week_label(neighbour), self.week_target(neighbour))
         self.footer(previous=self.week_target(monday, part - 1) if part > 1 else None,
                     previous_label=f"Page {part - 1}" if part > 1 else None,
                     next_page=(f"Page {part + 1}", self.week_target(monday, part + 1))
-                    if part < self.schedule.week_pages else None)
+                    if part < self.schedule.week_pages else None, **steps)
         self.end()
 
     def meeting(self, day):
@@ -281,7 +365,13 @@ class DatedPlannerPages(PlannerPages):
         self.active_week = self.schedule.week_for_day(day)
         self.start(f"day-{day}-notes-{number}")
         self.header(f"{self.full_date(value).upper()} / NOTES {number:02d}", "Notes")
-        self.link(f"Meeting {value.isoformat()}", f"day-{day}", (LEFT, H - 43, RIGHT, H - 22))
+        header_right = RIGHT
+        if self.schedule.long_navigation:
+            header_right = RIGHT - 52
+            self.pill(RIGHT - 46, H - 46, 46, 21, self.week_label(self.active_week),
+                      self.week_target(self.active_week), size=7.5,
+                      title=self.schedule.week_key(self.active_week))
+        self.link(f"Meeting {value.isoformat()}", f"day-{day}", (LEFT, H - 43, header_right, H - 22))
         self.text(LEFT + 183, H - 48, self.label("Sujet", "Subject"), 7, gray=MUTED)
         self.line(LEFT + 183, H - 74, RIGHT, H - 74, gray=0.55)
         self.rail()

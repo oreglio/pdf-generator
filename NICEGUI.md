@@ -80,6 +80,28 @@ Ouvrir <http://127.0.0.1:8080>. Garder le terminal ouvert pendant l'utilisation 
 
 ### Dans une fenêtre de bureau
 
+Sur macOS, un lanceur **Folio.app** permet d’ouvrir la fenêtre par double-clic,
+sans Terminal. Après installation des dépendances natives, le créer avec le Python
+de votre environnement :
+
+```bash
+venv/bin/python build_macos_app.py --output "$HOME/Applications/Folio.app"
+open "$HOME/Applications/Folio.app"
+```
+
+Glisser **Folio.app depuis le Finder vers le Dock** pour garder un raccourci.
+Le lanceur choisit un port local disponible et utilise l’icône de carnet fournie
+dans `assets/app/folio.png`. Fermer la fenêtre arrête son serveur local.
+Les logs se trouvent dans `~/Library/Logs/Folio/app.log`.
+
+Ce lanceur utilise le dossier du projet et le Python qui l’a construit : conserver
+les deux à leur emplacement. Il peut être déplacé dans Applications, mais n’est
+pas un paquet autonome à envoyer à un autre Mac. Si le projet ou l’environnement
+Python change de place, déplacer l’ancien lanceur puis en reconstruire un.
+La commande refuse d’écraser une application existante.
+
+Pour lancer directement depuis le Terminal :
+
 ```bash
 python -m pip install -r requirements-native.txt
 python nicegui_app.py --native
@@ -97,8 +119,8 @@ python -m pip install 'pywebview[qt]==6.2.1'
 
 Une session graphique est nécessaire ; ce mode n'est pas destiné à un serveur
 sans écran. Voir les [prérequis pywebview par plateforme](https://pywebview.flowrl.com/guide/installation.html).
-Le prototype se lance depuis Python ; il ne fournit pas encore d'installateur
-macOS ou Windows, ni d'application signée.
+Le lanceur macOS reste lié à l’installation Python locale ; il n’y a pas encore
+d’installateur autonome macOS ou Windows, ni de signature de distribution.
 
 Pour les carnets Viwoods, les boutons de téléchargement des PDF ouvrent directement
 le dialogue système d'enregistrement puis écrivent le fichier choisi. Le PDF ne

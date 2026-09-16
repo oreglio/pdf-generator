@@ -14,7 +14,7 @@ from pathlib import Path
 
 from nicegui import app, ui
 
-from dated_planner_config import DatedPlannerConfig
+from dated_planner_config import DatedPlannerConfig, month_choices, month_label
 from nicegui_jobs import cpu_job, shutdown_jobs
 from nicegui_service import generate_artifact, parse_config, render_preview
 from planner_config import PlannerConfig, TYPOGRAPHIES
@@ -362,11 +362,14 @@ class PlannerWorkspace:
                     if dated:
                         with ui.element('div').classes('fields'):
                             self.field('start_date', ui.input('À partir du', value=config.start_date)).props('type=date')
-                            self.field('months', ui.select({1: '1 mois', 2: '2 mois', 3: '3 mois'}, value=config.months, label='Durée'))
+                            self.field('months', ui.select(
+                                {value: month_label(value) for value in month_choices(config.months)},
+                                value=config.months, label='Durée'))
                             self.number('week_pages', 'Listes / semaine', config.week_pages, 1, 3)
                             self.number('weekly_tasks', 'Actions / liste', config.weekly_tasks, 1, 40)
                         self.field('include_weekends', ui.checkbox('Inclure les week-ends', value=config.include_weekends))
                         ui.label('Sans week-ends : moins de pages Meeting et Notes. Le calendrier reste complet.').classes('muted')
+                        ui.label('Au-delà de trois mois, la barre latérale indexe les mois ; chaque calendrier ouvre ses semaines et ses journées.').classes('muted')
                     else:
                         self.number('days', 'Journées non datées', base.days, 1, 400)
                     self.number('notes_pages', 'Pages Notes après chaque Meeting', base.notes_pages, 0, 3)
@@ -412,7 +415,7 @@ class PlannerWorkspace:
         self.client = ui.context.client
         with ui.column().classes('shell'):
             with ui.row().classes('masthead'):
-                ui.label('Meetings & actions').classes('brand')
+                ui.label('Folio').classes('brand')
                 self.mode_control = ui.toggle(MODES, value=self.mode, on_change=self.switch_mode).props('unelevated toggle-color=primary color=white text-color=grey-8').classes('mode-switch').bind_enabled_from(self, 'busy', backward=lambda value: not value)
             self.body()
             ui.label('Votre atelier PDF · Réglages exportables · Français & English').classes('footer-note muted')
@@ -460,9 +463,12 @@ def main():
         webview_storage = Path('.nicegui/webview').resolve()
         webview_storage.mkdir(parents=True, exist_ok=True)
         app.native.start_args.update(private_mode=False, storage_path=str(webview_storage))
+        icon = ROOT / 'assets/app/folio.png'
+        if icon.is_file():
+            app.native.start_args['icon'] = str(icon)
     ui.run(host=args.host or ('0.0.0.0' if args.web else '127.0.0.1'), port=args.port,
            native=args.native, window_size=(1400, 1000) if args.native else None,
-           title='Meetings & actions', favicon='📖', language='fr', reload=False,
+           title='Folio', favicon='📖', language='fr', reload=False,
            storage_secret=storage_secret, show=not args.web and not args.no_open)
 
 

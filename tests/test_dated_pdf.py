@@ -137,3 +137,82 @@ class DatedPDFTests(unittest.TestCase):
         self.assertEqual(config, DatedPlannerConfig(start_date="2026-09-16"))
         self.assertEqual(config.pdf_filename,
                          "dated-aipaper-manrope-fr-2026-09-16-2026-12-15.pdf")
+
+    def long_book(self, months=6, **kwargs):
+        from dated_planner_config import DatedPlannerConfig
+        from dated_planner_pdf import generate_dated_pdf
+        from planner_config import PlannerConfig
+        base = PlannerConfig(list_count=1, tasks_per_list=1, detail_pages=1,
+                             notes_pages=1, language=kwargs.pop("language", "fr"))
+        config = DatedPlannerConfig(base=base, start_date="2026-09-16",
+                                    months=months, **kwargs)
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+        return config, PdfReader(output)
+
+    def test_long_notebook_replaces_the_week_rail_with_reachable_months(self):
+        config, reader = self.long_book()
+        self.assertTrue(config.long_navigation)
+        keys = [f"calendar-{month:%Y-%m}" for month in config.calendar_months]
+        for index, page in enumerate(reader.pages):
+            links = self.destinations(reader, page)
+            for key in keys:
+                self.assertIn(key, links, f"page {index} ne rejoint pas {key}")
+        home = self.destinations(reader, reader.pages[0])
+        self.assertNotIn(config.week_key(config.weeks[5]), home)
+        self.assertIn(config.week_key(config.weeks[0]), home)
+        january = reader.pages[home["calendar-2027-01"]]
+        calendar_links = self.destinations(reader, january)
+        for monday in config.weeks:
+            if monday.month == 1 and monday.year == 2027:
+                self.assertIn(config.week_key(monday), calendar_links)
+
+    def test_long_notebook_adds_explicit_week_steps_and_a_week_return(self):
+        config, reader = self.long_book()
+        home = self.destinations(reader, reader.pages[0])
+        first_week = home[config.week_key(config.weeks[0])]
+        middle = self.destinations(reader, reader.pages[first_week + 2])
+        self.assertEqual(middle["Previous week"], first_week + 1)
+        self.assertEqual(middle["Next week"], first_week + 3)
+        self.assertIn("W39", reader.pages[first_week + 2].extract_text())
+        self.assertIn("W41", reader.pages[first_week + 2].extract_text())
+        self.assertNotIn("Previous week", self.destinations(reader, reader.pages[first_week]))
+        last = len(config.weeks) - 1
+        self.assertNotIn("Next week", self.destinations(reader, reader.pages[first_week + last]))
+        january = self.destinations(reader, reader.pages[home["calendar-2027-01"]])
+        day = january["2027-01-04"]
+        week_page = self.destinations(reader, reader.pages[day])["week-2027-01-04"]
+        notes = self.destinations(reader, reader.pages[day + 1])
+        self.assertEqual(notes["week-2027-01-04"], week_page)
+        self.assertIn("W01", reader.pages[day + 1].extract_text())
+
+    def test_long_notebook_shows_the_year_where_labels_would_be_ambiguous(self):
+        config, reader = self.long_book(months=12)
+        self.assertEqual(len(config.calendar_months), 13)
+        home_text = reader.pages[0].extract_text()
+        self.assertIn("Septembre 2026", home_text)
+        self.assertIn("Septembre 2027", home_text)
+        rail_text = reader.pages[1].extract_text()
+        self.assertIn("26", rail_text)
+        self.assertIn("27", rail_text)
+        ids = {page.indirect_reference.idnum for page in reader.pages}
+        for page in reader.pages:
+            for ref in page.get("/Annots", []):
+                annotation = ref.get_object()
+                self.assertIn(annotation["/Dest"][0].idnum, ids)
+                x0, y0, x1, y1 = map(float, annotation["/Rect"])
+                self.assertTrue(0 <= x0 < x1 <= 460.8)
+                self.assertTrue(0 <= y0 < y1 <= 614.4)
+
+    def test_long_notebook_english_edition_keeps_the_same_destinations(self):
+        french_config, french = self.long_book()
+        english_config, english = self.long_book(language="en")
+        self.assertEqual(len(french.pages), len(english.pages))
+        for fr, en in zip(french.pages, english.pages):
+            self.assertEqual(list(self.destinations(french, fr).values()),
+                             list(self.destinations(english, en).values()))
+        self.assertIn("SEPT", french.pages[1].extract_text())
+        self.assertIn("SEP", english.pages[1].extract_text())
+        notes = english.pages[self.destinations(english, english.pages[0])
+                              [english_config.week_key(english_config.weeks[0])]]
+        self.assertIn("Weekly tasks", notes.extract_text())

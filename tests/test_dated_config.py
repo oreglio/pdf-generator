@@ -109,7 +109,7 @@ class DatedConfigTests(unittest.TestCase):
             {"base": {}}, {"base": None}, {"start_date": date(2026, 9, 16)},
             {"start_date": "20260916"}, {"start_date": "2026-02-30"},
             {"start_date": "9999-12-01"}, {"start_date": None},
-            {"months": 0}, {"months": 4}, {"months": True}, {"months": 1.0},
+            {"months": 0}, {"months": 13}, {"months": True}, {"months": 1.0},
             {"week_pages": 0}, {"week_pages": 4}, {"week_pages": False},
             {"weekly_tasks": 0}, {"weekly_tasks": 41}, {"weekly_tasks": "40"},
         )
@@ -119,6 +119,43 @@ class DatedConfigTests(unittest.TestCase):
         for values in ([], {"unknown": 1}, {"base": {"days": 0}}, {"base": None}):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 DatedPlannerConfig.from_dict(values)
+
+    def test_long_periods_cover_up_to_thirteen_calendar_months(self):
+        config = DatedPlannerConfig(start_date="2026-09-16", months=12)
+        self.assertEqual(config.end_date.isoformat(), "2027-09-15")
+        self.assertEqual(len(config.dates), 365)
+        self.assertEqual(len(config.calendar_months), 13)
+        self.assertEqual(config.calendar_months[0], date(2026, 9, 1))
+        self.assertEqual(config.calendar_months[-1], date(2027, 9, 1))
+        self.assertEqual(len(config.weeks), 53)
+        self.assertTrue(config.long_navigation)
+
+    def test_leap_year_and_year_change_keep_every_day_reachable(self):
+        config = DatedPlannerConfig(start_date="2027-09-16", months=12)
+        self.assertEqual(config.end_date, date(2028, 9, 15))
+        self.assertEqual(len(config.dates), 366)
+        self.assertIn(date(2028, 2, 29), config.dates)
+        self.assertEqual(config.day_number(date(2028, 2, 29)), 167)
+        self.assertEqual(config.week_for_day(167), date(2028, 2, 28))
+        half = DatedPlannerConfig(start_date="2026-11-01", months=6)
+        self.assertEqual(half.end_date, date(2027, 4, 30))
+        self.assertEqual(len(half.calendar_months), 6)
+        self.assertTrue(half.spans_two_years)
+        self.assertFalse(DatedPlannerConfig(start_date="2026-01-01", months=6).spans_two_years)
+
+    def test_weekend_exclusion_over_a_full_year(self):
+        config = DatedPlannerConfig(start_date="2026-09-16", months=12,
+                                    include_weekends=False)
+        self.assertEqual(len(config.dates), 261)
+        self.assertTrue(all(day.weekday() < 5 for day in config.dates))
+        self.assertEqual(len(config.calendar_months), 13)
+        self.assertEqual(len(config.weeks), 53)
+
+    def test_navigation_variant_follows_the_period_length(self):
+        for months, expected in ((1, False), (3, False), (4, True), (6, True), (12, True)):
+            with self.subTest(months=months):
+                config = DatedPlannerConfig(start_date="2026-09-16", months=months)
+                self.assertEqual(config.long_navigation, expected)
 
 
 if __name__ == "__main__":
