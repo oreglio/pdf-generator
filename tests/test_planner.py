@@ -126,13 +126,14 @@ class PlannerTests(unittest.TestCase):
                             page = reader.pages[meeting + number]
                             links = self.links(reader, page)
                             text = page.extract_text()
+                            self.assertIn(f"< Meeting {day:03d}", text)
                             self.assertEqual(links[f"Meeting {day:03d}"], meeting)
                             self.assertEqual(list(links.values()).count(meeting), 1)
                             if number > 1:
                                 self.assertIn(f"< Notes {number - 1}", text)
                                 self.assertEqual(links[f"Notes {number - 1}"], meeting + number - 1)
                             else:
-                                self.assertNotIn("<", text)
+                                self.assertEqual(text.count("<"), 1)
                             if number < count:
                                 self.assertIn(f"Notes {number + 1} >", text)
                                 self.assertEqual(links["Suite" if language == "fr" else "Next"], meeting + number + 1)

@@ -278,7 +278,7 @@ class PlannerPages:
             next_page = (self.tr("Jour suivant"), f"day-{day + 1}")
         else:
             next_page = ("Index", f"days-{(day - 1) // 40}")
-        self.footer(day=day, context=(f"Meeting {day:03d}", f"day-{day}", f"Meeting {day:03d}"),
+        self.footer(day=day, context=(f"< Meeting {day:03d}", f"day-{day}", f"Meeting {day:03d}"),
                     previous=previous, previous_label=f"Notes {number - 1}" if number > 1 else None,
                     next_page=next_page, next_width=76)
         self.end()
