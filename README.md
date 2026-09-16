@@ -1,5 +1,23 @@
 # 📝 A4 PDF Todo Generator
 
+## Viwoods AiPaper : Meetings & actions
+
+Le nouveau carnet comprend 200 Meetings non datés, deux pages de notes par
+Meeting, 10 listes de 40 tâches et deux pages de contexte par tâche. Le format
+AiPaper et la police Manrope sont configurés par défaut, avec des liens internes.
+
+**[Installation locale et régénération sans interface → PLANNER.md](PLANNER.md)**
+
+```bash
+python3 -m venv venv
+venv/bin/python -m pip install -r requirements-local.txt
+venv/bin/python -m streamlit run pdf_generator_ui.py --server.address=127.0.0.1
+```
+
+Pour régénérer directement le carnet : `venv/bin/python generate_planner.py`.
+Le PDF est créé dans `output/pdf/`. Le générateur historique reste accessible
+dans la barre latérale de l’interface ; sa documentation suit ci-dessous.
+
 A powerful, customizable PDF generator for creating todo lists and detail pages, optimized for A4 paper and e-readers (Boox, reMarkable, etc.).
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
@@ -39,8 +57,8 @@ A powerful, customizable PDF generator for creating todo lists and detail pages,
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/pdf-todo-generator.git
-cd pdf-todo-generator
+git clone https://github.com/oreglio/pdf-generator.git
+cd pdf-generator
 ```
 
 2. **Create virtual environment**
