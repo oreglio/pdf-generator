@@ -117,7 +117,7 @@ class DatedPlannerPages(PlannerPages):
             row, col = divmod(index, columns)
             x, y = LEFT + col * (width + 6), H - 221 - row * 31
             sunday = monday + timedelta(days=6)
-            date_range = (f"{monday.day:02d}–{sunday.day:02d}" if monday.month == sunday.month
+            date_range = (f"{monday.day:02d}–{sunday:%d/%m}" if monday.month == sunday.month
                           else f"{monday:%d/%m}–{sunday:%d/%m}")
             self.pill(x, y, width, 25, "", self.week_target(monday),
                       title=self.schedule.week_key(monday))
