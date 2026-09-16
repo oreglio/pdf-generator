@@ -89,7 +89,7 @@ def render_planner_ui():
         short = st.checkbox("Carnet d’essai : seulement 3 journées", key="planner_short",
                             help="Toutes vos listes et fiches de tâches sont conservées, avec tous leurs liens.")
         output_config = replace(config, days=min(config.days, 3)) if short else config
-        signature = "layout-32:" + json.dumps(output_config.to_dict(), sort_keys=True)
+        signature = "layout-33:" + json.dumps(output_config.to_dict(), sort_keys=True)
         download = st.session_state.get("planner_download")
         if download and download["signature"] != signature:
             del st.session_state.planner_download
@@ -113,7 +113,7 @@ def render_planner_ui():
         st.subheader("Aperçu à l’échelle de la page")
         kind = st.radio("Type de page", ["Meetings", "Liste TODO", "Contexte"], horizontal=True,
                         label_visibility="collapsed", key="planner_preview_kind")
-        key = "layout-32:" + json.dumps(config.to_dict(), sort_keys=True)
+        key = "layout-33:" + json.dumps(config.to_dict(), sort_keys=True)
         cached = st.session_state.get("planner_preview")
         if cached is None or cached["key"] != key:
             buffer = io.BytesIO()
