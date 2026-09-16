@@ -206,12 +206,15 @@ class DatedPlannerPages(PlannerPages):
         for index in range(self.schedule.weekly_tasks):
             col, row = divmod(index, rows)
             x, y = LEFT + col * (col_width + 20), H - 165 - row * 20
-            self.c.setStrokeGray(0.55)
-            self.c.setLineWidth(0.45)
-            self.c.circle(x + 3, y + 4, 3, fill=0, stroke=1)
-            self.line(x + 12, y, x + 44, y)
-            self.text(x + 49, y + 2, "·", 8, gray=MUTED, align="center")
-            self.line(x + 55, y, x + col_width, y)
+            if row == 0:
+                self.text(x, y + 16, "BACKLOG", 5.5, gray=MUTED)
+                self.text(x + 40, y + 16, self.label("JOUR", "DAY"), 5.5, gray=MUTED)
+                self.text(x + 68, y + 16, self.label("TÂCHE", "TASK"), 5.5, gray=MUTED)
+            self.line(x, y, x + 30, y)
+            self.line(x + 35, y + 1, x + 35, y + 8)
+            self.line(x + 40, y, x + 57, y)
+            self.text(x + 62, y + 2, "·", 8, gray=MUTED, align="center")
+            self.line(x + 68, y, x + col_width, y)
         self.footer(previous=self.week_target(monday, part - 1) if part > 1 else None,
                     previous_label=f"Page {part - 1}" if part > 1 else None,
                     next_page=(f"Page {part + 1}", self.week_target(monday, part + 1))
