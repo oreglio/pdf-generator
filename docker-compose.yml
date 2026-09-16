@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  pdf-generator:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./saved_configs:/app/saved_configs
+      - ./generated_pdfs:/app/generated_pdfs
+    environment:
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ENABLE_CORS=false
+    restart: unless-stopped
