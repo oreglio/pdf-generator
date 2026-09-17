@@ -66,7 +66,7 @@ class PlannerTests(unittest.TestCase):
                 for part in range(1, count + 1):
                     page = reader.pages[8 + part]
                     text = page.extract_text()
-                    self.assertIn("< Liste 01" if language == "fr" else "< List 01", text)
+                    self.assertIn("‹ Liste 01" if language == "fr" else "‹ List 01", text)
                     links = self.links(reader, page)
                     footer = [ref.get_object() for ref in page["/Annots"]
                               if float(ref.get_object()["/Rect"][3]) <= 45]
@@ -75,8 +75,8 @@ class PlannerTests(unittest.TestCase):
                     if part > 1:
                         self.assertIn(f"< Notes {part - 1}", text)
                         self.assertEqual(links[f"Notes {part - 1}"], 8 + part - 1)
-                    else:
-                        self.assertEqual(text.count("<"), 1)
+                    else:  # First page: no step back to a previous Notes page.
+                        self.assertNotIn("< Notes", text)
                     next_label = "Suite" if language == "fr" else "Next"
                     if part < count:
                         self.assertIn(f"Notes {part + 1} >", text)
@@ -161,8 +161,8 @@ class PlannerTests(unittest.TestCase):
                             if number > 1:
                                 self.assertIn(f"< Notes {number - 1}", text)
                                 self.assertEqual(links[f"Notes {number - 1}"], meeting + number - 1)
-                            else:
-                                self.assertEqual(text.count("<"), 1)
+                            else:  # First page: nothing to step back to.
+                                self.assertNotIn("< Notes", text)
                             if number < count:
                                 self.assertIn(f"Notes {number + 1} >", text)
                                 self.assertEqual(links["Suite" if language == "fr" else "Next"], meeting + number + 1)

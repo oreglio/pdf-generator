@@ -47,14 +47,14 @@ class PageLayout:
     # asks for a second sheet: two tight pages beat two three-fifths empty ones.
     COMPRESSION = 0.85
 
-    def _rows(self, top_offset, step, compression=1.0):
+    def _rows(self, top_offset, step, compression=1.0, floor=59):
         """Rows fitting between a top offset and the footer, at least one."""
-        return max(1, int((self.height - top_offset - 59) // (step * compression)) + 1)
+        return max(1, int((self.height - top_offset - floor) // (step * compression)) + 1)
 
     @property
     def backlog_capacity(self):
         """Backlog tasks a single list sheet can hold, in two columns."""
-        return self._rows(84, self.task_row_height, self.COMPRESSION) * 2
+        return self._rows(72, self.task_row_height, self.COMPRESSION, floor=78) * 2
 
     @property
     def weekly_capacity(self):
