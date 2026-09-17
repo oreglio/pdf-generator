@@ -221,8 +221,8 @@ class PlannerPages(ProjectPages):
 
     @property
     def task_bounds(self):
-        """The context page carries no title: its writing area starts higher."""
-        return (self.left + 1, 68, self.right, self.h - 88)
+        """One full row below the subject rule, so no line looks squeezed."""
+        return (self.left + 1, 68, self.right, self.h - 74 - self.layout.row_height)
 
     def _make_dot_form(self):
         """Repeated on every context page: worth one reusable form object."""
@@ -440,7 +440,9 @@ class PlannerPages(ProjectPages):
         split = floor + (self.h - 111 - floor) * 0.36
         self.text(self.left, self.h - 113, "Notes", 14, bold=True)
         self.rules(self.h - 140, bottom=split + 30)
-        self.line(self.left, split + 18, self.right, split + 18, gray=0.55)
+        if self.config.meeting_note_style != "lined":
+            # Ruled notes already close the block; a separator would only add ink.
+            self.line(self.left, split + 18, self.right, split + 18, gray=0.55)
         mid = self.left + self.width / 2
         self.text(self.left, split - 4, self.tr("Décisions"), 13, bold=True)
         self.text(mid + 14, split - 4, self.tr("Actions"), 13, bold=True)
@@ -453,7 +455,7 @@ class PlannerPages(ProjectPages):
         self.writing_header(f"MEETING {day:03d} / NOTES {number:02d}", self.tr("Date / sujet"),
                             back=(f"day-{day}", f"MEETING {day:03d}"))
         self.rail()
-        self.rules(self.h - 88)
+        self.rules(self.h - 74 - self.layout.row_height)
         previous = f"day-{day}-notes-{number - 1}" if number > 1 else None
         if number < self.config.notes_pages:
             next_page = (f"Notes {number + 1}", f"day-{day}-notes-{number + 1}")

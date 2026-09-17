@@ -627,7 +627,7 @@ class DatedPlannerPages(PlannerPages):
                       title=self.schedule.week_key(self.active_week))
         self.link(f"Meeting {value.isoformat()}", f"day-{day}", (self.left, self.h - 43, header_right, self.h - 22))
         self.rail()
-        self.rules(self.h - 88)
+        self.rules(self.h - 74 - self.layout.row_height)
         if number < self.config.notes_pages:
             following = (f"Notes {number + 1}", f"day-{day}-notes-{number + 1}")
         elif day < len(self.schedule.dates):

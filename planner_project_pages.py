@@ -124,7 +124,7 @@ class ProjectPages:
                                   self.tr("Projet {number:02d}", number=number)))
         self.project_notes_bar(number, current=part)
         self.rail()
-        self.rules(self.h - 88)
+        self.rules(self.h - 74 - self.layout.row_height)
         if part < total:
             following = (f"Notes {part + 1}", f"project-{number}-notes-{part + 1}")
         elif number < self.config.project_count:
