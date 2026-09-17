@@ -213,6 +213,37 @@ class ProjectTests(unittest.TestCase):
                 self.assertNotIn('Projet 02 / Notes 01', links)
         self.assertNotIn('NOTES', reader.pages[keys['project-1']].extract_text())
 
+    def test_a_project_page_lights_up_its_own_tab(self):
+        """The backlog tabs did; the project tabs never received `selected`."""
+        from unittest.mock import patch
+        import planner_pages
+        from dated_planner_config import DatedPlannerConfig
+        from dated_planner_pdf import generate_dated_pdf
+        base = PlannerConfig(list_count=3, tasks_per_list=2, detail_pages=1, notes_pages=0,
+                             project_count=4, project_notes_pages=2)
+        for months in (1, 12):  # Week rail, then month rail.
+            config = DatedPlannerConfig(base=base, start_date='2026-09-16', months=months)
+            keys = {spec.key: index + 1 for index, spec in enumerate(build_manifest(config))}
+            lit = {}
+            original = planner_pages.PlannerPages.pill
+
+            def spy(self, x, y, width, height, label, target, *, selected=False,
+                    title=None, size=9, _original=original, _lit=lit):
+                if selected and label:
+                    _lit.setdefault(self.ordinal, []).append(label)
+                return _original(self, x, y, width, height, label, target,
+                                 selected=selected, title=title, size=size)
+
+            with patch.object(planner_pages.PlannerPages, 'pill', spy):
+                generate_dated_pdf(config, io.BytesIO())
+            with self.subTest(months=months):
+                self.assertIn('P02', lit.get(keys['project-2'], []))
+                self.assertIn('P02', lit.get(keys['project-2-notes-2'], []))
+                self.assertIn('B02', lit.get(keys['list-2'], []))
+                # A project page lights its own tab, not a backlog one.
+                self.assertNotIn('B02', lit.get(keys['project-2'], []))
+                self.assertNotIn('P01', lit.get(keys['project-2'], []))
+
     def test_no_note_page_means_no_note_bar(self):
         config, reader, keys = self.book(project_count=1, project_notes_pages=0)
         links = destinations(reader, reader.pages[keys['project-1']])

@@ -69,7 +69,7 @@ class ProjectPages:
                       max_width=self.width)
             goal_y = self.h - 66
         self.project_eyebrow(number, eyebrow, "projects", self.tr("Retour aux projets"))
-        self.rail()
+        self.rail(project=number)
         floor = self.layout.body_bottom
         room = goal_y - floor
         self.text(self.left, goal_y, self.tr("Objectif"), 12, bold=True)
@@ -115,7 +115,7 @@ class ProjectPages:
                             back=(f"project-{number}",
                                   self.tr("Projet {number:02d}", number=number)))
         self.project_notes_bar(number, current=part)
-        self.rail()
+        self.rail(project=number)
         self.rules(self.h - 74 - self.layout.row_height)
         if part < total:
             following = (f"Notes {part + 1}", f"project-{number}-notes-{part + 1}")
