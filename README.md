@@ -128,11 +128,13 @@ Le mode **Viwoods daté** ajoute un calendrier mensuel cliquable, des Meetings
 datés et une à trois listes d’actions par semaine. Les listes actuelles deviennent
 le **backlog permanent**, avec les mêmes fiches de notes détaillées.
 
-- **Calendrier → date → Meeting**, ou numéro **Wxx → actions de la semaine**.
-- **Meeting → semaine → backlog** ; les onglets Wxx permettent de revenir à la
-  semaine choisie depuis chaque liste et chaque fiche de contexte.
+- **Calendrier → date → Meeting**, ou numéro **Sxx → actions de la semaine**
+  (**Wxx** dans l’édition anglaise).
+- **Meeting → semaine → backlog** ; les onglets Sxx permettent de revenir à la
+  semaine choisie depuis chaque liste et chaque fiche de contexte. Les onglets
+  du backlog et des projets portent aussi leur préfixe, **B02** et **P03**.
 - Dans la semaine, écrire **02-12** pour désigner une tâche du backlog ; dans le
-  backlog, écrire **W38** pour se rappeler la semaine. Ces références restent
+  backlog, écrire **S38** pour se rappeler la semaine. Ces références restent
   manuscrites : ce sont les boutons imprimés qui assurent la navigation.
 
 Exemples distincts, du **16 septembre au 15 décembre 2026** : 91 journées,

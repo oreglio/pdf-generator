@@ -91,7 +91,7 @@ def render_dated_planner_ui():
             st.markdown('**Vos actions de la semaine**')
             c1, c2 = st.columns(2)
             with c1:
-                week_pages = st.number_input('Listes par semaine', min_value=1, max_value=3,
+                week_pages = st.number_input('Pages de tâches par semaine', min_value=1, max_value=3,
                                               value=config.week_pages, key='dated_field_week_pages')
             with c2:
                 weekly_tasks = st.number_input('Actions par liste', min_value=1, max_value=40,

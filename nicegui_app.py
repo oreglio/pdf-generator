@@ -724,7 +724,7 @@ class PlannerWorkspace:
                     if dated:
                         self.period_fields()
                         with ui.element('div').classes('fields'):
-                            self.number('week_pages', 'Listes / semaine', config.week_pages, 1, 3)
+                            self.number('week_pages', 'Pages de tâches / semaine', config.week_pages, 1, 3)
                             self.number('weekly_tasks', 'Actions / liste', config.weekly_tasks, 1, 40)
                         self.field('include_weekends', ui.checkbox('Inclure les week-ends', value=config.include_weekends))
                         ui.label('Sans week-ends : moins de pages Meeting et Notes. Le calendrier reste complet.').classes('muted')

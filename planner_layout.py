@@ -54,7 +54,7 @@ class PageLayout:
     @property
     def backlog_capacity(self):
         """Backlog tasks a single list sheet can hold, in two columns."""
-        return self._rows(126, self.task_row_height, self.COMPRESSION) * 2
+        return self._rows(84, self.task_row_height, self.COMPRESSION) * 2
 
     @property
     def weekly_capacity(self):

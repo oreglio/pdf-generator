@@ -246,15 +246,20 @@ La période exacte est affichée avant génération.
 - Chaque semaine dispose de liens vers les Meetings de ses sept jours inclus.
   Les actions hebdomadaires n’ont pas de sous-pages de notes.
 - Le backlog reprend les listes et contextes permanents du carnet non daté.
-  Les onglets **Wxx** de chaque page ouvrent directement la semaine choisie.
+  Les onglets **Sxx** de chaque page ouvrent directement la semaine choisie.
 - Les semaines suivent ISO 8601 (lundi–dimanche). L’année ISO figure dans leur
-  en-tête ; par exemple, le 1er janvier 2027 appartient à **W53 / 2026**.
-- À gauche, chaque action hebdomadaire suit **BKLG | # | Jour · Tâche** : le numéro de
-  liste **02**, celui de la tâche **12**, le jour du mois **16**, puis le texte
-  de l’action. Les trois champs courts ont la même largeur.
+  en-tête ; par exemple, le 1er janvier 2027 appartient à **S53 / 2026**. Le
+  carnet français écrit **S38**, l’anglais **W38** : c’est la même semaine ISO.
+- Les onglets de la barre latérale portent leur préfixe — **S38** pour une
+  semaine, **B02** pour une liste du backlog, **P03** pour un projet. Une
+  référence écrite à la main désigne donc sans ambiguïté un onglet imprimé.
+- À gauche, chaque action hebdomadaire suit **B/P | # | Jour · Tâche** : la
+  source **B02** pour la liste 02 du backlog ou **P03** pour le projet 03,
+  le numéro de la tâche **12**, le jour du mois **16**, puis le texte de
+  l’action. Les trois champs courts ont la même largeur.
 - À droite, les tâches simples disposent de toute la largeur de la colonne.
   Une référence comme **02-12** peut être ajoutée à la main si nécessaire.
-  Le champ libre d’une tâche du backlog peut recevoir **W38**. Les références
+  Le champ libre d’une tâche du backlog peut recevoir **S38**. Les références
   manuscrites ne créent pas de liens et aucun retour dynamique n’est simulé.
 - Reporter une action signifie recopier son texte et sa référence vers une
   autre semaine. Les notes détaillées restent dans le backlog. La génération
