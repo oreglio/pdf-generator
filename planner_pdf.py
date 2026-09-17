@@ -5,8 +5,10 @@ from pathlib import Path
 
 from reportlab.pdfgen import canvas
 
-from planner_config import PAGE_HEIGHT, PAGE_WIDTH, TYPOGRAPHIES
-from planner_pages import PlannerPages, LEFT, RIGHT, WIDTH
+from planner_config import TYPOGRAPHIES
+from planner_layout import make_layout
+from planner_manifest import build_manifest, preview_specs
+from planner_pages import PlannerPages
 
 
 def generate_pdf(config, target):
@@ -14,25 +16,16 @@ def generate_pdf(config, target):
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
         target = str(target)
-    pdf = canvas.Canvas(target, pagesize=(PAGE_WIDTH, PAGE_HEIGHT),
+    pdf = canvas.Canvas(target, pagesize=make_layout(config).pagesize,
                         pageCompression=1, invariant=1, pdfVersion=(1, 4))
     pdf.setTitle(config.title)
     pdf.setAuthor("AiPaper Planner")
     pdf.setSubject(config.text("Meetings non datés et tâches partagées - Viwoods AiPaper"))
     pages = PlannerPages(pdf, config)
-    pages.home()
-    for block in range(config.index_pages):
-        pages.day_index(block)
-    for day in range(1, config.days + 1):
-        pages.meeting(day)
-        for number in range(1, config.notes_pages + 1):
-            pages.meeting_notes(day, number)
-    for number in range(1, config.list_count + 1):
-        pages.task_list(number)
-        for item in range(1, config.tasks_per_list + 1):
-            for part in range(1, config.detail_pages + 1):
-                pages.task_notes(number, item, part)
-    if pages.ordinal != config.total_pages:
+    manifest = build_manifest(config)
+    for spec in manifest:
+        pages.draw(spec)
+    if pages.ordinal != len(manifest):
         raise RuntimeError("Le nombre de pages générées ne correspond pas à la configuration.")
     pdf.save()
     return pages.ordinal
@@ -41,21 +34,22 @@ def generate_pdf(config, target):
 def generate_samples(config, target):
     """Three visual-only pages: no dangling destinations to omitted pages."""
     pdf = canvas.Canvas(str(target) if isinstance(target, Path) else target,
-                        pagesize=(PAGE_WIDTH, PAGE_HEIGHT), pageCompression=1, invariant=1)
+                        pagesize=make_layout(config).pagesize, pageCompression=1, invariant=1)
     pdf.setTitle(config.text("Aperçu - ") + config.title)
     pages = PlannerPages(pdf, config, interactive=False)
-    pages.meeting(1)
-    pages.task_list(1)
-    pages.task_notes(1, 1, 1)
+    for spec in preview_specs(build_manifest(config), "undated"):
+        pages.draw(spec)
     pdf.save()
+    return pages.ordinal
 
 
 def generate_comparison(config, target):
     """Ten visual-only pages with the same layouts at the same physical size."""
     pdf = canvas.Canvas(str(target) if isinstance(target, Path) else target,
-                        pagesize=(PAGE_WIDTH, PAGE_HEIGHT), pageCompression=1, invariant=1)
+                        pagesize=make_layout(config).pagesize, pageCompression=1, invariant=1)
     pdf.setTitle(config.text("AiPaper - comparaison des polices"))
     page = PlannerPages(pdf, config, interactive=False)
+    LEFT, RIGHT, WIDTH, PAGE_HEIGHT = page.left, page.right, page.width, page.h
     page.start("comparison")
     page.header(config.text("VIWOODS AIPAPER / ESSAI TYPOGRAPHIQUE"), config.text("Trois façons de lire."))
     page.text(LEFT, PAGE_HEIGHT - 119, config.text("Même format. Même contenu. Trois rendus."), 11)
@@ -82,7 +76,8 @@ def generate_comparison(config, target):
         current = replace(config, typography=key)
         page = PlannerPages(pdf, current, interactive=False)
         page.ordinal = ordinal
-        for draw in (lambda: page.meeting(1), lambda: page.task_list(1), lambda: page.task_notes(1, 1, 1)):
-            draw()
+        manifest = build_manifest(current)
+        for kind in ("meeting", "task-list", "task-notes"):
+            page.draw(next(spec for spec in manifest if spec.kind == kind))
         ordinal += 3
     pdf.save()

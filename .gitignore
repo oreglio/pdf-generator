@@ -8,6 +8,8 @@ venv/
 ENV/
 env/
 .venv
+.venv-nicegui/
+.nicegui/
 
 # Streamlit
 .streamlit/

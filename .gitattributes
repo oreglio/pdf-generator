@@ -1,2 +1,4 @@
 # Preserve published PDF examples as binary files.
 examples/*.pdf binary
+examples/dated/*.pdf binary
+examples/evolution/*.pdf binary

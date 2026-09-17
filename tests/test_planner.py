@@ -185,7 +185,8 @@ class PlannerTests(unittest.TestCase):
         path = Path(self.temp.name) / "samples.pdf"
         planner_pdf.generate_samples(self.Config(), path)
         reader = PdfReader(path)
-        self.assertEqual(len(reader.pages), 3)
+        self.assertEqual(len(reader.pages), 4)
+        self.assertIn("Mes journées", reader.pages[0].extract_text())
         for page in reader.pages:
             self.assertFalse(page.get("/Annots"))
 
@@ -215,7 +216,7 @@ class PlannerTests(unittest.TestCase):
         expected = {0: ("UNDATED NOTEBOOK", "My days", "My lists", "4 tasks / list"),
                     1: ("DAY INDEX", "Days"), 2: ("DAY 001", "Date / period", "Day"),
                     3: ("Date / subject",), 8: ("TODO / LIST 01", "List 01"),
-                    9: ("LIST 01 — NOTES 01/02", "Subject")}
+                    9: ("LIST 01 · 01-01 — NOTES 01/02", "Subject")}
         for index, labels in expected.items():
             for label in labels:
                 self.assertIn(label, english.pages[index].extract_text())
@@ -224,8 +225,12 @@ class PlannerTests(unittest.TestCase):
         for fr, en in zip(french.pages, english.pages):
             self.assertEqual(fr.mediabox, en.mediabox)
             self.assertEqual(list(self.links(french, fr).values()), list(self.links(english, en).values()))
-            self.assertEqual([a.get_object()["/Rect"] for a in fr["/Annots"]],
-                             [a.get_object()["/Rect"] for a in en["/Annots"]])
+            # Header back-links hug their own words, so their width follows the
+            # language; every other clickable zone stays in the same place.
+            body = lambda page: [a.get_object()["/Rect"] for a in page["/Annots"]
+                                 if float(a.get_object()["/Rect"][3]) < float(fr.mediabox.height) - 43]
+            self.assertEqual(body(fr), body(en))
+            self.assertEqual(len(fr["/Annots"]), len(en["/Annots"]))
         self.assertEqual(self.links(english, english.pages[9])["Back to list 01"], 8)
         self.assertIn("Undated meetings", english.metadata.subject)
 

@@ -1,5 +1,85 @@
 # 📝 A4 PDF Todo Generator
 
+## Prototype NiceGUI : local, bureau et web
+
+Une interface distincte pour configurer, prévisualiser et télécharger les carnets,
+avec les mêmes moteurs PDF datés et non datés. Streamlit reste disponible.
+
+```bash
+python3 -m venv .venv-nicegui
+source .venv-nicegui/bin/activate
+python -m pip install -r requirements-nicegui.txt
+python nicegui_app.py
+```
+
+Ouvrir [localhost:8080](http://127.0.0.1:8080).
+[Installation bureau, Docker/VPS et périmètre du POC → NICEGUI.md](NICEGUI.md).
+[Déployer sur Coolify avec pdf.readtoken.app → DEPLOY_COOLIFY.md](DEPLOY_COOLIFY.md).
+
+Dans le carnet daté, décochez **Inclure les week-ends** pour supprimer leurs
+pages Meeting et Notes tout en conservant le calendrier complet.
+
+Folio rouvre vos derniers réglages valides, séparément pour chaque mode, et
+garde des profils nommés dans votre navigateur.
+
+## Choisir sa tablette, sa durée et ses pages
+
+Trois réglages déterminent la forme du carnet, quel que soit le mode.
+
+**Support & format.** Famille → Modèle : Viwoods AiPaper, BOOX Go 10.3,
+Note Air4 C et Note Max, reMarkable 2 et Paper Pro, iPad Pro 11″ et 13″
+(M4/M5), ou un format personnalisé de 100 à 400 mm de large et de 150 à
+400 mm de haut, en portrait. Le catalogue commence à dix pouces : en dessous,
+les mises en page à deux colonnes ne tiennent plus. Les dimensions viennent des fiches officielles ; le PDF reste
+vectoriel, ce n’est pas un export à la résolution de l’écran.
+
+**Confort d’écriture.** *Standard* ou *Aéré*. Aéré écarte les lignes. Quand une
+liste ne tient plus sur une feuille — petit écran ou mode aéré — elle se
+poursuit sur un feuillet suivant, réparti équitablement : **aucune tâche n’est
+retirée et aucun texte n’est réduit à une taille illisible**. Le nombre total de
+pages est affiché avant génération.
+
+**Durée.** Le carnet daté accepte 1, 2, 3, 6 ou 12 mois, ou une date de fin
+exacte et inclusive jusqu’à 366 jours. Au-delà de trois mois, la barre latérale
+indexe les mois plutôt que toutes les semaines ; chaque calendrier ouvre ses
+semaines et ses journées, et les pages hebdomadaires gagnent un pas
+« semaine précédente / suivante ».
+
+### Pages facultatives
+
+Toutes désactivées par défaut : un carnet créé avec les réglages d’origine reste
+identique à ce qu’il était.
+
+| Page | Contenu | Où elle se place |
+| --- | --- | --- |
+| Priorités du mois | Trois priorités, leurs échéances, les semaines du mois, un espace libre | Après chaque calendrier |
+| Sept jours | Une zone d’écriture par jour, plus un espace de planification | Avant les tâches de la semaine |
+| Bilan hebdomadaire | Terminé / À reporter / À retenir | Après les tâches de la semaine |
+| Meeting simplifié | Notes dominantes, puis Décisions / Actions | Remplace la composition Objectives / Agenda |
+| Meeting en deux pages | Objectifs & agenda, puis Décisions & actions | Deux pages pour le même Meeting, avant ses Notes |
+| Fonds d’écriture | Ligné, pointillé, quadrillé ou blanc | Zone d’écriture des pages Notes et Contexte |
+| Fiches projet | Objectif, prochaines actions, décisions, notes | Index Projets en fin de carnet |
+
+Une fiche projet ne recopie pas les notes détaillées du backlog : elle réserve
+une place fixe pour y écrire sa référence. Les références manuscrites restent
+des annotations et ne créent jamais de liens.
+
+### Exemples de ces évolutions
+
+Séparés des carnets historiques, dans
+[`examples/evolution/`](examples/evolution/) :
+
+| Exemple | Contenu | Taille |
+| --- | --- | --- |
+| [Carnet annuel AiPaper](examples/evolution/annuel-aipaper-12-mois.pdf?raw=true) | 12 mois, 13 calendriers, 53 semaines, barre de mois · 902 pages | ≈ 7 Mo |
+| [reMarkable 2, 3 mois](examples/evolution/remarkable-2-90-jours.pdf?raw=true) | Trimestre complet sur un 10,3″ · 406 pages | ≈ 3 Mo |
+| [Toutes les options, 3 mois](examples/evolution/options-completes-3-mois.pdf?raw=true) | Priorités, sept jours, bilan, Meeting en deux pages, quadrillage et projets · 429 pages | ≈ 4 Mo |
+| [BOOX Note Max, aéré](examples/evolution/boox-note-max-aere-60-jours.pdf?raw=true) | Grand écran 13,3″, confort aéré, carnet libre de 60 journées · 287 pages | ≈ 1 Mo |
+
+Formats vérifiés par mesure et par audit des liens. **Usage sur appareil non
+testé** en dehors du Viwoods AiPaper : les proportions et la place d’écriture
+sont contrôlées, l’écriture au stylet sur chaque tablette ne l’est pas.
+
 ## Viwoods AiPaper : Meetings & actions
 
 Le nouveau carnet comprend 200 Meetings non datés, deux pages de notes par
@@ -41,6 +121,43 @@ venv/bin/python generate_planner.py --language en
 Les PDF sont créés dans `output/pdf/`. Dans l’interface, le champ **Langue du PDF**
 permet de choisir Français ou English. Le générateur historique reste accessible
 dans la barre latérale de l’interface ; sa documentation suit ci-dessous.
+
+### Variante datée : calendrier, semaines et backlog
+
+Le mode **Viwoods daté** ajoute un calendrier mensuel cliquable, des Meetings
+datés et une à trois listes d’actions par semaine. Les listes actuelles deviennent
+le **backlog permanent**, avec les mêmes fiches de notes détaillées.
+
+- **Calendrier → date → Meeting**, ou numéro **Wxx → actions de la semaine**.
+- **Meeting → semaine → backlog** ; les onglets Wxx permettent de revenir à la
+  semaine choisie depuis chaque liste et chaque fiche de contexte.
+- Dans la semaine, écrire **02-12** pour désigner une tâche du backlog ; dans le
+  backlog, écrire **W38** pour se rappeler la semaine. Ces références restent
+  manuscrites : ce sont les boutons imprimés qui assurent la navigation.
+
+Exemples distincts, du **16 septembre au 15 décembre 2026** : 91 journées,
+14 semaines et 400 tâches permanentes, soit **1 102 pages** par carnet.
+
+| Français | English |
+| --- | --- |
+| [Télécharger le carnet daté](examples/dated/dated-aipaper-manrope-fr-2026-09-16-2026-12-15.pdf?raw=true) | [Download the dated planner](examples/dated/dated-aipaper-manrope-en-2026-09-16-2026-12-15.pdf?raw=true) |
+
+```bash
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 3 --language en
+
+# Une année, sur un BOOX Note Max, avec les priorités mensuelles
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --months 12 \
+    --device boox-note-max --monthly-priorities
+
+# Des dates exactes, fin incluse
+venv/bin/python generate_dated_planner.py --start-date 2026-09-16 --end-date 2026-12-31
+```
+
+La date de début et la durée se choisissent aussi dans l’interface.
+Les sorties datées vont dans `output/pdf/dated/`. **Le générateur et les deux PDF
+non datés restent inchangés** ; un test compare leur régénération octet pour octet
+aux exemples publiés. [Détails de la variante datée](PLANNER.md#variante-datée).
 
 A powerful, customizable PDF generator for creating todo lists and detail pages, optimized for A4 paper and e-readers (Boox, reMarkable, etc.).
 

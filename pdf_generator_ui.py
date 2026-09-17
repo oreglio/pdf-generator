@@ -35,11 +35,15 @@ st.set_page_config(
 )
 
 workspace_mode = st.sidebar.radio(
-    "Votre espace", ["Viwoods AiPaper", "Générateur historique"], key="workspace_mode"
+    "Votre espace", ["Viwoods AiPaper", "Viwoods daté", "Générateur historique"], key="workspace_mode"
 )
 if workspace_mode == "Viwoods AiPaper":
     from planner_ui import render_planner_ui
     render_planner_ui()
+    st.stop()
+if workspace_mode == "Viwoods daté":
+    from dated_planner_ui import render_dated_planner_ui
+    render_dated_planner_ui()
     st.stop()
 
 

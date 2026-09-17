@@ -7,15 +7,74 @@ from dataclasses import replace
 
 import streamlit as st
 
-from planner_config import PlannerConfig, TYPOGRAPHIES
+from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
+from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES
+from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
+from planner_manifest import build_manifest, preview_kinds
 from planner_pdf import generate_pdf, generate_samples
+
+
+PREVIEW_LABELS = {"home": "Accueil", "meeting": "Meetings", "meeting-actions": "Décisions",
+                  "task-list": "Liste TODO", "task-notes": "Contexte",
+                  "projects-index": "Projets", "project": "Fiche projet",
+                  "project-notes": "Notes projet"}
+
+
+def device_options():
+    labels = {key: f"{BRANDS[device.brand]} · {device.label}"
+              for key, device in DEVICES.items()}
+    labels[CUSTOM] = "Personnalisé · dimensions en mm"
+    return labels
+
+
+def device_form(config, prefix):
+    """Shared Support & format block for both Streamlit workspaces."""
+    labels = device_options()
+    keys = list(labels)
+    device = st.selectbox("Modèle de tablette", keys, index=keys.index(config.device),
+                          format_func=labels.get, key=f"{prefix}_field_device")
+    density = st.selectbox("Confort d’écriture", list(DENSITIES),
+                           index=list(DENSITIES).index(config.density),
+                           format_func=DENSITIES.get, key=f"{prefix}_field_density")
+    st.caption("Aéré écrit plus au large. Une liste qui ne tient plus se poursuit "
+               "sur un feuillet suivant : aucune tâche n’est retirée.")
+    c1, c2 = st.columns(2)
+    with c1:
+        width = st.number_input("Largeur (mm)", min_value=100, max_value=400,
+                                value=int(config.custom_width_mm or 163), step=1,
+                                key=f"{prefix}_field_width_mm",
+                                help="Utilisée uniquement par le format personnalisé.")
+    with c2:
+        height = st.number_input("Hauteur (mm)", min_value=150, max_value=400,
+                                 value=int(config.custom_height_mm or 217), step=1,
+                                 key=f"{prefix}_field_height_mm",
+                                 help="Portrait uniquement : hauteur au moins égale à la largeur.")
+    layout_choice = st.selectbox("Composition des Meetings", list(MEETING_LAYOUTS),
+                                 index=list(MEETING_LAYOUTS).index(config.meeting_layout),
+                                 format_func=MEETING_LAYOUTS.get, key=f"{prefix}_field_meeting_layout")
+    st.markdown("**Fonds d’écriture**")
+    c1, c2 = st.columns(2)
+    with c1:
+        meeting_style = st.selectbox("Pages Notes", list(NOTE_STYLES),
+                                     index=list(NOTE_STYLES).index(config.meeting_note_style),
+                                     format_func=NOTE_STYLES.get, key=f"{prefix}_field_meeting_style")
+    with c2:
+        task_style = st.selectbox("Pages de contexte", list(NOTE_STYLES),
+                                  index=list(NOTE_STYLES).index(config.task_note_style),
+                                  format_func=NOTE_STYLES.get, key=f"{prefix}_field_task_style")
+    st.caption("Le fond ne couvre que la zone d’écriture ; titres, liens et barre latérale "
+               "restent nets.")
+    return {"device": device, "density": density, "meeting_layout": layout_choice,
+            "meeting_note_style": meeting_style, "task_note_style": task_style,
+            "custom_width_mm": float(width) if device == CUSTOM else None,
+            "custom_height_mm": float(height) if device == CUSTOM else None}
 
 
 def render_planner_ui():
     st.title("Meetings & actions")
     st.markdown("Votre journée reste légère. Vos tâches gardent leur place.")
-    st.caption("Viwoods AiPaper · 1 920 × 2 560 px · 300 ppp · portrait 162,56 × 216,75 mm")
+    st.caption("Votre carnet, au format de votre tablette · portrait · texte et tracés vectoriels")
 
     if "planner_config" not in st.session_state:
         st.session_state.planner_config = PlannerConfig().to_dict()
@@ -41,6 +100,8 @@ def render_planner_ui():
     with settings:
         st.subheader("Votre carnet")
         with st.form("planner_settings"):
+            with st.expander("Support & format", expanded=True):
+                surface = device_form(config, "planner")
             language = st.selectbox("Langue du PDF", options=list(LANGUAGES),
                                     index=list(LANGUAGES).index(config.language),
                                     format_func=LANGUAGES.get, key="planner_field_language")
@@ -61,6 +122,22 @@ def render_planner_ui():
                                         value=config.tasks_per_list, key="planner_field_tasks")
             details = st.number_input("Pages de contexte par tâche", min_value=1, max_value=5,
                                       value=config.detail_pages, key="planner_field_details")
+            with st.expander("Fiches projet"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    project_count = st.number_input("Fiches projet", min_value=0, max_value=12,
+                                                    value=config.project_count,
+                                                    key="planner_field_projects")
+                with c2:
+                    project_notes = st.number_input("Pages Notes par projet", min_value=0, max_value=10,
+                                                    value=config.project_notes_pages,
+                                                    key="planner_field_project_notes")
+                project_names = st.text_area("Noms des projets : un par ligne",
+                                             value="\n".join(config.project_names),
+                                             key="planner_field_project_names",
+                                             help="Facultatif. 24 caractères maximum par nom.")
+                st.caption("Les noms au-delà du nombre de fiches ne sont pas utilisés. "
+                           "Zéro fiche : aucune page ni aucun lien de projet.")
             with st.expander("Titre et noms des listes"):
                 title = st.text_input("Titre du carnet", value=config.title, max_chars=48, key="planner_field_title")
                 names = st.text_area("Un nom par ligne, dans l’ordre des listes",
@@ -71,7 +148,11 @@ def render_planner_ui():
             try:
                 config = PlannerConfig(list_count=lists, tasks_per_list=tasks, detail_pages=details,
                                        days=days, notes_pages=notes_pages, typography=typography,
-                                       title=title, list_names=tuple(names.splitlines()), language=language)
+                                       title=title, list_names=tuple(names.splitlines()),
+                                       language=language, project_count=project_count,
+                                       project_notes_pages=project_notes,
+                                       project_names=tuple(project_names.splitlines())[:project_count],
+                                       **surface)
             except ValueError as error:
                 config = PlannerConfig.from_dict(st.session_state.planner_config)
                 st.error(str(error))
@@ -82,6 +163,8 @@ def render_planner_ui():
 
         st.caption("Les générations utilisent les réglages appliqués. Cliquez sur Appliquer après une modification.")
         st.divider()
+        st.caption(f"{config.layout.device.label} · {config.layout.device.summary} · "
+                   f"{config.layout.backlog_capacity} tâches par feuillet")
         m1, m2, m3 = st.columns(3)
         m1.metric("Journées", config.days)
         m2.metric("Tâches", config.task_count)
@@ -111,7 +194,9 @@ def render_planner_ui():
 
     with preview:
         st.subheader("Aperçu à l’échelle de la page")
-        kind = st.radio("Type de page", ["Meetings", "Liste TODO", "Contexte"], horizontal=True,
+        labels = tuple(PREVIEW_LABELS.get(kind, kind)
+                       for kind in preview_kinds(build_manifest(config), "undated"))
+        kind = st.radio("Type de page", labels, horizontal=True,
                         label_visibility="collapsed", key="planner_preview_kind")
         key = "layout-33:" + json.dumps(config.to_dict(), sort_keys=True)
         cached = st.session_state.get("planner_preview")
@@ -139,12 +224,13 @@ def render_planner_ui():
                     images.append(image.getvalue())
                 cached["images"] = images
             width_option = "use_container_width" if "use_container_width" in inspect.signature(st.image).parameters else "use_column_width"
-            st.image(cached["images"][["Meetings", "Liste TODO", "Contexte"].index(kind)], **{width_option: True})
+            st.image(cached["images"][labels.index(kind) if kind in labels else 0],
+                     **{width_option: True})
         except (ImportError, OSError) as error:
             st.info("L’aperçu image nécessite Poppler. Le PDF d’aperçu reste disponible ci-dessous.")
             st.caption(str(error))
         st.caption("Aperçu visuel uniquement. Les liens sont actifs dans le carnet généré.")
-        st.download_button("Télécharger ces 3 pages d’aperçu", data=cached["pdf"],
+        st.download_button(f"Télécharger ces {len(labels)} pages d’aperçu", data=cached["pdf"],
                            file_name="aipaper-apercu.pdf" if config.language == "fr" else "aipaper-preview-en.pdf",
                            mime="application/pdf", key="planner_preview_download")
         with st.expander("Comment retrouver mes tâches et ma journée ?"):
