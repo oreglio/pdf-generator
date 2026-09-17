@@ -87,15 +87,17 @@ class ProjectPages:
         reference = self.tr("BKLG")
         step = min(22, room * 0.24 / 5)
         for index in range(5):
-            y = actions_y - 22 - index * step
+            y = actions_y - 27 - index * step
             self.line(self.left, y, self.left + 21, y)
             self.text(self.left + 32, y + 2, f"{index + 1:02d}", 7.5, gray=MUTED, numeric=True)
-            if index == 0:
+            if index == 0:  # One caption row, no column left to guess at.
+                self.text(self.left + 10, y + 14, self.tr("FAIT"), 5.5, gray=MUTED,
+                          align="center")
                 self.text(self.left + 72, y + 14, reference, 5.5, gray=MUTED, align="center")
                 self.text(self.left + 104, y + 14, self.tr("ACTION"), 5.5, gray=MUTED)
             self.line(self.left + 50, y, self.left + 94, y)
             self.line(self.left + 104, y, self.right, y)
-        decisions_y = actions_y - 30 - 5 * step
+        decisions_y = actions_y - 34 - 5 * step
         self.text(self.left, decisions_y, self.tr("Décisions"), 12, bold=True)
         self.rules(decisions_y - 20, bottom=decisions_y - room * 0.16)
         notes_y = decisions_y - room * 0.2

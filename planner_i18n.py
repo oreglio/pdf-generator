@@ -46,6 +46,7 @@ ENGLISH = {
     "PROJET {number:02d}": "PROJECT {number:02d}",
     "Retour aux projets": "Back to projects",
     "Objectif": "Goal",
+    "FAIT": "DONE",
     "Prochaines actions": "Next actions",
     "{count} fiches": "{count} sheets",
     "Actions": "Actions",
