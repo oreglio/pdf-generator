@@ -290,6 +290,10 @@ class DatedPlannerPages(PlannerPages):
         self.active_week = None
         self.start(self.month_key(month), outline=f"{self.month_name(month).capitalize()} {month.year}", level=1)
         self.header(self.label("CALENDRIER", "CALENDAR"), f"{self.month_name(month).capitalize()} {month.year}")
+        if self.schedule.monthly_priorities:
+            self.pill(self.right - 76, self.h - 46, 76, 21,
+                      self.label("Priorités ›", "Priorities ›"), f"month-plan-{month:%Y-%m}",
+                      size=7.5, title=f"month-plan-{month:%Y-%m}")
         self.rail()
         week_width, gap = 29, 3
         cell = (self.width - week_width) / 7
@@ -305,7 +309,9 @@ class DatedPlannerPages(PlannerPages):
             monday = days[0]
             y = top - (row + 1) * row_height
             if monday in self.schedule.weeks:
-                self.pill(self.left, y + 15, 24, 25, self.week_label(monday), self.week_target(monday),
+                target = (f"week-overview-{monday.isoformat()}"
+                          if self.schedule.weekly_overview else self.week_target(monday))
+                self.pill(self.left, y + 15, 24, 25, self.week_label(monday), target,
                           title=self.schedule.week_key(monday), size=6.5)
             for col, value in enumerate(days):
                 x = self.left + week_width + col * cell

@@ -92,6 +92,7 @@ class ProjectPages:
             self.text(self.left + 32, y + 2, f"{index + 1:02d}", 7.5, gray=MUTED, numeric=True)
             if index == 0:
                 self.text(self.left + 72, y + 14, reference, 5.5, gray=MUTED, align="center")
+                self.text(self.left + 104, y + 14, self.tr("ACTION"), 5.5, gray=MUTED)
             self.line(self.left + 50, y, self.left + 94, y)
             self.line(self.left + 104, y, self.right, y)
         decisions_y = actions_y - 30 - 5 * step
@@ -116,10 +117,9 @@ class ProjectPages:
         name = self.config.project_name(number)
         eyebrow = f"{name.upper()} — NOTES {part:02d}/{total:02d}"
         self.start(f"project-{number}-notes-{part}")
-        self.writing_header(eyebrow, self.tr("Sujet"))
-        self.link(self.tr("Projet {number:02d}", number=number), f"project-{number}",
-                  (self.left - 3, self.h - 43,
-                   self.left + pdfmetrics.stringWidth(eyebrow, self.bold, 8) + 3, self.h - 22))
+        self.writing_header(eyebrow, self.tr("Sujet"),
+                            back=(f"project-{number}",
+                                  self.tr("Projet {number:02d}", number=number)))
         self.project_notes_bar(number, current=part)
         self.rail()
         self.rules(self.h - 88)

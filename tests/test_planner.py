@@ -225,8 +225,12 @@ class PlannerTests(unittest.TestCase):
         for fr, en in zip(french.pages, english.pages):
             self.assertEqual(fr.mediabox, en.mediabox)
             self.assertEqual(list(self.links(french, fr).values()), list(self.links(english, en).values()))
-            self.assertEqual([a.get_object()["/Rect"] for a in fr["/Annots"]],
-                             [a.get_object()["/Rect"] for a in en["/Annots"]])
+            # Header back-links hug their own words, so their width follows the
+            # language; every other clickable zone stays in the same place.
+            body = lambda page: [a.get_object()["/Rect"] for a in page["/Annots"]
+                                 if float(a.get_object()["/Rect"][3]) < float(fr.mediabox.height) - 43]
+            self.assertEqual(body(fr), body(en))
+            self.assertEqual(len(fr["/Annots"]), len(en["/Annots"]))
         self.assertEqual(self.links(english, english.pages[9])["Back to list 01"], 8)
         self.assertIn("Undated meetings", english.metadata.subject)
 

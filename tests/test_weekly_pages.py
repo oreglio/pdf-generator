@@ -128,6 +128,22 @@ class WeeklyOptionTests(unittest.TestCase):
                 self.assertTrue(0 <= x0 < x1 <= width + 0.01)
                 self.assertTrue(0 <= y0 < y1 <= height + 0.01)
 
+    def test_a_calendar_opens_its_priorities_and_its_week_overview(self):
+        config, reader, keys = self.book(weekly_overview=True, monthly_priorities=True)
+        links = destinations(reader, reader.pages[keys['calendar-2026-09']])
+        self.assertEqual(links['month-plan-2026-09'], keys['month-plan-2026-09'])
+        for monday in config.weeks:
+            if monday.month == 9 and monday >= config.weeks[0]:
+                with self.subTest(week=monday):
+                    self.assertEqual(links[config.week_key(monday)],
+                                     keys[f'week-overview-{monday}'])
+        # Without the options the calendar keeps its historical destinations.
+        plain, plain_reader, plain_keys = self.book()
+        plain_links = destinations(plain_reader, plain_reader.pages[plain_keys['calendar-2026-09']])
+        self.assertNotIn('month-plan-2026-09', plain_links)
+        self.assertEqual(plain_links[plain.week_key(plain.weeks[1])],
+                         plain_keys[f'week-{plain.weeks[1]}-1'])
+
     def test_an_empty_week_never_receives_pages_or_tabs(self):
         config = DatedPlannerConfig(base=BASE, start_date='2026-09-19', months=1,
                                     include_weekends=False, week_pages=3,

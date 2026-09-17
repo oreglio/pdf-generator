@@ -94,10 +94,18 @@ class PlannerPages(ProjectPages):
     def end(self):
         self.c.showPage()
 
-    def writing_header(self, eyebrow, label):
-        """A writing page states what it belongs to, then gets out of the way."""
-        self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED,
-                  max_width=self.width)
+    def writing_header(self, eyebrow, label, back=None):
+        """A writing page states what it belongs to, then gets out of the way.
+
+        `back` prefixes a chevron and sizes the tap area to the words: an
+        invisible full-width link nobody can see is not an affordance.
+        """
+        text = f"‹ {eyebrow}" if back else eyebrow
+        self.text(self.left, self.h - 34, text, 8, bold=True, gray=MUTED, max_width=self.width)
+        if back:
+            width = min(self.width, pdfmetrics.stringWidth(text, self.bold, 8))
+            self.link(back[1], back[0],
+                      (self.left - 3, self.h - 43, self.left + width + 3, self.h - 22))
         self.text(self.left, self.h - 52, label, 7, gray=MUTED)
         self.line(self.left, self.h - 74, self.right, self.h - 74, gray=0.55)
 
@@ -442,11 +450,8 @@ class PlannerPages(ProjectPages):
 
     def meeting_notes(self, day, number):
         self.start(f"day-{day}-notes-{number}")
-        eyebrow = f"MEETING {day:03d} / NOTES {number:02d}"
-        self.writing_header(eyebrow, self.tr("Date / sujet"))
-        meeting_label = f"MEETING {day:03d}"
-        meeting_width = pdfmetrics.stringWidth(meeting_label, self.bold, 8)
-        self.link(meeting_label, f"day-{day}", (self.left - 3, self.h - 43, self.left + meeting_width + 3, self.h - 22))
+        self.writing_header(f"MEETING {day:03d} / NOTES {number:02d}", self.tr("Date / sujet"),
+                            back=(f"day-{day}", f"MEETING {day:03d}"))
         self.rail()
         self.rules(self.h - 88)
         previous = f"day-{day}-notes-{number - 1}" if number > 1 else None
@@ -503,15 +508,15 @@ class PlannerPages(ProjectPages):
 
     def task_notes(self, number, item, part):
         self.start(f"task-{number}-{item}-{part}")
-        self.writing_header(f"{self.config.list_name(number).upper()} · {number:02d}-{item:02d}"
-                            f" — NOTES {part:02d}/{self.config.detail_pages:02d}",
-                            self.tr("Sujet"))
         total_tasks, capacity = self.config.tasks_per_list, self.layout.backlog_capacity
         sheets = self.config.list_sheets
         sheet = sheet_of(item, total_tasks, capacity)
         home_sheet = list_key(number, item, total_tasks, capacity)
-        self.link(self.tr("Retour liste {number:02d}", number=number), home_sheet,
-                  (self.left, self.h - 43, self.right, self.h - 22))
+        self.writing_header(f"{self.config.list_name(number).upper()} · {number:02d}-{item:02d}"
+                            f" — NOTES {part:02d}/{self.config.detail_pages:02d}",
+                            self.tr("Sujet"),
+                            back=(home_sheet,
+                                  self.tr("Retour liste {number:02d}", number=number)))
         self.rail(active=number)
         self.task_background()
         previous = f"task-{number}-{item}-{part - 1}" if part > 1 else None
