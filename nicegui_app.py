@@ -56,6 +56,7 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .q-field--outlined .q-field__control { border-radius: 8px; background: #fff; }
 .q-btn { border-radius: 8px; text-transform: none; font-weight: 700; letter-spacing: 0; }
 .mode-switch .q-btn { font-size: 12px; padding: 9px 16px; }
+.split-note { border-left: 2px solid #b8c4bd; padding-left: 10px; }
 .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #43514c;
   background: #eceee8; border: 1px solid #dee2d8; border-radius: 999px; padding: 6px 13px; white-space: nowrap; }
 .chip b { font-weight: 700; color: #222c2a; }
@@ -589,12 +590,30 @@ class PlannerWorkspace:
         ui.html(f'<span class="chip">{layout.device.label} · {layout.device.summary}</span>',
                 sanitize=False)
 
+    @staticmethod
+    def sheet_note(count, sheets, plural):
+        """Say out loud when a list no longer fits on one sheet."""
+        if sheets < 2:
+            return None
+        return f'{count} {plural} → {sheets} feuillets de {-(-count // sheets)}'
+
     @ui.refreshable
     def metrics(self):
         config = self.config
-        layout = self.base_config().layout
-        ui.label(f'Format appliqué · {layout.device.label} · {layout.device.summary} · '
-                 f'{layout.backlog_capacity} tâches par feuillet').classes('muted')
+        base = self.base_config()
+        layout = base.layout
+        ui.label(f'Format appliqué · {layout.device.label} · '
+                 f'{layout.device.summary}').classes('muted')
+        notes = [self.sheet_note(base.tasks_per_list, base.list_sheets, 'tâches par liste')]
+        if self.mode == 'dated':
+            notes.append(self.sheet_note(config.weekly_tasks, config.week_sheets,
+                                         'actions par semaine'))
+        notes = [note for note in notes if note]
+        if notes:
+            ui.label(' · '.join(notes) + f'. Ce format en tient '
+                     f'{layout.backlog_capacity} par feuillet en confort '
+                     f'{DENSITIES[layout.density].lower()} ; aucune tâche n’est retirée.'
+                     ).classes('muted split-note')
         if self.mode == 'dated':
             ui.label(f'{config.start_date} → {config.end_date:%Y-%m-%d}').classes('muted')
             values = [(len(config.dates), 'journées'), (len(config.weeks), 'semaines'), (config.total_pages, 'pages')]
