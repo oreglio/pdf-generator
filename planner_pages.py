@@ -94,6 +94,13 @@ class PlannerPages(ProjectPages):
     def end(self):
         self.c.showPage()
 
+    def writing_header(self, eyebrow, label):
+        """A writing page states what it belongs to, then gets out of the way."""
+        self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED,
+                  max_width=self.width)
+        self.text(self.left, self.h - 52, label, 7, gray=MUTED)
+        self.line(self.left, self.h - 74, self.right, self.h - 74, gray=0.55)
+
     def header(self, eyebrow, title, *, subtitle=None):
         self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED, max_width=self.width)
         self.text(self.left - 1, self.h - 69, title, 30, bold=True, max_width=self.width)
@@ -435,14 +442,13 @@ class PlannerPages(ProjectPages):
 
     def meeting_notes(self, day, number):
         self.start(f"day-{day}-notes-{number}")
-        self.header(f"MEETING {day:03d} / NOTES {number:02d}", "Notes")
+        eyebrow = f"MEETING {day:03d} / NOTES {number:02d}"
+        self.writing_header(eyebrow, self.tr("Date / sujet"))
         meeting_label = f"MEETING {day:03d}"
         meeting_width = pdfmetrics.stringWidth(meeting_label, self.bold, 8)
         self.link(meeting_label, f"day-{day}", (self.left - 3, self.h - 43, self.left + meeting_width + 3, self.h - 22))
         self.rail()
-        self.text(self.left + 183, self.h - 48, self.tr("Date / sujet"), 7, gray=MUTED)
-        self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
-        self.rules(self.h - 111)
+        self.rules(self.h - 88)
         previous = f"day-{day}-notes-{number - 1}" if number > 1 else None
         if number < self.config.notes_pages:
             next_page = (f"Notes {number + 1}", f"day-{day}-notes-{number + 1}")
@@ -497,10 +503,9 @@ class PlannerPages(ProjectPages):
 
     def task_notes(self, number, item, part):
         self.start(f"task-{number}-{item}-{part}")
-        self.text(self.left, self.h - 34,
-                  f"{self.config.list_name(number).upper()} · {number:02d}-{item:02d}"
-                  f" — NOTES {part:02d}/{self.config.detail_pages:02d}",
-                  8, bold=True, gray=MUTED, max_width=self.width)
+        self.writing_header(f"{self.config.list_name(number).upper()} · {number:02d}-{item:02d}"
+                            f" — NOTES {part:02d}/{self.config.detail_pages:02d}",
+                            self.tr("Sujet"))
         total_tasks, capacity = self.config.tasks_per_list, self.layout.backlog_capacity
         sheets = self.config.list_sheets
         sheet = sheet_of(item, total_tasks, capacity)
@@ -508,8 +513,6 @@ class PlannerPages(ProjectPages):
         self.link(self.tr("Retour liste {number:02d}", number=number), home_sheet,
                   (self.left, self.h - 43, self.right, self.h - 22))
         self.rail(active=number)
-        self.text(self.left + 115, self.h - 48, self.tr("Sujet"), 7, gray=MUTED)
-        self.line(self.left + 115, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.task_background()
         previous = f"task-{number}-{item}-{part - 1}" if part > 1 else None
         next_page = (f"Notes {part + 1}", f"task-{number}-{item}-{part + 1}") if part < self.config.detail_pages else None

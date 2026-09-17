@@ -611,7 +611,8 @@ class DatedPlannerPages(PlannerPages):
         self.current_date = value
         self.active_week = self.schedule.week_for_day(day)
         self.start(f"day-{day}-notes-{number}")
-        self.header(f"{self.full_date(value).upper()} / NOTES {number:02d}", "Notes")
+        self.writing_header(f"{self.full_date(value).upper()} / NOTES {number:02d}",
+                            self.label("Sujet", "Subject"))
         header_right = self.right
         if self.schedule.long_navigation:
             header_right = self.right - 52
@@ -619,10 +620,8 @@ class DatedPlannerPages(PlannerPages):
                       self.week_target(self.active_week), size=7.5,
                       title=self.schedule.week_key(self.active_week))
         self.link(f"Meeting {value.isoformat()}", f"day-{day}", (self.left, self.h - 43, header_right, self.h - 22))
-        self.text(self.left + 183, self.h - 48, self.label("Sujet", "Subject"), 7, gray=MUTED)
-        self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.rail()
-        self.rules(self.h - 111)
+        self.rules(self.h - 88)
         if number < self.config.notes_pages:
             following = (f"Notes {number + 1}", f"day-{day}-notes-{number + 1}")
         elif day < len(self.schedule.dates):

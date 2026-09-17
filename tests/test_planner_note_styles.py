@@ -87,7 +87,7 @@ class NotebookStyleTests(unittest.TestCase):
         _, ruled = self.book()
         _, blank = self.book(meeting_note_style='blank')
         notes_page = 3
-        self.assertIn('Notes', blank.pages[notes_page].extract_text())
+        self.assertIn('NOTES 01', blank.pages[notes_page].extract_text())
         self.assertLess(len(blank.pages[notes_page].get_contents().get_data()),
                         len(ruled.pages[notes_page].get_contents().get_data()))
 

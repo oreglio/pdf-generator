@@ -83,11 +83,12 @@ class PageLayout:
         floor = self.footer_rule + 14 if floor is None else floor
         return step if count < 2 else min(step, (top - floor) / (count - 1))
 
-    def fill(self, top, step, count, floor=None, stretch=1.7):
+    def fill(self, top, step, count, floor=None, stretch=1.35):
         """Shrink to fit, and spread to the foot of the page when room is left.
 
         A writing grid that stops two thirds down wastes the paper it was asked
-        for; `stretch` keeps the lines from drifting comically far apart.
+        for; `stretch` keeps the lines from drifting comically far apart — an
+        airy page is a comfort, seventeen millimetres between two tasks is not.
         """
         floor = self.footer_rule + 14 if floor is None else floor
         if count < 2:

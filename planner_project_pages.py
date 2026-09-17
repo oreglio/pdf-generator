@@ -114,17 +114,15 @@ class ProjectPages:
         number, part = int(spec.reference), spec.part
         total = self.config.project_notes_pages
         name = self.config.project_name(number)
-        eyebrow = f"{name.upper()} — {part:02d}/{total:02d}"
+        eyebrow = f"{name.upper()} — NOTES {part:02d}/{total:02d}"
         self.start(f"project-{number}-notes-{part}")
-        self.header(eyebrow, "Notes")
+        self.writing_header(eyebrow, self.tr("Sujet"))
         self.link(self.tr("Projet {number:02d}", number=number), f"project-{number}",
                   (self.left - 3, self.h - 43,
                    self.left + pdfmetrics.stringWidth(eyebrow, self.bold, 8) + 3, self.h - 22))
         self.project_notes_bar(number, current=part)
         self.rail()
-        self.text(self.left + 115, self.h - 48, self.tr("Sujet"), 7, gray=MUTED)
-        self.line(self.left + 115, self.h - 74, self.right, self.h - 74, gray=0.55)
-        self.rules(self.h - 111)
+        self.rules(self.h - 88)
         if part < total:
             following = (f"Notes {part + 1}", f"project-{number}-notes-{part + 1}")
         elif number < self.config.project_count:
