@@ -154,9 +154,9 @@ class PlannerPages(ProjectPages):
             return
         for number in range(1, self.config.list_count + 1):
             self.pill(self.w - 32, todo_top - number * todo_step + 4, 26, todo_step - 4,
-                      f"{number:02d}", f"list-{number}", selected=number == active,
+                      f"B{number:02d}", f"list-{number}", selected=number == active,
                       title=self.tr("Liste {number:02d}", number=number),
-                      size=9 if todo_step >= 20 else 7.5)
+                      size=8 if todo_step >= 20 else 7)
         self.project_tabs(todo_top - self.config.list_count * todo_step, todo_step)
 
     def footer_bound(self, *, previous_day, next_day, previous, previous_label,
@@ -221,8 +221,8 @@ class PlannerPages(ProjectPages):
 
     @property
     def task_bounds(self):
-        """The context page carries no title: its writing area starts higher."""
-        return (self.left + 1, 68, self.right, self.h - 88)
+        """One full row below the subject rule, so no line looks squeezed."""
+        return (self.left + 1, 68, self.right, self.h - 74 - self.layout.row_height)
 
     def _make_dot_form(self):
         """Repeated on every context page: worth one reusable form object."""
@@ -253,9 +253,9 @@ class PlannerPages(ProjectPages):
         start = label_y - 10
         for number in range(1, count + 1):
             self.pill(self.w - 32, start - number * step + 4, 26, step - 4,
-                      f"{number:02d}", f"project-{number}",
+                      f"P{number:02d}", f"project-{number}",
                       title=self.tr("Projet {number:02d}", number=number),
-                      size=9 if step >= 20 else 7.5)
+                      size=8 if step >= 20 else 7)
 
     def meeting_shortcut(self, day):
         """`both` pushes Notes behind the decisions page: keep them in the footer."""
@@ -440,7 +440,9 @@ class PlannerPages(ProjectPages):
         split = floor + (self.h - 111 - floor) * 0.36
         self.text(self.left, self.h - 113, "Notes", 14, bold=True)
         self.rules(self.h - 140, bottom=split + 30)
-        self.line(self.left, split + 18, self.right, split + 18, gray=0.55)
+        if self.config.meeting_note_style != "lined":
+            # Ruled notes already close the block; a separator would only add ink.
+            self.line(self.left, split + 18, self.right, split + 18, gray=0.55)
         mid = self.left + self.width / 2
         self.text(self.left, split - 4, self.tr("Décisions"), 13, bold=True)
         self.text(mid + 14, split - 4, self.tr("Actions"), 13, bold=True)
@@ -453,7 +455,7 @@ class PlannerPages(ProjectPages):
         self.writing_header(f"MEETING {day:03d} / NOTES {number:02d}", self.tr("Date / sujet"),
                             back=(f"day-{day}", f"MEETING {day:03d}"))
         self.rail()
-        self.rules(self.h - 88)
+        self.rules(self.h - 74 - self.layout.row_height)
         previous = f"day-{day}-notes-{number - 1}" if number > 1 else None
         if number < self.config.notes_pages:
             next_page = (f"Notes {number + 1}", f"day-{day}-notes-{number + 1}")
@@ -466,27 +468,37 @@ class PlannerPages(ProjectPages):
                     next_page=next_page, next_width=76)
         self.end()
 
+    def list_eyebrow(self, number):
+        """BACKLOG 01, plus the list's own name when it has one."""
+        label = self.tr("TODO / LISTE {number:02d}", number=number)
+        if number <= len(self.config.list_names) and self.config.list_names[number - 1]:
+            label += f" · {self.config.list_names[number - 1].upper()}"
+        return label
+
     def list_geometry(self, spec):
         """Rows, column width and vertical step shared by both editions."""
         rows = ceil((spec.last_item - spec.first_item + 1) / 2)
-        step = self.layout.fill(self.h - 126, self.layout.task_row_height, rows)
+        step = self.layout.fill(self.h - 84, self.layout.task_row_height, rows)
         return rows, (self.width - 20) / 2, step
 
     def task_list(self, spec):
         number, sheet, total = int(spec.reference), spec.sheet, spec.sheets
         self.start(spec.key, level=1, outline=(
             f"TODO {number:02d} - {self.config.list_name(number)}" if sheet == 1 else None))
-        self.header(self.tr("TODO / LISTE {number:02d}", number=number),
-                    self.config.list_name(number),
-                    subtitle=None if total == 1 else
-                    f"{spec.first_item:02d} – {spec.last_item:02d}   /   {sheet:02d}/{total:02d}")
-        self.link(self.tr("Retour aux listes"), "home", (self.left, self.h - 43, self.left + 110, self.h - 22))
+        eyebrow = self.list_eyebrow(number)
+        if total > 1:
+            eyebrow += (f"   ·   {spec.first_item:02d} – {spec.last_item:02d}"
+                        f"   ·   {sheet:02d}/{total:02d}")
+        self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED, max_width=self.width)
+        self.link(self.tr("Retour aux listes"), "home",
+                  (self.left - 3, self.h - 43,
+                   self.left + pdfmetrics.stringWidth(eyebrow, self.bold, 8) + 3, self.h - 22))
         self.rail(active=number)
         rows, col_w, row_step = self.list_geometry(spec)
         for index, item in enumerate(range(spec.first_item, spec.last_item + 1)):
             col, row = divmod(index, rows)
             x = self.left + col * (col_w + 20)
-            y = self.h - 126 - row * row_step
+            y = self.h - 84 - row * row_step
             self.line(x, y, x + 21, y)
             self.text(x + 26, y + 2, "·", 8, gray=MUTED, align="center")
             self.text(x + 32, y + 2, f"{item:02d}", 7.5, gray=MUTED, numeric=True)

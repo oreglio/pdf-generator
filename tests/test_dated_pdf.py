@@ -53,7 +53,7 @@ class DatedPDFTests(unittest.TestCase):
         jan1 = jan_links["2027-01-01"]
         week53 = home["week-2026-12-28"]
         self.assertEqual(self.destinations(reader, reader.pages[jan1])["week-2026-12-28"], week53)
-        self.assertIn("W53", reader.pages[week53].extract_text())
+        self.assertIn("S53", reader.pages[week53].extract_text())
         self.assertIn("2026", reader.pages[week53].extract_text())
         week_links = self.destinations(reader, reader.pages[week53])
         self.assertEqual(week_links["2027-01-01"], jan1)
@@ -174,8 +174,8 @@ class DatedPDFTests(unittest.TestCase):
         middle = self.destinations(reader, reader.pages[first_week + 2])
         self.assertEqual(middle["Previous week"], first_week + 1)
         self.assertEqual(middle["Next week"], first_week + 3)
-        self.assertIn("W39", reader.pages[first_week + 2].extract_text())
-        self.assertIn("W41", reader.pages[first_week + 2].extract_text())
+        self.assertIn("S39", reader.pages[first_week + 2].extract_text())
+        self.assertIn("S41", reader.pages[first_week + 2].extract_text())
         self.assertNotIn("Previous week", self.destinations(reader, reader.pages[first_week]))
         last = len(config.weeks) - 1
         self.assertNotIn("Next week", self.destinations(reader, reader.pages[first_week + last]))
@@ -184,7 +184,7 @@ class DatedPDFTests(unittest.TestCase):
         week_page = self.destinations(reader, reader.pages[day])["week-2027-01-04"]
         notes = self.destinations(reader, reader.pages[day + 1])
         self.assertEqual(notes["week-2027-01-04"], week_page)
-        self.assertIn("W01", reader.pages[day + 1].extract_text())
+        self.assertIn("S01", reader.pages[day + 1].extract_text())
 
     def test_long_notebook_shows_the_year_where_labels_would_be_ambiguous(self):
         config, reader = self.long_book(months=12)

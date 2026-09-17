@@ -84,8 +84,9 @@ class ManifestStructureTests(unittest.TestCase):
         reference = PlannerConfig(days=1, list_count=1, tasks_per_list=40, detail_pages=1)
         self.assertEqual(reference.list_sheets, 1)
         self.assertEqual(replace(reference, **SMALL).list_sheets, 2)
-        self.assertEqual(replace(reference, density="comfortable").list_sheets, 2)
-        for changes in (SMALL, {"density": "comfortable"}):
+        # A ten-inch page in comfort now holds forty tasks on a single sheet.
+        self.assertEqual(replace(reference, density="comfortable").list_sheets, 1)
+        for changes in (SMALL,):
             config = replace(reference, **changes)
             with self.subTest(changes=changes):
                 self.assertGreater(config.total_pages, reference.total_pages)

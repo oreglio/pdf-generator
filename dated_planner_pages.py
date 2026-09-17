@@ -53,9 +53,9 @@ class DatedPlannerPages(PlannerPages):
     def day_key(self, value):
         return f"day-{self.schedule.day_number(value)}"
 
-    @staticmethod
-    def week_label(monday):
-        return f"W{monday.isocalendar().week:02d}"
+    def week_label(self, monday):
+        """S38 in French, W38 in English: the same ISO week, spelt locally."""
+        return f"{self.label('S', 'W')}{monday.isocalendar().week:02d}"
 
     def week_target(self, monday, part=1):
         return f"{self.schedule.week_key(monday)}-{part}"
@@ -75,9 +75,9 @@ class DatedPlannerPages(PlannerPages):
             return
         for number in range(1, self.config.list_count + 1):
             self.pill(self.w - 32, top - number * step + 4, 26, step - 4,
-                      f"{number:02d}", f"list-{number}", selected=number == active,
+                      f"B{number:02d}", f"list-{number}", selected=number == active,
                       title=self.tr("Liste {number:02d}", number=number),
-                      size=9 if step >= 20 else 7.5)
+                      size=8 if step >= 20 else 7)
         self.project_tabs(top - self.config.list_count * step, step)
 
     def month_rail(self, active=None):
@@ -504,7 +504,7 @@ class DatedPlannerPages(PlannerPages):
         task_start = reference_end + 11
         right_width = (self.width - 20 - task_start) / 2
         left_width = task_start + right_width
-        reference_labels = ("BKLG", "#", self.label("JOUR", "DAY"))
+        reference_labels = ("B/P", "#", self.label("JOUR", "DAY"))
         if tasks > 1:
             divider_x = self.left + left_width + 10
             self.line(divider_x, self.h - 148, divider_x, self.h - 168 - (rows - 1) * row_step,
@@ -627,7 +627,7 @@ class DatedPlannerPages(PlannerPages):
                       title=self.schedule.week_key(self.active_week))
         self.link(f"Meeting {value.isoformat()}", f"day-{day}", (self.left, self.h - 43, header_right, self.h - 22))
         self.rail()
-        self.rules(self.h - 88)
+        self.rules(self.h - 74 - self.layout.row_height)
         if number < self.config.notes_pages:
             following = (f"Notes {number + 1}", f"day-{day}-notes-{number + 1}")
         elif day < len(self.schedule.dates):
@@ -639,17 +639,20 @@ class DatedPlannerPages(PlannerPages):
                     previous_label=f"Notes {number - 1}" if number > 1 else None, next_page=following)
         self.end()
 
-    def header(self, eyebrow, title, *, subtitle=None):
-        if eyebrow.startswith("TODO / "):
-            eyebrow = "BACKLOG"
-        super().header(eyebrow, title, subtitle=subtitle)
+    def list_eyebrow(self, number):
+        """The dated edition calls its lists a backlog, numbered like its tabs."""
+        label = f"BACKLOG {number:02d}"
+        names = self.config.list_names
+        if number <= len(names) and names[number - 1]:
+            label += f" · {names[number - 1].upper()}"
+        return label
 
     def task_list(self, spec):
         self.current_date = self.active_week = None
         if spec.last_item > spec.first_item:
             rows, _, row_step = self.list_geometry(spec)
             divider_x = self.left + self.width / 2
-            self.line(divider_x, self.h - 114, divider_x, self.h - 129 - (rows - 1) * row_step,
+            self.line(divider_x, self.h - 72, divider_x, self.h - 87 - (rows - 1) * row_step,
                       gray=0, width=0.25)
         super().task_list(spec)
 
