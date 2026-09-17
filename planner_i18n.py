@@ -39,6 +39,7 @@ ENGLISH = {
     "Décisions & actions": "Decisions & actions",
     "Projets": "Projects",
     "PROJETS": "PROJECTS",
+    "PROJET": "PROJECT",
     "< Projets": "< Projects",
     "Projet": "Project",
     "Projet {number:02d}": "Project {number:02d}",

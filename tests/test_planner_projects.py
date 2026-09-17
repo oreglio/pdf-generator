@@ -165,6 +165,41 @@ class ProjectTests(unittest.TestCase):
             for ref in page.get('/Annots', []):
                 self.assertIn(ref.get_object()['/Dest'][0].idnum, ids)
 
+    def test_every_page_opens_each_project_in_one_tap(self):
+        config, reader, keys = self.book(project_count=3, project_notes_pages=1)
+        for index, page in enumerate(reader.pages):
+            links = destinations(reader, page)
+            with self.subTest(page=index):
+                self.assertEqual(links['Projets'], keys['projects'])
+                for number in (1, 2, 3):
+                    self.assertEqual(links[f'Projet {number:02d}'], keys[f'project-{number}'])
+
+    def test_a_meeting_offers_a_fixed_place_to_write_its_project(self):
+        _, without, _ = self.book()
+        _, with_projects, keys = self.book(project_count=2)
+        self.assertNotIn('PROJET', without.pages[2].extract_text())
+        self.assertIn('PROJET', with_projects.pages[keys['day-1']].extract_text())
+        self.assertIn('Objectives', with_projects.pages[keys['day-1']].extract_text())
+
+    def test_a_crowded_rail_keeps_the_index_when_tabs_no_longer_fit(self):
+        from dated_planner_config import DatedPlannerConfig
+        from dated_planner_pdf import generate_dated_pdf
+        base = replace(PlannerConfig(list_count=10, tasks_per_list=2, detail_pages=1,
+                                     notes_pages=0, project_count=12),
+                       device='custom', custom_width_mm=100, custom_height_mm=150)
+        config = DatedPlannerConfig(base=base, start_date='2026-09-16', months=12)
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+        reader = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(config))}
+        links = destinations(reader, reader.pages[keys['day-1']])
+        self.assertEqual(links['Projets'], keys['projects'])
+        for page in reader.pages:
+            for ref in page.get('/Annots', []):
+                x0, y0, x1, y1 = map(float, ref.get_object()['/Rect'])
+                self.assertLess(y0, y1, 'rectangle inversé dans la barre latérale')
+                self.assertGreaterEqual(y0, 0)
+
     def test_invalid_project_settings_are_refused(self):
         for changes in ({'project_count': -1}, {'project_count': 13}, {'project_count': True},
                         {'project_notes_pages': 5}, {'project_notes_pages': -1},

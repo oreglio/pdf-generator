@@ -68,13 +68,17 @@ class DatedPlannerPages(PlannerPages):
         self.text(self.w - 19, label_y, "BACKLOG", 5.5, bold=True, align="center")
         self.link("Backlog", "home", (self.w - 34, label_y - 7, self.w - 4, label_y + 9))
         top = label_y - 10
-        step = min(30, max(0, top - 69) / self.config.list_count)
+        projects = self.config.project_count
+        room = max(0, top - 69) - (13 if projects else 0)
+        step = min(30, room / (self.config.list_count + projects))
         if step < 5:  # No column left: the BACKLOG label above still opens it.
             return
         for number in range(1, self.config.list_count + 1):
             self.pill(self.w - 32, top - number * step + 4, 26, step - 4,
                       f"{number:02d}", f"list-{number}", selected=number == active,
-                      title=self.tr("Liste {number:02d}", number=number), size=9)
+                      title=self.tr("Liste {number:02d}", number=number),
+                      size=9 if step >= 20 else 7.5)
+        self.project_tabs(top - self.config.list_count * step, step)
 
     def month_rail(self, active=None):
         """Long periods index their months; weeks stay inside each calendar."""
@@ -83,7 +87,8 @@ class DatedPlannerPages(PlannerPages):
         months = self.schedule.calendar_months
         two_years = self.schedule.spans_two_years
         # The column is shared with the backlog tabs drawn underneath.
-        step = min(26, (self.h - 146) / (len(months) + self.config.list_count))
+        step = min(26, (self.h - 146) / (len(months) + self.config.list_count
+                                         + self.config.project_count))
         current = self.current_date
         for index, month in enumerate(months):
             y = self.h - 50 - (index + 1) * step
@@ -109,7 +114,8 @@ class DatedPlannerPages(PlannerPages):
         self.line(self.w - 39, 69, self.w - 39, self.h - 31, gray=0.85)
         self.text(self.w - 19, self.h - 39, self.label("SEMAINES", "WEEKS"), 5.5, bold=True, align="center")
         step = min(26, 270 / len(self.schedule.weeks),
-                   (self.h - 146) / (len(self.schedule.weeks) + self.config.list_count))
+                   (self.h - 146) / (len(self.schedule.weeks) + self.config.list_count
+                                     + self.config.project_count))
         for index, monday in enumerate(self.schedule.weeks):
             self.pill(self.w - 32, self.h - 50 - (index + 1) * step, 26, step - 3,
                       self.week_label(monday), self.week_target(monday),
@@ -512,6 +518,7 @@ class DatedPlannerPages(PlannerPages):
         self.header(f"{self.week_label(self.active_week)} / {self.full_date(value).upper()}", "Meetings")
         self.text(self.left + 183, self.h - 48, self.label("Sujet / temps fort", "Focus / subject"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
+        self.project_slot()
         self.rail()
         self.meeting_body()
         following = ((self.label("Décisions", "Decisions"), f"day-{day}-actions")

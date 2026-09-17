@@ -102,7 +102,8 @@ class PlannerPages(ProjectPages):
         self.text(self.w - 19, self.h - 39, self.tr("JOURS"), 6.5, bold=True, align="center")
         blocks = self.config.index_pages
         per_index = self.config.days_per_index
-        day_step = min(30, (self.h - 146) / (blocks + self.config.list_count))
+        tabs = blocks + self.config.list_count + self.config.project_count
+        day_step = min(30, (self.h - 146) / tabs)
         day_height = day_step - 4
         for block in range(blocks):
             first = block * per_index + 1
@@ -128,11 +129,17 @@ class PlannerPages(ProjectPages):
         self.text(self.w - 19, todo_label_y, "TODO", 6.5, bold=True, align="center")
         self.link(self.tr("Mes listes"), "home", (self.w - 34, todo_label_y - 7, self.w - 4, todo_label_y + 9))
         todo_top = todo_label_y - 10
-        todo_step = min(31, (todo_top - 69) / self.config.list_count)
+        projects = self.config.project_count
+        room = max(0, todo_top - 69) - (13 if projects else 0)
+        todo_step = min(31, room / (self.config.list_count + projects))
+        if todo_step < 5:
+            return
         for number in range(1, self.config.list_count + 1):
             self.pill(self.w - 32, todo_top - number * todo_step + 4, 26, todo_step - 4,
                       f"{number:02d}", f"list-{number}", selected=number == active,
-                      title=self.tr("Liste {number:02d}", number=number), size=9)
+                      title=self.tr("Liste {number:02d}", number=number),
+                      size=9 if todo_step >= 20 else 7.5)
+        self.project_tabs(todo_top - self.config.list_count * todo_step, todo_step)
 
     def footer(self, *, day=None, context=None, previous=None, next_page=None, next_day=None,
                previous_day=None, previous_label=None, next_width=48):
@@ -195,6 +202,31 @@ class PlannerPages(ProjectPages):
         else:
             draw_note_background(self.c, self.task_bounds,
                                  self.config.task_note_style, self.layout.row_height)
+
+    def project_tabs(self, top, step):
+        """Numbered project tabs under the lists; the label alone opens the index."""
+        count = self.config.project_count
+        if not count:
+            return
+        label_y = top - 13
+        self.text(self.w - 19, label_y, self.tr("PROJETS"), 5.5, bold=True, align="center")
+        self.link(self.tr("Projets"), "projects",
+                  (self.w - 34, label_y - 7, self.w - 4, label_y + 9))
+        if step < 9:  # No room for readable tabs: the label still opens the index.
+            return
+        start = label_y - 10
+        for number in range(1, count + 1):
+            self.pill(self.w - 32, start - number * step + 4, 26, step - 4,
+                      f"{number:02d}", f"project-{number}",
+                      title=self.tr("Projet {number:02d}", number=number),
+                      size=9 if step >= 20 else 7.5)
+
+    def project_slot(self):
+        """A fixed place to write which project a meeting belongs to."""
+        if not self.config.project_count:
+            return
+        self.text(self.left, self.h - 88, self.tr("PROJET"), 6.5, gray=MUTED)
+        self.line(self.left + 36, self.h - 90, self.left + 172, self.h - 90, gray=0.55)
 
     def index_key(self, day):
         """The day index holding one day, from the capacity of this device."""
@@ -301,6 +333,7 @@ class PlannerPages(ProjectPages):
         self.rail()
         self.text(self.left + 183, self.h - 48, self.tr("Date / période"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
+        self.project_slot()
         self.meeting_body()
         following = ((self.tr("Décisions"), f"day-{day}-actions") if self.split_meeting
                      else self.meeting_tail(day))

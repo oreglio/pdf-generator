@@ -174,6 +174,14 @@ une place fixe pour une référence backlog manuscrite, décisions et notes, pui
 ses pages de notes. Ancres `projects`, `project-N` et `project-N-notes-P`.
 Une fiche ne recopie pas les notes détaillées du backlog.
 
+Quand les projets sont activés, la barre latérale gagne une section
+**PROJETS** dont chaque pastille ouvre directement sa fiche, depuis
+n'importe quelle page — Meeting compris. Si la colonne ne peut plus porter
+ces pastilles, seul le libellé reste et il ouvre l'index. Les pages Meeting
+reçoivent en contrepartie un champ **PROJET** sous leur titre, pour écrire à
+la main le projet concerné : cette référence reste une annotation, elle ne
+devient jamais un lien.
+
 ## Contenu et navigation
 
 - Format AiPaper : **1 920 × 2 560 px à 300 ppp**, soit 162,56 × 216,75 mm.
