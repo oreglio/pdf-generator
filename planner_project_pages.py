@@ -24,19 +24,9 @@ class ProjectPages:
 
     def project_notes_bar(self, number, current=None):
         """Every note page of a project, one tap away, on the eyebrow line."""
-        total = self.config.project_notes_pages
-        if not total:
-            return
-        # The tabs alone carry the meaning: no caption competing with the eyebrow.
-        slot = min(26, (self.right - (self.left + 52)) / total)
-        if slot < 11:  # Too cramped to tap: the footer still walks the notes.
-            return
-        start = self.right - total * slot + 3
-        for part in range(1, total + 1):
-            self.pill(start + (part - 1) * slot, self.h - 34, slot - 3, 18,
-                      f"{part:02d}", f"project-{number}-notes-{part}",
-                      selected=part == current, size=7,
-                      title=self.tr("Projet {number:02d}", number=number) + f" / Notes {part:02d}")
+        self.notes_bar(self.config.project_notes_pages, current,
+                       lambda part: f"project-{number}-notes-{part}",
+                       self.tr("Projet {number:02d}", number=number))
 
     def projects_index(self, spec):
         self.start("projects", outline=self.tr("Projets"), level=1)
@@ -53,7 +43,9 @@ class ProjectPages:
             x = self.left + col * (cell + gap)
             y = top - row * step
             self.text(x, y, f"{number:02d}", 13, bold=True)
-            self.text(x + 28, y + 1, self.config.project_name(number), 9, max_width=cell - 44)
+            names = self.config.project_names
+            if number <= len(names) and names[number - 1]:
+                self.text(x + 28, y + 1, names[number - 1], 9, max_width=cell - 44)
             self.text(x + cell - 2, y, ">", 11, align="right")
             self.line(x, y - 9, x + cell, y - 9)
             self.link(self.tr("Projet {number:02d}", number=number), f"project-{number}",

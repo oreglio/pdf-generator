@@ -568,7 +568,6 @@ class DatedPlannerPages(PlannerPages):
         self.header(f"{self.week_label(self.active_week)} / {self.full_date(value).upper()}", "Meetings")
         self.text(self.left + 183, self.h - 48, self.label("Sujet / temps fort", "Focus / subject"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
-        self.project_slot()
         self.rail()
         self.meeting_body()
         following = ((self.label("Décisions", "Decisions"), f"day-{day}-actions")
@@ -639,6 +638,9 @@ class DatedPlannerPages(PlannerPages):
                     previous_label=f"Notes {number - 1}" if number > 1 else None, next_page=following)
         self.end()
 
+    def list_word(self):
+        return "Backlog"
+
     def list_eyebrow(self, number):
         """The dated edition calls its lists a backlog, numbered like its tabs."""
         label = f"BACKLOG {number:02d}"
@@ -652,7 +654,7 @@ class DatedPlannerPages(PlannerPages):
         if spec.last_item > spec.first_item:
             rows, _, row_step = self.list_geometry(spec)
             divider_x = self.left + self.width / 2
-            self.line(divider_x, self.h - 72, divider_x, self.h - 87 - (rows - 1) * row_step,
+            self.line(divider_x, self.h - 60, divider_x, self.h - 75 - (rows - 1) * row_step,
                       gray=0, width=0.25)
         super().task_list(spec)
 

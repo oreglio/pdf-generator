@@ -263,13 +263,6 @@ class PlannerPages(ProjectPages):
             return None
         return ("Notes ›", f"day-{day}-notes-1", f"Notes {day:03d}")
 
-    def project_slot(self):
-        """A fixed place to write which project a meeting belongs to."""
-        if not self.config.project_count:
-            return
-        self.text(self.left, self.h - 88, self.tr("PROJET"), 6.5, gray=MUTED)
-        self.line(self.left + 36, self.h - 90, self.left + 172, self.h - 90, gray=0.55)
-
     def index_key(self, day):
         """The day index holding one day, from the capacity of this device."""
         return f"days-{(day - 1) // self.config.days_per_index}"
@@ -377,7 +370,6 @@ class PlannerPages(ProjectPages):
         self.rail()
         self.text(self.left + 183, self.h - 48, self.tr("Date / période"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
-        self.project_slot()
         self.meeting_body()
         following = ((self.tr("Décisions"), f"day-{day}-actions") if self.split_meeting
                      else self.meeting_tail(day))
@@ -468,6 +460,22 @@ class PlannerPages(ProjectPages):
                     next_page=next_page, next_width=76)
         self.end()
 
+    def notes_bar(self, total, current, target, title):
+        """Tabs for every note page of one parent, on the eyebrow line."""
+        if total < 2:
+            return
+        slot = min(26, (self.right - (self.left + 52)) / total)
+        if slot < 11:  # Too cramped to tap: the footer still walks the pages.
+            return
+        start = self.right - total * slot + 3
+        for part in range(1, total + 1):
+            self.pill(start + (part - 1) * slot, self.h - 34, slot - 3, 18,
+                      f"{part:02d}", target(part), selected=part == current, size=7,
+                      title=f"{title} / Notes {part:02d}")
+
+    def list_word(self):
+        return self.tr("Liste")
+
     def list_eyebrow(self, number):
         """BACKLOG 01, plus the list's own name when it has one."""
         label = self.tr("TODO / LISTE {number:02d}", number=number)
@@ -478,7 +486,7 @@ class PlannerPages(ProjectPages):
     def list_geometry(self, spec):
         """Rows, column width and vertical step shared by both editions."""
         rows = ceil((spec.last_item - spec.first_item + 1) / 2)
-        step = self.layout.fill(self.h - 84, self.layout.task_row_height, rows)
+        step = self.layout.fill(self.h - 72, self.layout.task_row_height, rows, floor=78)
         return rows, (self.width - 20) / 2, step
 
     def task_list(self, spec):
@@ -498,7 +506,7 @@ class PlannerPages(ProjectPages):
         for index, item in enumerate(range(spec.first_item, spec.last_item + 1)):
             col, row = divmod(index, rows)
             x = self.left + col * (col_w + 20)
-            y = self.h - 84 - row * row_step
+            y = self.h - 72 - row * row_step
             self.line(x, y, x + 21, y)
             self.text(x + 26, y + 2, "·", 8, gray=MUTED, align="center")
             self.text(x + 32, y + 2, f"{item:02d}", 7.5, gray=MUTED, numeric=True)
@@ -510,7 +518,7 @@ class PlannerPages(ProjectPages):
         if sheet < total:
             next_page = (f"{sheet + 1}/{total}", sheet_key(f"list-{number}", sheet + 1))
         elif number < self.config.list_count:
-            next_page = (self.tr("Liste"), f"list-{number + 1}")
+            next_page = (self.list_word(), f"list-{number + 1}")
         else:
             next_page = (self.tr("Accueil"), "home")
         self.footer(next_page=next_page,
@@ -524,19 +532,23 @@ class PlannerPages(ProjectPages):
         sheets = self.config.list_sheets
         sheet = sheet_of(item, total_tasks, capacity)
         home_sheet = list_key(number, item, total_tasks, capacity)
-        self.writing_header(f"{self.config.list_name(number).upper()} · {number:02d}-{item:02d}"
+        self.writing_header(f"{self.list_eyebrow(number)} · {number:02d}-{item:02d}"
                             f" — NOTES {part:02d}/{self.config.detail_pages:02d}",
                             self.tr("Sujet"),
                             back=(home_sheet,
                                   self.tr("Retour liste {number:02d}", number=number)))
+        self.notes_bar(self.config.detail_pages, part,
+                       lambda page: f"task-{number}-{item}-{page}",
+                       self.tr("Tache {number:02d}-{item:02d}", number=number, item=item))
         self.rail(active=number)
         self.task_background()
         previous = f"task-{number}-{item}-{part - 1}" if part > 1 else None
         next_page = (f"Notes {part + 1}", f"task-{number}-{item}-{part + 1}") if part < self.config.detail_pages else None
         list_label = self.tr("Liste {number:02d}", number=number)
+        visible = f"{self.list_word()} {number:02d}"
         # A split list keeps one tab per list: name the exact sheet in the footer.
         sheet_label = list_label if sheets == 1 else f"{list_label} {sheet}/{sheets}"
-        self.footer(context=("< " + list_label, home_sheet, sheet_label),
+        self.footer(context=("‹ " + visible, home_sheet, sheet_label),
                     previous=previous, previous_label=f"Notes {part - 1}" if part > 1 else None,
                     next_page=next_page, next_width=76)
         self.end()
