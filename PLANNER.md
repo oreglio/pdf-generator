@@ -159,9 +159,9 @@ zone d’écriture : jamais un titre, un lien ni la barre latérale.
 `--meeting-layout classic` (défaut) garde Objectives / Agenda / Notes.
 `--meeting-layout notes_actions` donne des notes dominantes puis
 **Décisions / Actions**, avec exactement les mêmes destinations.
-Avec `both`, les pages Notes passeraient derrière la page Décisions : la
-page Meeting reçoit donc une pastille **Notes ›** pour les rejoindre
-directement. `--meeting-layout both` produit les **deux pages pour le même
+Avec `both`, les pages Notes passeraient derrière la page Décisions : le
+pied de page du Meeting reçoit donc un raccourci **Notes ›**, à côté de
+**Décisions ›**. `--meeting-layout both` produit les **deux pages pour le même
 Meeting** :
 la page classique pour préparer, puis une page **Décisions & actions** pour
 la clore, avant les pages Notes. La journée reste ouverte par `day-N` depuis
@@ -175,9 +175,10 @@ le calendrier, la semaine et l'index ; la seconde page porte l'ancre
 **Projets** puis une fiche par projet : objectif, cinq prochaines actions avec
 une place fixe pour une référence backlog manuscrite, décisions et notes, puis
 ses pages de notes. Ancres `projects`, `project-N` et `project-N-notes-P`.
-Une fiche ne recopie pas les notes détaillées du backlog. Une barre
-horizontale de pastilles **NOTES** ouvre chaque page de notes du projet,
-depuis la fiche comme depuis n'importe laquelle de ses notes.
+Une fiche ne recopie pas les notes détaillées du backlog. Une barre horizontale de
+pastilles **NOTES**, sur la ligne de l'œil-de-perdrix en haut à droite, ouvre
+chaque page de notes du projet, depuis la fiche comme depuis n'importe
+laquelle de ses notes ; la page ouverte y est marquée.
 
 Quand les projets sont activés, la barre latérale gagne une section
 **PROJETS** dont chaque pastille ouvre directement sa fiche, depuis
@@ -280,7 +281,10 @@ effective, pas le seul nombre de mois.
 | `--weekly-overview` | Une vue « sept jours » avant les tâches de la semaine | `week-overview-AAAA-MM-JJ` |
 | `--weekly-review` | Un bilan Terminé / À reporter / À retenir après les tâches | `week-review-AAAA-MM-JJ` |
 
-Les ancres hebdomadaires portent la date du lundi ISO. Sur la vue « sept
+Les trois pages d'une même semaine — **Sept jours**, **Semaine** et
+**Bilan** — portent chacune les trois onglets, la page ouverte marquée : on
+passe de l'une à l'autre sans repasser par les tâches. Les ancres
+hebdomadaires portent la date du lundi ISO. Sur la vue « sept
 jours », les jours hors période et les week-ends exclus restent visibles mais
 n’ouvrent aucun Meeting inexistant. Une page Priorités d’un mois partiel affiche
 la période réellement couverte, par exemple **16.09 — 30.09.2026**.

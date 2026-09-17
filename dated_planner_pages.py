@@ -125,14 +125,21 @@ class DatedPlannerPages(PlannerPages):
 
     def footer(self, *, day=None, context=None, previous=None, next_page=None,
                next_day=None, previous_day=None, previous_label=None, next_width=76,
-               previous_week=None, next_week=None):
+               previous_week=None, next_week=None, shortcut=None):
         self.line(self.left, 45, self.right, 45, gray=0.55)
         self.text(self.left, 25, self.tr("Accueil"), 8, bold=True)
         self.link("Home", "home", (self.left, 15, self.left + 49, 40))
         self.text(self.left + 61, 25, self.label("Calendrier", "Calendar"), 8, bold=True)
         month = self.current_date or self.schedule.start
         self.link("Calendar", self.month_key(month), (self.left + 57, 15, self.left + 120, 40))
-        if context:
+        if context and shortcut and self.left + 246 <= self.right - 141:
+            label, target, title = context
+            self.text(self.left + 140, 25, label, 8, bold=True, max_width=36)
+            self.link(title, target, (self.left + 135, 15, self.left + 178, 40))
+            label, target, title = shortcut
+            self.text(self.left + 186, 25, label, 8, bold=True, max_width=56)
+            self.link(title, target, (self.left + 181, 15, self.left + 244, 40))
+        elif context:
             label, target, title = context
             self.text(self.left + 140, 25, label, 8, bold=True, max_width=89)
             self.link(title, target, (self.left + 135, 15, self.left + 230, 40))
@@ -354,10 +361,29 @@ class DatedPlannerPages(PlannerPages):
         self.rail()
         return monday
 
+    def week_tabs(self, monday, current):
+        """The week's three faces, on each of them, with the open one marked."""
+        key = monday.isoformat()
+        entries = []
+        if self.schedule.weekly_overview:
+            entries.append(("overview", self.label("Sept jours", "Glance"),
+                            f"week-overview-{key}"))
+        entries.append(("tasks", self.label("Semaine", "Tasks"), self.week_target(monday)))
+        if self.schedule.weekly_review:
+            entries.append(("review", self.label("Bilan", "Review"), f"week-review-{key}"))
+        if len(entries) < 2:
+            return
+        width = min(58, (self.right - self.left - 130) / len(entries) - 4)
+        for order, (name, label, target) in enumerate(reversed(entries)):
+            self.pill(self.right - width - order * (width + 4), self.h - 46, width, 21,
+                      label, None if name == current else target,
+                      selected=name == current, size=7, title=target)
+
     def week_overview(self, spec):
         """Seven day zones to plan the week; days outside it stay visible."""
         monday = self.week_header(spec, self.label("EN UN COUP D’ŒIL", "AT A GLANCE"),
                                   self.label("Mes sept jours", "Week at a glance"))
+        self.week_tabs(monday, "overview")
         top = self.h - 128
         floor = self.layout.body_bottom
         planning = min(96, (top - floor) * 0.22)
@@ -391,6 +417,7 @@ class DatedPlannerPages(PlannerPages):
         """Done / to carry over / to remember, closing the week that ends."""
         monday = self.week_header(spec, self.label("BILAN", "REVIEW"),
                                   self.label("Mon bilan", "Weekly review"))
+        self.week_tabs(monday, "review")
         top = self.h - 122
         floor = self.layout.body_bottom
         block = (top - floor) / 3
@@ -484,14 +511,7 @@ class DatedPlannerPages(PlannerPages):
             if index + 1 < len(self.schedule.weeks):
                 neighbour = self.schedule.weeks[index + 1]
                 steps["next_week"] = (self.week_label(neighbour), self.week_target(neighbour))
-        companions = []
-        if self.schedule.weekly_overview:
-            companions.append((self.label("Vue", "Glance"), f"week-overview-{monday.isoformat()}"))
-        if self.schedule.weekly_review:
-            companions.append((self.label("Bilan", "Review"), f"week-review-{monday.isoformat()}"))
-        for order, (label, target) in enumerate(companions):
-            x = self.right - 52 - order * 56
-            self.pill(x, self.h - 46, 52, 21, label, target, title=target, size=7)
+        self.week_tabs(monday, "tasks")
         chain = [(number, sheet) for number in range(1, self.schedule.week_pages + 1)
                  for sheet in range(1, spec.sheets + 1)]
         position = chain.index((part, spec.sheet))
@@ -519,7 +539,6 @@ class DatedPlannerPages(PlannerPages):
         self.text(self.left + 183, self.h - 48, self.label("Sujet / temps fort", "Focus / subject"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.project_slot()
-        self.meeting_shortcut(day)
         self.rail()
         self.meeting_body()
         following = ((self.label("Décisions", "Decisions"), f"day-{day}-actions")
@@ -534,6 +553,7 @@ class DatedPlannerPages(PlannerPages):
         extra.setdefault("context", (self.week_label(self.active_week),
                                      self.week_target(self.active_week),
                                      self.schedule.week_key(self.active_week)))
+        extra.setdefault("shortcut", self.meeting_shortcut(day))
         self.footer(next_page=following,
                     previous_day=f"day-{day - 1}" if day > 1 else None,
                     next_day=f"day-{day + 1}" if day < len(self.schedule.dates) else None,

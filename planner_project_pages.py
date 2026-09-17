@@ -7,23 +7,38 @@ reference stays an annotation; it never becomes a link.
 
 from math import ceil
 
+from reportlab.pdfbase import pdfmetrics
+
 from planner_layout import MUTED
 
 
 class ProjectPages:
     """Pages produced only when a notebook asks for at least one project."""
 
+    def project_eyebrow(self, number, text, target, title):
+        """Eyebrow line: the label returns, the note tabs close the right side."""
+        self.link(title, target, (self.left - 3, self.h - 43,
+                                  self.left + pdfmetrics.stringWidth(text, self.bold, 8) + 3,
+                                  self.h - 22))
+        self.project_notes_bar(number, current=None)
+
     def project_notes_bar(self, number, current=None):
-        """Every note page of a project, one tap away from the others."""
+        """Every note page of a project, one tap away, on the eyebrow line."""
         total = self.config.project_notes_pages
         if not total:
             return
-        self.text(self.left, self.h - 87, self.tr("NOTES"), 5.5, gray=MUTED)
-        width = min(30, (self.width - 34) / total - 4)
+        label = self.tr("NOTES")
+        label_width = pdfmetrics.stringWidth(label, self.bold, 5.5) + 8
+        room = self.right - (self.left + 52) - label_width
+        slot = min(26, room / total)
+        if slot < 11:  # Too cramped to tap: the footer still walks the notes.
+            return
+        start = self.right - total * slot + 3
+        self.text(start - 8, self.h - 33, label, 5.5, bold=True, gray=MUTED, align="right")
         for part in range(1, total + 1):
-            self.pill(self.left + 34 + (part - 1) * (width + 4), self.h - 98, width, 18,
+            self.pill(start + (part - 1) * slot, self.h - 39, slot - 3, 16,
                       f"{part:02d}", f"project-{number}-notes-{part}",
-                      selected=part == current, size=7.5,
+                      selected=part == current, size=7,
                       title=self.tr("Projet {number:02d}", number=number) + f" / Notes {part:02d}")
 
     def projects_index(self, spec):
@@ -53,15 +68,14 @@ class ProjectPages:
         """Goal, next actions, decisions and free notes, in that reading order."""
         number = int(spec.reference)
         name = self.config.project_name(number)
+        eyebrow = self.tr("PROJET {number:02d}", number=number)
         self.start(f"project-{number}", outline=f"{number:02d} — {name}", level=2)
-        self.header(self.tr("PROJET {number:02d}", number=number), name)
-        self.link(self.tr("Retour aux projets"), "projects",
-                  (self.left, self.h - 43, self.left + 120, self.h - 22))
+        self.header(eyebrow, name)
+        self.project_eyebrow(number, eyebrow, "projects", self.tr("Retour aux projets"))
         self.rail()
-        self.project_notes_bar(number)
         floor = self.layout.body_bottom
-        room = self.h - 117 - floor
-        goal_y = self.h - 117
+        room = self.h - 108 - floor
+        goal_y = self.h - 108
         self.text(self.left, goal_y, self.tr("Objectif"), 12, bold=True)
         self.rules(goal_y - 20, bottom=goal_y - room * 0.16)
         actions_y = goal_y - room * 0.2
@@ -96,12 +110,14 @@ class ProjectPages:
         number, part = int(spec.reference), spec.part
         total = self.config.project_notes_pages
         name = self.config.project_name(number)
+        eyebrow = f"{name.upper()} — {part:02d}/{total:02d}"
         self.start(f"project-{number}-notes-{part}")
-        self.header(f"{name.upper()} — NOTES {part:02d}/{total:02d}", "Notes")
+        self.header(eyebrow, "Notes")
         self.link(self.tr("Projet {number:02d}", number=number), f"project-{number}",
-                  (self.left, self.h - 43, self.right, self.h - 22))
-        self.rail()
+                  (self.left - 3, self.h - 43,
+                   self.left + pdfmetrics.stringWidth(eyebrow, self.bold, 8) + 3, self.h - 22))
         self.project_notes_bar(number, current=part)
+        self.rail()
         self.text(self.left + 115, self.h - 48, self.tr("Sujet"), 7, gray=MUTED)
         self.line(self.left + 115, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.rules(self.h - 111)
