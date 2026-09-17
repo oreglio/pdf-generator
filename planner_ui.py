@@ -15,7 +15,7 @@ from planner_manifest import build_manifest, preview_kinds
 from planner_pdf import generate_pdf, generate_samples
 
 
-PREVIEW_LABELS = {"meeting": "Meetings", "meeting-actions": "Décisions",
+PREVIEW_LABELS = {"home": "Accueil", "meeting": "Meetings", "meeting-actions": "Décisions",
                   "task-list": "Liste TODO", "task-notes": "Contexte",
                   "projects-index": "Projets", "project": "Fiche projet",
                   "project-notes": "Notes projet"}
@@ -129,7 +129,7 @@ def render_planner_ui():
                                                     value=config.project_count,
                                                     key="planner_field_projects")
                 with c2:
-                    project_notes = st.number_input("Pages Notes par projet", min_value=0, max_value=4,
+                    project_notes = st.number_input("Pages Notes par projet", min_value=0, max_value=10,
                                                     value=config.project_notes_pages,
                                                     key="planner_field_project_notes")
                 project_names = st.text_area("Noms des projets : un par ligne",

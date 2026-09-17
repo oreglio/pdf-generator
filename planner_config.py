@@ -48,7 +48,7 @@ class PlannerConfig:
         for name, low, high in (
             ("list_count", 1, 10), ("tasks_per_list", 1, 40),
             ("detail_pages", 1, 5), ("days", 1, 400), ("notes_pages", 0, 3),
-            ("project_count", 0, 12), ("project_notes_pages", 0, 4),
+            ("project_count", 0, 12), ("project_notes_pages", 0, 10),
         ):
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:

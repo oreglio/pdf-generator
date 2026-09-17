@@ -200,9 +200,27 @@ class ProjectTests(unittest.TestCase):
                 self.assertLess(y0, y1, 'rectangle inversé dans la barre latérale')
                 self.assertGreaterEqual(y0, 0)
 
+    def test_ten_note_pages_per_project_are_all_one_tap_away(self):
+        config, reader, keys = self.book(project_count=2, project_notes_pages=10)
+        self.assertEqual(config.project_notes_pages, 10)
+        pages = [keys['project-1']] + [keys[f'project-1-notes-{part}'] for part in range(1, 11)]
+        for index in pages:
+            links = destinations(reader, reader.pages[index])
+            with self.subTest(page=index):
+                for part in range(1, 11):
+                    self.assertEqual(links[f'Projet 01 / Notes {part:02d}'],
+                                     keys[f'project-1-notes-{part}'])
+                self.assertNotIn('Projet 02 / Notes 01', links)
+        self.assertIn('NOTES', reader.pages[keys['project-1']].extract_text())
+
+    def test_no_note_page_means_no_note_bar(self):
+        config, reader, keys = self.book(project_count=1, project_notes_pages=0)
+        links = destinations(reader, reader.pages[keys['project-1']])
+        self.assertFalse(any('Notes' in title for title in links))
+
     def test_invalid_project_settings_are_refused(self):
         for changes in ({'project_count': -1}, {'project_count': 13}, {'project_count': True},
-                        {'project_notes_pages': 5}, {'project_notes_pages': -1},
+                        {'project_notes_pages': 11}, {'project_notes_pages': -1},
                         {'project_names': ('a', 'b')}, {'project_names': ('x' * 25,)},
                         {'project_names': 'Folio'}):
             with self.subTest(changes=changes), self.assertRaises(ValueError):

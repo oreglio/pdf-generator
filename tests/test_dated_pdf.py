@@ -94,7 +94,7 @@ class DatedPDFTests(unittest.TestCase):
         output = io.BytesIO()
         generate_dated_samples(config, output)
         preview = PdfReader(output)
-        self.assertEqual(len(preview.pages), 5)
+        self.assertEqual(len(preview.pages), 6)
         self.assertTrue(all(not p.get("/Annots") for p in preview.pages))
 
     def test_undated_published_examples_are_byte_identical(self):

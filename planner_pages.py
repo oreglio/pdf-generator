@@ -77,7 +77,9 @@ class PlannerPages(ProjectPages):
         self.c.setStrokeGray(INK if selected else 0.65)
         self.c.setLineWidth(0.5)
         self.c.roundRect(x, y, width, height, 4, fill=1, stroke=1)
-        self.text(x + width / 2, y + (height - size) / 2 + 2, label, size,
+        # Centre on the cap height, not on the em box: digits sit on the baseline.
+        cap = pdfmetrics.getFont(self.bold).face.capHeight / 1000 * size
+        self.text(x + width / 2, y + (height - cap) / 2, label, size,
                   bold=True, gray=1 if selected else INK, align="center", max_width=width - 8)
         self.link(title or label, target, (x, y, x + width, y + height))
 
@@ -221,6 +223,13 @@ class PlannerPages(ProjectPages):
                       title=self.tr("Projet {number:02d}", number=number),
                       size=9 if step >= 20 else 7.5)
 
+    def meeting_shortcut(self, day):
+        """`both` pushes Notes behind the decisions page: keep it reachable."""
+        if not (self.split_meeting and self.config.notes_pages):
+            return
+        self.pill(self.right - 58, self.h - 98, 58, 20, "Notes ›", f"day-{day}-notes-1",
+                  size=7.5, title=f"Notes {day:03d}")
+
     def project_slot(self):
         """A fixed place to write which project a meeting belongs to."""
         if not self.config.project_count:
@@ -334,6 +343,7 @@ class PlannerPages(ProjectPages):
         self.text(self.left + 183, self.h - 48, self.tr("Date / période"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.project_slot()
+        self.meeting_shortcut(day)
         self.meeting_body()
         following = ((self.tr("Décisions"), f"day-{day}-actions") if self.split_meeting
                      else self.meeting_tail(day))

@@ -159,7 +159,10 @@ zone d’écriture : jamais un titre, un lien ni la barre latérale.
 `--meeting-layout classic` (défaut) garde Objectives / Agenda / Notes.
 `--meeting-layout notes_actions` donne des notes dominantes puis
 **Décisions / Actions**, avec exactement les mêmes destinations.
-`--meeting-layout both` produit les **deux pages pour le même Meeting** :
+Avec `both`, les pages Notes passeraient derrière la page Décisions : la
+page Meeting reçoit donc une pastille **Notes ›** pour les rejoindre
+directement. `--meeting-layout both` produit les **deux pages pour le même
+Meeting** :
 la page classique pour préparer, puis une page **Décisions & actions** pour
 la clore, avant les pages Notes. La journée reste ouverte par `day-N` depuis
 le calendrier, la semaine et l'index ; la seconde page porte l'ancre
@@ -167,12 +170,14 @@ le calendrier, la semaine et l'index ; la seconde page porte l'ancre
 
 ### Fiches projet
 
-`--project-count` (0 à 12, zéro par défaut) et `--project-notes-pages` (0 à 4).
+`--project-count` (0 à 12, zéro par défaut) et `--project-notes-pages` (0 à 10).
 À zéro, aucune page ni aucun lien de projet n’est produit. Sinon, un index
 **Projets** puis une fiche par projet : objectif, cinq prochaines actions avec
 une place fixe pour une référence backlog manuscrite, décisions et notes, puis
 ses pages de notes. Ancres `projects`, `project-N` et `project-N-notes-P`.
-Une fiche ne recopie pas les notes détaillées du backlog.
+Une fiche ne recopie pas les notes détaillées du backlog. Une barre
+horizontale de pastilles **NOTES** ouvre chaque page de notes du projet,
+depuis la fiche comme depuis n'importe laquelle de ses notes.
 
 Quand les projets sont activés, la barre latérale gagne une section
 **PROJETS** dont chaque pastille ouvre directement sa fiche, depuis
@@ -366,6 +371,15 @@ venv/bin/python generate_planner.py --language en
 cp output/pdf/aipaper-manrope-200j.pdf examples/
 cp output/pdf/aipaper-manrope-en-200d.pdf examples/
 ```
+
+## Centrage des onglets
+
+Depuis le 17 septembre 2026, le texte des pastilles est centré sur la
+**hauteur de capitale** de la police et non sur son cadratin : il était
+auparavant 0,5 à 1 pt trop haut dans son onglet. Ce réglage touche toutes
+les pastilles de toutes les pages, donc les quatre carnets publiés ont été
+régénérés à cette occasion. Les comparaisons octet pour octet des tests
+protègent désormais cette nouvelle référence.
 
 ## Repères de performance
 

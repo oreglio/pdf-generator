@@ -185,7 +185,8 @@ class PlannerTests(unittest.TestCase):
         path = Path(self.temp.name) / "samples.pdf"
         planner_pdf.generate_samples(self.Config(), path)
         reader = PdfReader(path)
-        self.assertEqual(len(reader.pages), 3)
+        self.assertEqual(len(reader.pages), 4)
+        self.assertIn("Mes journées", reader.pages[0].extract_text())
         for page in reader.pages:
             self.assertFalse(page.get("/Annots"))
 

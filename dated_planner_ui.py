@@ -16,7 +16,7 @@ from planner_ui import device_form
 from planner_i18n import LANGUAGES
 
 
-KIND_LABELS = {'calendar': 'Calendrier', 'month-plan': 'Priorités',
+KIND_LABELS = {'home': 'Accueil', 'calendar': 'Calendrier', 'month-plan': 'Priorités',
                'week-overview': 'Sept jours', 'weekly': 'Semaine', 'week-review': 'Bilan',
                'meeting': 'Meeting', 'meeting-actions': 'Décisions',
                'task-list': 'Backlog', 'task-notes': 'Contexte',
@@ -116,7 +116,7 @@ def render_dated_planner_ui():
                                                     value=config.base.project_count,
                                                     key='dated_field_projects')
                 with c2:
-                    project_notes = st.number_input('Pages Notes par projet', min_value=0, max_value=4,
+                    project_notes = st.number_input('Pages Notes par projet', min_value=0, max_value=10,
                                                     value=config.base.project_notes_pages,
                                                     key='dated_field_project_notes')
                 project_names = st.text_area('Noms des projets : un par ligne',

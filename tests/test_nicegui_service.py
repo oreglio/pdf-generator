@@ -75,8 +75,8 @@ class NiceGUIServiceTests(unittest.TestCase):
             dated = replace(self.dated, base=base)
             undated_name = 'aipaper-apercu.pdf' if language == 'fr' else 'aipaper-preview-en.pdf'
             for mode, config, engine, count, filename in (
-                ('undated', base, generate_samples, 3, undated_name),
-                ('dated', dated, generate_dated_samples, 5,
+                ('undated', base, generate_samples, 4, undated_name),
+                ('dated', dated, generate_dated_samples, 6,
                  f'aipaper-dated-preview-{language}.pdf'),
             ):
                 with self.subTest(mode=mode, language=language):
@@ -136,7 +136,7 @@ class NiceGUIServiceTests(unittest.TestCase):
             self.assertLessEqual(max(preview.size), 1200)
             self.assertGreater(min(preview.size), 100)
         self.assertNotEqual(png, self.service.render_preview(artifact.pdf_bytes, page=1))
-        for page in (0, -1, True, 1.5, '1', 4):
+        for page in (0, -1, True, 1.5, '1', 5):
             with self.subTest(page=page), self.assertRaises(ValueError):
                 self.service.render_preview(artifact.pdf_bytes, page=page)
 

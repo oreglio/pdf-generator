@@ -163,9 +163,9 @@ def build_manifest(config) -> tuple[PageSpec, ...]:
 
 # One representative page per section, in the order a reader meets them.
 PREVIEW_KINDS = {
-    "undated": ("meeting", "meeting-actions", "task-list", "task-notes",
+    "undated": ("home", "meeting", "meeting-actions", "task-list", "task-notes",
                 "projects-index", "project", "project-notes"),
-    "dated": ("calendar", "month-plan", "week-overview", "weekly", "week-review",
+    "dated": ("home", "calendar", "month-plan", "week-overview", "weekly", "week-review",
               "meeting", "meeting-actions", "task-list", "task-notes",
               "projects-index", "project", "project-notes"),
 }

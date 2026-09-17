@@ -234,6 +234,29 @@ class MeetingLayoutTests(unittest.TestCase):
         self.assertIn('Decisions & actions',
                       PdfReader(output).pages[keys['day-1-actions']].extract_text())
 
+    def test_both_keeps_the_notes_one_tap_away_from_the_meeting(self):
+        both = replace(BASE, days=2, notes_pages=2, meeting_layout='both')
+        output = io.BytesIO()
+        generate_pdf(both, output)
+        reader = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(both))}
+        first = destinations(reader, reader.pages[keys['day-1']])
+        self.assertEqual(first['Notes 001'], keys['day-1-notes-1'])
+        self.assertIn('Notes ›', reader.pages[keys['day-1']].extract_text())
+        # Without the second page the footer already goes there: no extra tab.
+        classic = replace(both, meeting_layout='classic')
+        output = io.BytesIO()
+        generate_pdf(classic, output)
+        plain = PdfReader(output)
+        self.assertNotIn('Notes 001', destinations(plain, plain.pages[2]))
+        # And none at all when the notebook has no Notes page.
+        without = replace(both, notes_pages=0)
+        output = io.BytesIO()
+        generate_pdf(without, output)
+        bare = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(without))}
+        self.assertNotIn('Notes 001', destinations(bare, bare.pages[keys['day-1']]))
+
     def test_unknown_layouts_are_refused(self):
         self.assertEqual(set(MEETING_LAYOUTS), {'classic', 'notes_actions', 'both'})
         for value in ('simple', None, 1, ''):

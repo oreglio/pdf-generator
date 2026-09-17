@@ -44,7 +44,7 @@ class DatedPlannerUITests(unittest.TestCase):
         self.assertEqual(app.session_state['dated_config']['months'], 1)
         self.assertEqual(app.session_state['dated_config']['base']['language'], 'en')
         preview = PdfReader(io.BytesIO(app.session_state['dated_preview']['pdf']))
-        self.assertEqual(len(preview.pages), 5)
+        self.assertEqual(len(preview.pages), 6)
         app.button(key='dated_generate').click().run(timeout=30)
         self.assertFalse(app.exception)
         output = app.session_state['dated_download']
@@ -74,7 +74,7 @@ class DatedPlannerUITests(unittest.TestCase):
             app = self.open_dated()
         self.assertFalse(app.exception)
         self.assertTrue(any('Poppler' in message.value for message in app.info))
-        self.assertTrue(any(b.label == 'Télécharger les 5 pages d’aperçu' for b in app.get('download_button')))
+        self.assertTrue(any(b.label == 'Télécharger les 6 pages d’aperçu' for b in app.get('download_button')))
 
 
 class DatedPlannerCLITests(unittest.TestCase):

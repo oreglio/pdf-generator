@@ -13,6 +13,19 @@ from planner_layout import MUTED
 class ProjectPages:
     """Pages produced only when a notebook asks for at least one project."""
 
+    def project_notes_bar(self, number, current=None):
+        """Every note page of a project, one tap away from the others."""
+        total = self.config.project_notes_pages
+        if not total:
+            return
+        self.text(self.left, self.h - 87, self.tr("NOTES"), 5.5, gray=MUTED)
+        width = min(30, (self.width - 34) / total - 4)
+        for part in range(1, total + 1):
+            self.pill(self.left + 34 + (part - 1) * (width + 4), self.h - 98, width, 18,
+                      f"{part:02d}", f"project-{number}-notes-{part}",
+                      selected=part == current, size=7.5,
+                      title=self.tr("Projet {number:02d}", number=number) + f" / Notes {part:02d}")
+
     def projects_index(self, spec):
         self.start("projects", outline=self.tr("Projets"), level=1)
         self.header(self.tr("PROJETS"), self.tr("Projets"),
@@ -45,6 +58,7 @@ class ProjectPages:
         self.link(self.tr("Retour aux projets"), "projects",
                   (self.left, self.h - 43, self.left + 120, self.h - 22))
         self.rail()
+        self.project_notes_bar(number)
         floor = self.layout.body_bottom
         room = self.h - 117 - floor
         goal_y = self.h - 117
@@ -87,6 +101,7 @@ class ProjectPages:
         self.link(self.tr("Projet {number:02d}", number=number), f"project-{number}",
                   (self.left, self.h - 43, self.right, self.h - 22))
         self.rail()
+        self.project_notes_bar(number, current=part)
         self.text(self.left + 115, self.h - 48, self.tr("Sujet"), 7, gray=MUTED)
         self.line(self.left + 115, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.rules(self.h - 111)

@@ -22,7 +22,7 @@ class PlannerUITests(unittest.TestCase):
         app.number_input(key="planner_field_tasks").set_value(1)
         self.apply(app)
         preview = PdfReader(io.BytesIO(app.session_state["planner_preview"]["pdf"]))
-        self.assertIn("Date / period", preview.pages[0].extract_text())
+        self.assertIn("Date / period", preview.pages[1].extract_text())
         app.button(key="planner_generate").click().run(timeout=20)
         self.assertFalse(app.exception)
         result = app.session_state["planner_download"]
@@ -32,7 +32,7 @@ class PlannerUITests(unittest.TestCase):
         self.apply(app)
         self.assertNotIn("planner_download", app.session_state)
         preview = PdfReader(io.BytesIO(app.session_state["planner_preview"]["pdf"]))
-        self.assertIn("Date / période", preview.pages[0].extract_text())
+        self.assertIn("Date / période", preview.pages[1].extract_text())
 
     def apply(self, app):
         button = next(button for button in app.button if button.label == "Appliquer et actualiser l’aperçu")
@@ -80,7 +80,7 @@ class PlannerUITests(unittest.TestCase):
         self.assertFalse(app.exception)
         self.assertTrue(any("Poppler" in message.value for message in app.info))
         downloads = app.get("download_button")
-        self.assertTrue(any(button.label == "Télécharger ces 3 pages d’aperçu" for button in downloads))
+        self.assertTrue(any(button.label == "Télécharger ces 4 pages d’aperçu" for button in downloads))
 
 
 if __name__ == "__main__":

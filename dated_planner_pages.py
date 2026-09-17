@@ -519,6 +519,7 @@ class DatedPlannerPages(PlannerPages):
         self.text(self.left + 183, self.h - 48, self.label("Sujet / temps fort", "Focus / subject"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.project_slot()
+        self.meeting_shortcut(day)
         self.rail()
         self.meeting_body()
         following = ((self.label("Décisions", "Decisions"), f"day-{day}-actions")

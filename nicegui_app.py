@@ -26,7 +26,7 @@ from planner_i18n import LANGUAGES
 
 ROOT = Path(__file__).resolve().parent
 MODES = {'dated': 'Carnet daté', 'undated': 'Carnet libre'}
-KIND_LABELS = {'calendar': 'Calendrier', 'month-plan': 'Priorités',
+KIND_LABELS = {'home': 'Accueil', 'calendar': 'Calendrier', 'month-plan': 'Priorités',
                'week-overview': 'Sept jours', 'weekly': 'Semaine', 'week-review': 'Bilan',
                'meeting': 'Meeting', 'meeting-actions': 'Décisions',
                'task-list': 'Backlog', 'task-notes': 'Contexte',
@@ -748,7 +748,7 @@ class PlannerWorkspace:
                         with ui.element('div').classes('fields'):
                             self.number('project_count', 'Fiches projet', base.project_count, 0, 12)
                             self.number('project_notes_pages', 'Pages Notes / projet',
-                                        base.project_notes_pages, 0, 4)
+                                        base.project_notes_pages, 0, 10)
                         self.field('project_names', ui.textarea(
                             'Noms des projets', value='\n'.join(base.project_names))).props('rows=3')
                         ui.label('Un nom par ligne ; les noms au-delà du nombre de fiches ne sont '
