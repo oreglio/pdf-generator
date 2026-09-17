@@ -63,7 +63,7 @@ class DatedPlannerPages(PlannerPages):
     def month_tab(self, value):
         return MONTH_TABS[self.config.language][value.month - 1]
 
-    def backlog_rail(self, label_y, active):
+    def backlog_rail(self, label_y, active, project=None):
         """Shared bottom of both rails: the backlog keeps the same tabs."""
         self.text(self.w - 19, label_y, "BACKLOG", 5.5, bold=True, align="center")
         self.link("Backlog", "home", (self.w - 34, label_y - 7, self.w - 4, label_y + 9))
@@ -78,9 +78,9 @@ class DatedPlannerPages(PlannerPages):
                       f"B{number:02d}", f"list-{number}", selected=number == active,
                       title=self.tr("Liste {number:02d}", number=number),
                       size=8 if step >= 20 else 7)
-        self.project_tabs(top - self.config.list_count * step, step)
+        self.project_tabs(top - self.config.list_count * step, step, project)
 
-    def month_rail(self, active=None):
+    def month_rail(self, active=None, project=None):
         """Long periods index their months; weeks stay inside each calendar."""
         self.line(self.w - 39, 69, self.w - 39, self.h - 31, gray=0.85)
         self.text(self.w - 19, self.h - 39, self.label("MOIS", "MONTHS"), 5.5, bold=True, align="center")
@@ -94,7 +94,7 @@ class DatedPlannerPages(PlannerPages):
             # No readable month tab fits: the label opens the home page, which
             # lists every month of the notebook.
             self.link("Home", "home", (self.w - 34, self.h - 46, self.w - 4, self.h - 30))
-            return self.backlog_rail(self.h - 63, active)
+            return self.backlog_rail(self.h - 63, active, project)
         for index, month in enumerate(months):
             y = self.h - 50 - (index + 1) * step
             height = step - 3
@@ -115,11 +115,11 @@ class DatedPlannerPages(PlannerPages):
                          else self.month_tab(month))
                 self.text(self.w - 19, y + (height - 5.5) / 2 + 1, label, 5.5,
                           bold=True, gray=ink, align="center", max_width=22)
-        self.backlog_rail(self.h - 63 - len(months) * step, active)
+        self.backlog_rail(self.h - 63 - len(months) * step, active, project)
 
-    def rail(self, active=None):
+    def rail(self, active=None, project=None):
         if self.schedule.long_navigation:
-            return self.month_rail(active)
+            return self.month_rail(active, project)
         self.line(self.w - 39, 69, self.w - 39, self.h - 31, gray=0.85)
         self.text(self.w - 19, self.h - 39, self.label("SEMAINES", "WEEKS"), 5.5, bold=True, align="center")
         step = min(26, 270 / len(self.schedule.weeks),
@@ -130,7 +130,7 @@ class DatedPlannerPages(PlannerPages):
                       self.week_label(monday), self.week_target(monday),
                       selected=monday == self.active_week, size=7,
                       title=self.schedule.week_key(monday))
-        self.backlog_rail(self.h - 63 - len(self.schedule.weeks) * step, active)
+        self.backlog_rail(self.h - 63 - len(self.schedule.weeks) * step, active, project)
 
     def footer(self, *, day=None, context=None, previous=None, next_page=None,
                next_day=None, previous_day=None, previous_label=None, next_width=76,

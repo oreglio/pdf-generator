@@ -115,7 +115,7 @@ class PlannerPages(ProjectPages):
         if subtitle:
             self.text(self.left, self.h - 90, subtitle, 8.5, gray=MUTED, max_width=self.width)
 
-    def rail(self, active=None):
+    def rail(self, active=None, project=None):
         self.line(self.w - 39, 69, self.w - 39, self.h - 31, gray=0.85)
         self.text(self.w - 19, self.h - 39, self.tr("JOURS"), 6.5, bold=True, align="center")
         blocks = self.config.index_pages
@@ -157,7 +157,7 @@ class PlannerPages(ProjectPages):
                       f"B{number:02d}", f"list-{number}", selected=number == active,
                       title=self.tr("Liste {number:02d}", number=number),
                       size=8 if todo_step >= 20 else 7)
-        self.project_tabs(todo_top - self.config.list_count * todo_step, todo_step)
+        self.project_tabs(todo_top - self.config.list_count * todo_step, todo_step, project)
 
     def footer_bound(self, *, previous_day, next_day, previous, previous_label,
                      next_page, next_width, edge=None):
@@ -239,7 +239,7 @@ class PlannerPages(ProjectPages):
             draw_note_background(self.c, self.task_bounds,
                                  self.config.task_note_style, self.layout.row_height)
 
-    def project_tabs(self, top, step):
+    def project_tabs(self, top, step, active=None):
         """Numbered project tabs under the lists; the label alone opens the index."""
         count = self.config.project_count
         if not count:
@@ -253,7 +253,7 @@ class PlannerPages(ProjectPages):
         start = label_y - 10
         for number in range(1, count + 1):
             self.pill(self.w - 32, start - number * step + 4, 26, step - 4,
-                      f"P{number:02d}", f"project-{number}",
+                      f"P{number:02d}", f"project-{number}", selected=number == active,
                       title=self.tr("Projet {number:02d}", number=number),
                       size=8 if step >= 20 else 7)
 
