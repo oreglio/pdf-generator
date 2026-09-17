@@ -43,18 +43,22 @@ class PageLayout:
     def pagesize(self):
         return (self.width, self.height)
 
-    def _rows(self, top_offset, step):
+    # A writing grid may tighten its lines by this much before it gives up and
+    # asks for a second sheet: two tight pages beat two three-fifths empty ones.
+    COMPRESSION = 0.85
+
+    def _rows(self, top_offset, step, compression=1.0):
         """Rows fitting between a top offset and the footer, at least one."""
-        return max(1, int((self.height - top_offset - 59) // step) + 1)
+        return max(1, int((self.height - top_offset - 59) // (step * compression)) + 1)
 
     @property
     def backlog_capacity(self):
         """Backlog tasks a single list sheet can hold, in two columns."""
-        return self._rows(126, self.task_row_height) * 2
+        return self._rows(126, self.task_row_height, self.COMPRESSION) * 2
 
     @property
     def weekly_capacity(self):
-        return self._rows(165, self.weekly_row_height) * 2
+        return self._rows(165, self.weekly_row_height, self.COMPRESSION) * 2
 
     @property
     def index_capacity(self):
@@ -78,6 +82,20 @@ class PageLayout:
         """Shrink a vertical step so `count` rows stay above the footer."""
         floor = self.footer_rule + 14 if floor is None else floor
         return step if count < 2 else min(step, (top - floor) / (count - 1))
+
+    def fill(self, top, step, count, floor=None, stretch=1.7):
+        """Shrink to fit, and spread to the foot of the page when room is left.
+
+        A writing grid that stops two thirds down wastes the paper it was asked
+        for; `stretch` keeps the lines from drifting comically far apart.
+        """
+        floor = self.footer_rule + 14 if floor is None else floor
+        if count < 2:
+            return step
+        ideal = (top - floor) / (count - 1)
+        if ideal < step:
+            return ideal  # Not enough room: shrink, exactly as `fit` does.
+        return min(ideal, step * stretch)
 
 
 def make_layout(config):

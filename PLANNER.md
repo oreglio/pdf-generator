@@ -104,21 +104,25 @@ le carnet est exactement celui décrit plus bas.
 
 | Famille | Modèles | Surface utile |
 | --- | --- | --- |
-| Viwoods | AiPaper 10,65″, AiPaper Mini 8,2″ | 163 × 217 mm, 125 × 167 mm |
+| Viwoods | AiPaper 10,65″ | 163 × 217 mm |
 | BOOX | Go 10.3, Note Air4 C, Note Max 13,3″ | 157 × 210 mm, 157 × 210 mm, 203 × 271 mm |
+| reMarkable | 2 (10,3″), Paper Pro (11,8″) | 158 × 210 mm, 180 × 240 mm |
 | iPad | Pro 11″ (M4/M5), Pro 13″ (M4/M5) | 160 × 233 mm, 199 × 265 mm |
 | Personnalisé | Largeur et hauteur en mm | 100 à 400 mm de large, 150 à 400 mm de haut |
 
 Les dimensions viennent des fiches officielles
-([Viwoods](https://viwoods.com/pages/compare-aipapermini),
+([Viwoods](https://viwoods.com/products/viwoods-aipaper),
 [BOOX](https://shop.boox.com/products/notemax),
+[reMarkable](https://support.remarkable.com/s/article/About-reMarkable-Paper-Pro),
 [Apple](https://support.apple.com/en-us/119891)) et sont converties en points
 PDF avec la densité du panneau. Ce sont des **proportions et des surfaces
 utiles**, pas un export raster : le PDF garde son texte et ses tracés
 vectoriels. Les barres d’outils des lecteurs réduisent la surface visible :
-tester en affichage pleine page. Le format personnalisé est portrait
-uniquement ; la hauteur minimale de 150 mm est celle qui permet encore de
-dessiner les blocs d’un Meeting au-dessus de la zone d’écriture.
+tester en affichage pleine page. Le catalogue commence à dix pouces. En dessous — AiPaper Mini 8,2″, reMarkable
+Paper Pro Move 7,3″ — les mises en page à deux colonnes ne tiennent plus sans
+sacrifier des raccourcis, et ces modèles sont volontairement absents. Le format
+personnalisé reste ouvert à partir de 100 × 150 mm, à vos risques : sous dix
+pouces, le pied de page abandonne d’abord la semaine, puis les flèches Jour.
 
 Marges, barre latérale et pied de page gardent leur taille physique sur tous
 les appareils ; seule la colonne d’écriture suit la page. Aucune déformation
@@ -137,12 +141,16 @@ feuillets équilibrés** plutôt que tronquée :
 
 | Profil | Tâches par feuillet | 40 tâches |
 | --- | --- | --- |
-| AiPaper standard | 40 | 1 feuillet |
-| AiPaper aéré | 32 | 2 feuillets de 20 |
-| AiPaper Mini standard | 26 | 2 feuillets de 20 |
-| Note Max standard | 52 | 1 feuillet |
+| AiPaper standard | 46 | 1 feuillet |
+| AiPaper aéré | 36 | 2 feuillets de 20 |
+| Go 10.3 standard | 44 | 1 feuillet |
+| Note Max standard | 66 | 1 feuillet |
 
-Aucune ligne n’est perdue ni dupliquée et les numéros restent continus.
+Une feuille resserre d’abord ses lignes — jusqu’à 15 % — avant de demander un
+second feuillet : quarante tâches sur une page qui en tient trente-huit ne se
+coupent pas en deux pages à moitié vides. À l’inverse, les lignes s’écartent
+pour occuper le bas de la page quand la place reste libre. Aucune ligne n’est
+perdue ni dupliquée et les numéros restent continus.
 La première feuille garde la destination historique `list-1` ; les suivantes
 deviennent `list-1-page-2`. Les onglets de liste ouvrent toujours la première
 feuille ; les notes d’une tâche reviennent à la feuille portant sa ligne.

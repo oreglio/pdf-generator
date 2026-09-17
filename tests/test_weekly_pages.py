@@ -105,7 +105,7 @@ class WeeklyOptionTests(unittest.TestCase):
 
     def test_english_labels_and_a_small_screen_keep_every_link_on_the_page(self):
         config = DatedPlannerConfig(
-            base=replace(BASE, language='en', device='viwoods-aipaper-mini'),
+            base=replace(BASE, language='en', device='custom', custom_width_mm=125.0, custom_height_mm=167.0),
             start_date='2026-09-16', months=1, weekly_overview=True, weekly_review=True)
         output = io.BytesIO()
         self.assertEqual(generate_dated_pdf(config, output), config.total_pages)

@@ -211,7 +211,7 @@ class ProjectTests(unittest.TestCase):
                     self.assertEqual(links[f'Projet 01 / Notes {part:02d}'],
                                      keys[f'project-1-notes-{part}'])
                 self.assertNotIn('Projet 02 / Notes 01', links)
-        self.assertIn('NOTES', reader.pages[keys['project-1']].extract_text())
+        self.assertNotIn('NOTES', reader.pages[keys['project-1']].extract_text())
 
     def test_no_note_page_means_no_note_bar(self):
         config, reader, keys = self.book(project_count=1, project_notes_pages=0)

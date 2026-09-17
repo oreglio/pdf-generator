@@ -36,19 +36,22 @@ class FormatCatalogueTests(unittest.TestCase):
                 self.assertLessEqual(device.width_pt, device.height_pt)
                 self.assertTrue(device.source_url.startswith("https://"))
                 self.assertTrue(device.label)
-                self.assertLess(80, device.width_mm)
+                self.assertLess(120, device.width_mm)
                 self.assertLess(device.height_mm, 400)
         self.assertEqual({device.brand for device in CATALOGUE},
-                         {"viwoods", "boox", "ipad"})
+                         {"viwoods", "boox", "remarkable", "ipad"})
         self.assertEqual(len(devices_of("boox")), 3)
+        self.assertEqual(len(devices_of("remarkable")), 2)
 
     def test_published_dimensions_match_the_official_specification_sheets(self):
         expected = {
             "viwoods-aipaper": (1920, 2560, 300),
-            "viwoods-aipaper-mini": (1440, 1920, 292),
+            "remarkable-2": (1440, 1920, 292),
             "boox-go-103": (1860, 2480, 300),
             "boox-note-air4c": (1860, 2480, 300),
             "boox-note-max": (2400, 3200, 300),
+            "remarkable-2": (1404, 1872, 226),
+            "remarkable-paper-pro": (1620, 2160, 229),
             "ipad-pro-11-m4": (1668, 2420, 264),
             "ipad-pro-13-m4": (2064, 2752, 264),
         }
@@ -129,7 +132,7 @@ class FormatRenderingTests(unittest.TestCase):
     def test_dated_notebook_follows_the_same_device_geometry(self):
         from dated_planner_config import DatedPlannerConfig
         from dated_planner_pdf import generate_dated_pdf
-        for key in ("viwoods-aipaper-mini", "boox-note-max", "ipad-pro-11-m4"):
+        for key in ("remarkable-2", "boox-note-max", "ipad-pro-11-m4"):
             with self.subTest(device=key):
                 device = DEVICES[key]
                 config = DatedPlannerConfig(base=self.small(device=key),
@@ -182,7 +185,7 @@ class FormatRenderingTests(unittest.TestCase):
     def test_two_devices_never_share_mutated_geometry(self):
         from planner_pages import PlannerPages
         from reportlab.pdfgen import canvas
-        mini = PlannerPages(canvas.Canvas(io.BytesIO()), self.small(device="viwoods-aipaper-mini"))
+        mini = PlannerPages(canvas.Canvas(io.BytesIO()), self.small(device="remarkable-2"))
         maximum = PlannerPages(canvas.Canvas(io.BytesIO()), self.small(device="boox-note-max"))
         reference = PlannerPages(canvas.Canvas(io.BytesIO()), self.small())
         self.assertLess(mini.w, reference.w)

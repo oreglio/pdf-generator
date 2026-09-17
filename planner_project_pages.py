@@ -27,16 +27,13 @@ class ProjectPages:
         total = self.config.project_notes_pages
         if not total:
             return
-        label = self.tr("NOTES")
-        label_width = pdfmetrics.stringWidth(label, self.bold, 5.5) + 8
-        room = self.right - (self.left + 52) - label_width
-        slot = min(26, room / total)
+        # The tabs alone carry the meaning: no caption competing with the eyebrow.
+        slot = min(26, (self.right - (self.left + 52)) / total)
         if slot < 11:  # Too cramped to tap: the footer still walks the notes.
             return
         start = self.right - total * slot + 3
-        self.text(start - 8, self.h - 33, label, 5.5, bold=True, gray=MUTED, align="right")
         for part in range(1, total + 1):
-            self.pill(start + (part - 1) * slot, self.h - 39, slot - 3, 16,
+            self.pill(start + (part - 1) * slot, self.h - 34, slot - 3, 18,
                       f"{part:02d}", f"project-{number}-notes-{part}",
                       selected=part == current, size=7,
                       title=self.tr("Projet {number:02d}", number=number) + f" / Notes {part:02d}")
@@ -60,7 +57,7 @@ class ProjectPages:
             self.text(x + cell - 2, y, ">", 11, align="right")
             self.line(x, y - 9, x + cell, y - 9)
             self.link(self.tr("Projet {number:02d}", number=number), f"project-{number}",
-                      (x, y - 8, x + cell, y + 22))
+                      (x, y - 8, x + cell, y - 8 + min(30, step - 2)))
         self.footer(next_page=(self.tr("Projet"), "project-1"))
         self.end()
 
@@ -69,13 +66,20 @@ class ProjectPages:
         number = int(spec.reference)
         name = self.config.project_name(number)
         eyebrow = self.tr("PROJET {number:02d}", number=number)
+        named = bool(number <= len(self.config.project_names)
+                     and self.config.project_names[number - 1])
         self.start(f"project-{number}", outline=f"{number:02d} — {name}", level=2)
-        self.header(eyebrow, name)
+        if named:
+            self.header(eyebrow, name)
+            goal_y = self.h - 108
+        else:  # The title would only repeat the eyebrow: give the room away.
+            self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED,
+                      max_width=self.width)
+            goal_y = self.h - 66
         self.project_eyebrow(number, eyebrow, "projects", self.tr("Retour aux projets"))
         self.rail()
         floor = self.layout.body_bottom
-        room = self.h - 108 - floor
-        goal_y = self.h - 108
+        room = goal_y - floor
         self.text(self.left, goal_y, self.tr("Objectif"), 12, bold=True)
         self.rules(goal_y - 20, bottom=goal_y - room * 0.16)
         actions_y = goal_y - room * 0.2
@@ -87,7 +91,7 @@ class ProjectPages:
             self.line(self.left, y, self.left + 21, y)
             self.text(self.left + 32, y + 2, f"{index + 1:02d}", 7.5, gray=MUTED, numeric=True)
             if index == 0:
-                self.text(self.left + 52, y + 12, reference, 5.5, gray=MUTED)
+                self.text(self.left + 72, y + 14, reference, 5.5, gray=MUTED, align="center")
             self.line(self.left + 50, y, self.left + 94, y)
             self.line(self.left + 104, y, self.right, y)
         decisions_y = actions_y - 30 - 5 * step

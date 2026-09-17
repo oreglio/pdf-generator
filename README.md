@@ -26,10 +26,11 @@ garde des profils nommés dans votre navigateur.
 
 Trois réglages déterminent la forme du carnet, quel que soit le mode.
 
-**Support & format.** Famille → Modèle : Viwoods AiPaper et AiPaper Mini,
-BOOX Go 10.3, Note Air4 C et Note Max, iPad Pro 11″ et 13″ (M4/M5), ou un
-format personnalisé de 100 à 400 mm de large et de 150 à 400 mm de haut, en
-portrait. Les dimensions viennent des fiches officielles ; le PDF reste
+**Support & format.** Famille → Modèle : Viwoods AiPaper, BOOX Go 10.3,
+Note Air4 C et Note Max, reMarkable 2 et Paper Pro, iPad Pro 11″ et 13″
+(M4/M5), ou un format personnalisé de 100 à 400 mm de large et de 150 à
+400 mm de haut, en portrait. Le catalogue commence à dix pouces : en dessous,
+les mises en page à deux colonnes ne tiennent plus. Les dimensions viennent des fiches officielles ; le PDF reste
 vectoriel, ce n’est pas un export à la résolution de l’écran.
 
 **Confort d’écriture.** *Standard* ou *Aéré*. Aéré écarte les lignes. Quand une
@@ -71,8 +72,8 @@ Séparés des carnets historiques, dans
 | Exemple | Contenu | Taille |
 | --- | --- | --- |
 | [Carnet annuel AiPaper](examples/evolution/annuel-aipaper-12-mois.pdf?raw=true) | 12 mois, 13 calendriers, 53 semaines, barre de mois · 902 pages | ≈ 7 Mo |
-| [AiPaper Mini, 3 mois](examples/evolution/aipaper-mini-90-jours.pdf?raw=true) | Petit écran, listes de 40 tâches réparties sur deux feuillets · 425 pages | ≈ 3 Mo |
-| [Toutes les options, 3 mois](examples/evolution/options-completes-3-mois.pdf?raw=true) | Priorités, sept jours, bilan, Meeting simplifié, quadrillage et projets · 326 pages | ≈ 3 Mo |
+| [reMarkable 2, 3 mois](examples/evolution/remarkable-2-90-jours.pdf?raw=true) | Trimestre complet sur un 10,3″ · 406 pages | ≈ 3 Mo |
+| [Toutes les options, 3 mois](examples/evolution/options-completes-3-mois.pdf?raw=true) | Priorités, sept jours, bilan, Meeting en deux pages, quadrillage et projets · 429 pages | ≈ 4 Mo |
 | [BOOX Note Max, aéré](examples/evolution/boox-note-max-aere-60-jours.pdf?raw=true) | Grand écran 13,3″, confort aéré, carnet libre de 60 journées · 287 pages | ≈ 1 Mo |
 
 Formats vérifiés par mesure et par audit des liens. **Usage sur appareil non

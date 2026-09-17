@@ -135,7 +135,7 @@ class PlannerPages(ProjectPages):
         projects = self.config.project_count
         room = max(0, todo_top - 69) - (13 if projects else 0)
         todo_step = min(31, room / (self.config.list_count + projects))
-        if todo_step < 5:
+        if todo_step < 10:
             return
         for number in range(1, self.config.list_count + 1):
             self.pill(self.w - 32, todo_top - number * todo_step + 4, 26, todo_step - 4,
@@ -143,6 +143,18 @@ class PlannerPages(ProjectPages):
                       title=self.tr("Liste {number:02d}", number=number),
                       size=9 if todo_step >= 20 else 7.5)
         self.project_tabs(todo_top - self.config.list_count * todo_step, todo_step)
+
+    def footer_bound(self, *, previous_day, next_day, previous, previous_label,
+                     next_page, next_width, edge=None):
+        """Leftmost x the right-hand footer slots already occupy."""
+        edge = self.right if edge is None else edge
+        if previous_day or next_day:
+            return edge - 141
+        if previous and previous_label:
+            return edge - next_width - 64
+        if next_page:
+            return edge - next_width
+        return edge
 
     def footer(self, *, day=None, context=None, previous=None, next_page=None, next_day=None,
                previous_day=None, previous_label=None, next_width=48):
@@ -152,11 +164,15 @@ class PlannerPages(ProjectPages):
         self.text(self.left + 63, 25, self.tr("Journées"), 8, bold=True)
         block = (day - 1) // self.config.days_per_index if day else 0
         self.link(self.tr("Journees"), f"days-{block}", (self.left + 60, 15, self.left + 120, 40))
-        if context:
+        bound = self.footer_bound(previous_day=previous_day, next_day=next_day,
+                                  previous=previous, previous_label=previous_label,
+                                  next_page=next_page, next_width=next_width)
+        end = min(self.left + 233, bound - 6)
+        if context and end - (self.left + 135) >= 40:
             label, target, title = context
-            self.text(self.left + 140, 25, label, 8, bold=True, max_width=90)
-            self.link(title, target, (self.left + 135, 15, self.left + 233, 40))
-        if previous_day or next_day:
+            self.text(self.left + 140, 25, label, 8, bold=True, max_width=end - self.left - 145)
+            self.link(title, target, (self.left + 135, 15, end, 40))
+        if (previous_day or next_day) and self.right - 141 >= self.left + 130:
             self.text(self.right - 110, 25, self.tr("Jour"), 8, bold=True, align="center")
             if previous_day:
                 self.text(self.right - 126, 25, "<", 8, bold=True, align="center")
@@ -172,6 +188,7 @@ class PlannerPages(ProjectPages):
         elif previous and previous != f"days-{block}":
             self.text(self.right - 69, 25, "<", 12, bold=True, align="center")
             self.link(self.tr("Precedent"), previous, (self.right - 85, 15, self.right - 52, 40))
+        next_width = min(next_width, max(30, self.right - (self.left + 128)))
         if next_page:
             label, target = next_page
             self.text(self.right - 5, 25, label + " >", 8, bold=True, align="right", max_width=next_width - 5)
@@ -189,7 +206,8 @@ class PlannerPages(ProjectPages):
 
     @property
     def task_bounds(self):
-        return (self.left + 1, 68, self.right, self.h - 105)
+        """The context page carries no title: its writing area starts higher."""
+        return (self.left + 1, 68, self.right, self.h - 88)
 
     def _make_dot_form(self):
         """Repeated on every context page: worth one reusable form object."""
@@ -215,7 +233,7 @@ class PlannerPages(ProjectPages):
         self.text(self.w - 19, label_y, self.tr("PROJETS"), 5.5, bold=True, align="center")
         self.link(self.tr("Projets"), "projects",
                   (self.w - 34, label_y - 7, self.w - 4, label_y + 9))
-        if step < 9:  # No room for readable tabs: the label still opens the index.
+        if step < 10:  # No room for readable tabs: the label still opens the index.
             return
         start = label_y - 10
         for number in range(1, count + 1):
@@ -311,7 +329,8 @@ class PlannerPages(ProjectPages):
             self.text(x + 28, y + 7, self.config.list_name(number), 9,
                       max_width=cell_w - 44)
             self.text(x + cell_w - 2, y + 6, ">", 11, align="right")
-            self.link(self.tr("Liste {number:02d}", number=number), f"list-{number}", (x, y - 7, x + cell_w, y + 28))
+            self.link(self.tr("Liste {number:02d}", number=number), f"list-{number}",
+                      (x, y - 7, x + cell_w, y - 7 + min(35, list_step - 2)))
         self.footer(context=self.projects_link(), next_page=(self.tr("Journées"), "days-0"))
         self.end()
 
@@ -331,7 +350,8 @@ class PlannerPages(ProjectPages):
             self.text(x, y + 12, f"{day:03d}", 12, bold=True, numeric=True)
             self.text(x + cell_w - 2, y + 13, ">", 10, align="right", gray=MUTED)
             self.line(x, y + 5, x + cell_w, y + 5)
-            self.link(f"Meeting {day:03d}", f"day-{day}", (x, y - 8, x + cell_w, y + 29))
+            self.link(f"Meeting {day:03d}", f"day-{day}",
+                      (x, y - 8, x + cell_w, y - 8 + min(37, row_step - 2)))
         next_page = (self.tr("Suite"), f"days-{block + 1}") if block + 1 < self.config.index_pages else (self.tr("Début"), "day-1")
         self.footer(day=first, previous=f"days-{block - 1}" if block else "home", next_page=next_page)
         self.end()
@@ -438,7 +458,7 @@ class PlannerPages(ProjectPages):
     def list_geometry(self, spec):
         """Rows, column width and vertical step shared by both editions."""
         rows = ceil((spec.last_item - spec.first_item + 1) / 2)
-        step = self.layout.fit(self.h - 126, self.layout.task_row_height, rows)
+        step = self.layout.fill(self.h - 126, self.layout.task_row_height, rows)
         return rows, (self.width - 20) / 2, step
 
     def task_list(self, spec):
@@ -463,7 +483,7 @@ class PlannerPages(ProjectPages):
             self.text(x + col_w - 6, y + 2, ">", 12, bold=True, align="center")
             target = f"task-{number}-{item}-1"
             self.link(self.tr("Tache {number:02d}-{item:02d}", number=number, item=item), target,
-                      (x + col_w - 22, y - 5, x + col_w + 2, y + 17))
+                      (x + col_w - 22, y - 5, x + col_w + 2, y - 5 + min(22, row_step)))
         if sheet < total:
             next_page = (f"{sheet + 1}/{total}", sheet_key(f"list-{number}", sheet + 1))
         elif number < self.config.list_count:
@@ -477,8 +497,10 @@ class PlannerPages(ProjectPages):
 
     def task_notes(self, number, item, part):
         self.start(f"task-{number}-{item}-{part}")
-        self.header(f"{self.config.list_name(number).upper()} — NOTES {part:02d}/{self.config.detail_pages:02d}",
-                    f"{number:02d}-{item:02d}")
+        self.text(self.left, self.h - 34,
+                  f"{self.config.list_name(number).upper()} · {number:02d}-{item:02d}"
+                  f" — NOTES {part:02d}/{self.config.detail_pages:02d}",
+                  8, bold=True, gray=MUTED, max_width=self.width)
         total_tasks, capacity = self.config.tasks_per_list, self.layout.backlog_capacity
         sheets = self.config.list_sheets
         sheet = sheet_of(item, total_tasks, capacity)

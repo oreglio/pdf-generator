@@ -188,12 +188,12 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         from pypdf import PdfReader
         from nicegui_service import generate_artifact
         mini, maximum = workspace(), workspace()
-        mini.fields['device'].value = 'viwoods-aipaper-mini'
+        mini.fields['device'].value = 'remarkable-2'
         maximum.fields['device'].value = 'boox-note-max'
         maximum.fields['density'].value = 'comfortable'
         mini.apply_draft()
         maximum.apply_draft()
-        self.assertEqual(mini.config.device, 'viwoods-aipaper-mini')
+        self.assertEqual(mini.config.device, 'remarkable-2')
         self.assertEqual(mini.config.density, 'standard')
         self.assertEqual(maximum.config.device, 'boox-note-max')
         widths = []

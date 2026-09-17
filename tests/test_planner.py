@@ -216,7 +216,7 @@ class PlannerTests(unittest.TestCase):
         expected = {0: ("UNDATED NOTEBOOK", "My days", "My lists", "4 tasks / list"),
                     1: ("DAY INDEX", "Days"), 2: ("DAY 001", "Date / period", "Day"),
                     3: ("Date / subject",), 8: ("TODO / LIST 01", "List 01"),
-                    9: ("LIST 01 — NOTES 01/02", "Subject")}
+                    9: ("LIST 01 · 01-01 — NOTES 01/02", "Subject")}
         for index, labels in expected.items():
             for label in labels:
                 self.assertIn(label, english.pages[index].extract_text())

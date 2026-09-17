@@ -15,7 +15,8 @@ CUSTOM = "custom"
 CUSTOM_WIDTH_MM = (100.0, 400.0)
 CUSTOM_HEIGHT_MM = (150.0, 400.0)
 DENSITIES = {"standard": "Standard", "comfortable": "Aéré"}
-BRANDS = {"viwoods": "Viwoods", "boox": "BOOX", "ipad": "iPad", CUSTOM: "Personnalisé"}
+BRANDS = {"viwoods": "Viwoods", "boox": "BOOX", "remarkable": "reMarkable",
+          "ipad": "iPad", CUSTOM: "Personnalisé"}
 
 
 @dataclass(frozen=True)
@@ -40,15 +41,15 @@ class DeviceFormat:
         return f"{self.width_mm:.0f} × {self.height_mm:.0f} mm"
 
 
+# The catalogue starts at ten inches. Smaller panels — AiPaper Mini 8,2″,
+# reMarkable Paper Pro Move 7,3″ — cannot hold the two-column weekly and
+# backlog layouts without shedding shortcuts, so they are deliberately absent.
 CATALOGUE = (
     # Viwoods AiPaper: 1920 × 2560 px at 300 ppi. Reference profile; keep the
     # exact expression so the historical notebooks stay byte identical.
     DeviceFormat("viwoods-aipaper", "viwoods", "AiPaper 10,65″",
                  1920 * 72 / 300, 2560 * 72 / 300,
                  "https://viwoods.com/products/viwoods-aipaper"),
-    DeviceFormat("viwoods-aipaper-mini", "viwoods", "AiPaper Mini 8,2″",
-                 1440 * 72 / 292, 1920 * 72 / 292,
-                 "https://viwoods.com/pages/compare-aipapermini"),
     DeviceFormat("boox-go-103", "boox", "Go 10.3",
                  1860 * 72 / 300, 2480 * 72 / 300,
                  "https://shop.boox.com/products/go103"),
@@ -58,6 +59,12 @@ CATALOGUE = (
     DeviceFormat("boox-note-max", "boox", "Note Max 13,3″",
                  2400 * 72 / 300, 3200 * 72 / 300,
                  "https://shop.boox.com/products/notemax"),
+    DeviceFormat("remarkable-2", "remarkable", "reMarkable 2 10,3″",
+                 1404 * 72 / 226, 1872 * 72 / 226,
+                 "https://support.remarkable.com/s/article/About-reMarkable-2"),
+    DeviceFormat("remarkable-paper-pro", "remarkable", "Paper Pro 11,8″",
+                 1620 * 72 / 229, 2160 * 72 / 229,
+                 "https://support.remarkable.com/s/article/About-reMarkable-Paper-Pro"),
     DeviceFormat("ipad-pro-11-m4", "ipad", "iPad Pro 11″ (M4/M5)",
                  1668 * 72 / 264, 2420 * 72 / 264,
                  "https://support.apple.com/en-us/119892"),

@@ -12,7 +12,7 @@ from planner_manifest import (build_manifest, first_of, list_key, sheet_key,
 from planner_pdf import generate_pdf
 
 
-SMALL = "viwoods-aipaper-mini"
+SMALL = {"device": "custom", "custom_width_mm": 125.0, "custom_height_mm": 167.0}
 
 
 class SheetArithmeticTests(unittest.TestCase):
@@ -48,13 +48,13 @@ class ManifestStructureTests(unittest.TestCase):
         base = PlannerConfig(days=45, list_count=2, tasks_per_list=40,
                              detail_pages=1, notes_pages=1)
         yield "aipaper", base
-        yield "mini", replace(base, device=SMALL)
+        yield "mini", replace(base, **SMALL)
         yield "aéré", replace(base, density="comfortable")
         yield "dated", DatedPlannerConfig(base=replace(base, list_count=1),
                                           start_date="2026-09-16", months=1,
                                           week_pages=2, weekly_tasks=40)
         yield "dated mini", DatedPlannerConfig(
-            base=replace(base, device=SMALL, list_count=1),
+            base=replace(base, list_count=1, **SMALL),
             start_date="2026-09-16", months=1, week_pages=2, weekly_tasks=40)
 
     def test_manifest_is_the_page_count_with_unique_keys(self):
@@ -83,9 +83,9 @@ class ManifestStructureTests(unittest.TestCase):
     def test_small_screen_and_comfort_add_sheets_rather_than_dropping_tasks(self):
         reference = PlannerConfig(days=1, list_count=1, tasks_per_list=40, detail_pages=1)
         self.assertEqual(reference.list_sheets, 1)
-        self.assertEqual(replace(reference, device=SMALL).list_sheets, 2)
+        self.assertEqual(replace(reference, **SMALL).list_sheets, 2)
         self.assertEqual(replace(reference, density="comfortable").list_sheets, 2)
-        for changes in ({"device": SMALL}, {"density": "comfortable"}):
+        for changes in (SMALL, {"density": "comfortable"}):
             config = replace(reference, **changes)
             with self.subTest(changes=changes):
                 self.assertGreater(config.total_pages, reference.total_pages)
@@ -93,7 +93,7 @@ class ManifestStructureTests(unittest.TestCase):
 
     def test_weekly_list_split_keeps_its_week_and_its_task_count(self):
         config = DatedPlannerConfig(
-            base=PlannerConfig(device=SMALL, list_count=1, tasks_per_list=2,
+            base=PlannerConfig(**SMALL, list_count=1, tasks_per_list=2,
                                detail_pages=1, notes_pages=0),
             start_date="2026-09-16", months=1, week_pages=2, weekly_tasks=40)
         self.assertEqual(config.week_sheets, 2)
@@ -127,7 +127,7 @@ class SplitRenderingTests(unittest.TestCase):
         return config, PdfReader(output)
 
     def test_split_list_numbers_stay_continuous_and_tabs_open_the_first_sheet(self):
-        config, reader = self.book(device=SMALL)
+        config, reader = self.book(**SMALL)
         manifest = build_manifest(config)
         keys = {spec.key: index for index, spec in enumerate(manifest)}
         self.assertIn("list-1-page-2", keys)
@@ -146,7 +146,7 @@ class SplitRenderingTests(unittest.TestCase):
             self.assertEqual(self.destinations(reader, page)["Liste 01"], keys["list-1"])
 
     def test_task_notes_return_to_the_sheet_holding_their_line(self):
-        config, reader = self.book(device=SMALL)
+        config, reader = self.book(**SMALL)
         keys = {spec.key: index for index, spec in enumerate(build_manifest(config))}
         for item, expected in ((1, "list-1"), (20, "list-1"),
                                (21, "list-1-page-2"), (40, "list-1-page-2")):
@@ -159,7 +159,7 @@ class SplitRenderingTests(unittest.TestCase):
                 self.assertEqual(links["Liste 01"], keys["list-1"])
 
     def test_every_destination_resolves_and_fits_on_split_notebooks(self):
-        for changes in ({"device": SMALL}, {"density": "comfortable"},
+        for changes in (SMALL, {"density": "comfortable"},
                         {"device": "boox-note-max"}, {"device": "ipad-pro-11-m4"}):
             with self.subTest(changes=changes):
                 config, reader = self.book(**changes)
@@ -175,7 +175,7 @@ class SplitRenderingTests(unittest.TestCase):
 
     def test_dated_split_weeks_stay_navigable_on_a_small_screen(self):
         config = DatedPlannerConfig(
-            base=PlannerConfig(device=SMALL, list_count=1, tasks_per_list=2,
+            base=PlannerConfig(**SMALL, list_count=1, tasks_per_list=2,
                                detail_pages=1, notes_pages=0),
             start_date="2026-09-16", months=1, week_pages=1, weekly_tasks=40)
         output = io.BytesIO()
@@ -228,7 +228,7 @@ class SplitRenderingTests(unittest.TestCase):
     def test_previews_follow_the_manifest_instead_of_a_fixed_count(self):
         from dated_planner_pdf import generate_dated_samples
         from planner_pdf import generate_samples
-        for changes in ({}, {"device": SMALL}, {"density": "comfortable"}):
+        for changes in ({}, SMALL, {"density": "comfortable"}):
             config = replace(PlannerConfig(days=2, list_count=1, tasks_per_list=40,
                                            detail_pages=1), **changes)
             with self.subTest(changes=changes):

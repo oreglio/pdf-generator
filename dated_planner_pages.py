@@ -71,7 +71,7 @@ class DatedPlannerPages(PlannerPages):
         projects = self.config.project_count
         room = max(0, top - 69) - (13 if projects else 0)
         step = min(30, room / (self.config.list_count + projects))
-        if step < 5:  # No column left: the BACKLOG label above still opens it.
+        if step < 10:  # No readable tab: the BACKLOG label above still opens it.
             return
         for number in range(1, self.config.list_count + 1):
             self.pill(self.w - 32, top - number * step + 4, 26, step - 4,
@@ -90,6 +90,11 @@ class DatedPlannerPages(PlannerPages):
         step = min(26, (self.h - 146) / (len(months) + self.config.list_count
                                          + self.config.project_count))
         current = self.current_date
+        if step < 13:
+            # No readable month tab fits: the label opens the home page, which
+            # lists every month of the notebook.
+            self.link("Home", "home", (self.w - 34, self.h - 46, self.w - 4, self.h - 30))
+            return self.backlog_rail(self.h - 63, active)
         for index, month in enumerate(months):
             y = self.h - 50 - (index + 1) * step
             height = step - 3
@@ -98,13 +103,17 @@ class DatedPlannerPages(PlannerPages):
             self.pill(self.w - 32, y, 26, height, "", self.month_key(month),
                       selected=selected, title=self.month_key(month))
             ink = 1 if selected else INK
-            if two_years:
+            if two_years and height >= 16:
                 self.text(self.w - 19, y + height - 7, self.month_tab(month), 5.5, bold=True,
                           gray=ink, align="center", max_width=22)
                 self.text(self.w - 19, y + 2.5, f"{month.year % 100:02d}", 5,
                           gray=1 if selected else MUTED, align="center")
             else:
-                self.text(self.w - 19, y + (height - 5.5) / 2 + 1, self.month_tab(month), 5.5,
+                # One line only: a short tab spells the year out rather than
+                # letting two Septembers look alike.
+                label = (f"{month.month:02d}.{month.year % 100:02d}" if two_years
+                         else self.month_tab(month))
+                self.text(self.w - 19, y + (height - 5.5) / 2 + 1, label, 5.5,
                           bold=True, gray=ink, align="center", max_width=22)
         self.backlog_rail(self.h - 63 - len(months) * step, active)
 
@@ -132,41 +141,56 @@ class DatedPlannerPages(PlannerPages):
         self.text(self.left + 61, 25, self.label("Calendrier", "Calendar"), 8, bold=True)
         month = self.current_date or self.schedule.start
         self.link("Calendar", self.month_key(month), (self.left + 57, 15, self.left + 120, 40))
-        if context and shortcut and self.left + 246 <= self.right - 141:
-            label, target, title = context
-            self.text(self.left + 140, 25, label, 8, bold=True, max_width=36)
-            self.link(title, target, (self.left + 135, 15, self.left + 178, 40))
+        tail = 56 if shortcut else 0
+        if tail and self.right - tail - 8 - 141 < self.left + 130:
+            tail = 0  # Not enough column: the shortcut steps aside first.
+        if tail:
             label, target, title = shortcut
-            self.text(self.left + 186, 25, label, 8, bold=True, max_width=56)
-            self.link(title, target, (self.left + 181, 15, self.left + 244, 40))
-        elif context:
+            self.text(self.right - 5, 25, label, 8, bold=True, align="right", max_width=tail - 5)
+            self.link(title, target, (self.right - tail, 15, self.right, 40))
+        edge = self.right - tail - (8 if tail else 0)
+        bound = self.footer_bound(previous_day=previous_day, next_day=next_day,
+                                  previous=previous, previous_label=previous_label,
+                                  next_page=next_page, next_width=next_width, edge=edge)
+        if context and min(self.left + 230, bound - 6) - (self.left + 135) >= 40:
+            end = min(self.left + 230, bound - 6)
             label, target, title = context
-            self.text(self.left + 140, 25, label, 8, bold=True, max_width=89)
-            self.link(title, target, (self.left + 135, 15, self.left + 230, 40))
+            self.text(self.left + 140, 25, label, 8, bold=True, max_width=end - self.left - 145)
+            self.link(title, target, (self.left + 135, 15, end, 40))
         elif previous_week or next_week:
-            if previous_week:
-                self.text(self.left + 140, 25, "< " + previous_week[0], 8, bold=True, max_width=44)
-                self.link("Previous week", previous_week[1], (self.left + 135, 15, self.left + 186, 40))
-            if next_week:
-                self.text(self.left + 238, 25, next_week[0] + " >", 8, bold=True,
-                          align="right", max_width=44)
-                self.link("Next week", next_week[1], (self.left + 192, 15, self.left + 238, 40))
-        if previous_day or next_day:
-            self.text(self.right - 110, 25, self.tr("Jour"), 8, bold=True, align="center")
+            # Narrow columns keep Home, Calendar and the sheet steps; the week
+            # steps step aside rather than run past the edge of the page.
+            reserved = next_width + 12 if next_page else 0
+            if previous and previous_label:  # its own slot sits further left
+                reserved = max(reserved, next_width + 76)
+            start, end = self.left + 135, min(self.left + 238, self.right - reserved)
+            if end - start >= 66:
+                half = min(46, (end - start - 6) / 2)
+                if previous_week:
+                    self.text(start + 5, 25, "< " + previous_week[0], 8, bold=True,
+                              max_width=half - 5)
+                    self.link("Previous week", previous_week[1], (start, 15, start + half, 40))
+                if next_week:
+                    self.text(end - 5, 25, next_week[0] + " >", 8, bold=True,
+                              align="right", max_width=half - 5)
+                    self.link("Next week", next_week[1], (end - half, 15, end, 40))
+        if (previous_day or next_day) and edge - 141 >= self.left + 130:
+            self.text(edge - 110, 25, self.tr("Jour"), 8, bold=True, align="center")
             if previous_day:
-                self.text(self.right - 126, 25, "<", 8, bold=True, align="center")
-                self.link("Previous day", previous_day, (self.right - 141, 15, self.right - 113, 40))
+                self.text(edge - 126, 25, "<", 8, bold=True, align="center")
+                self.link("Previous day", previous_day, (edge - 141, 15, edge - 113, 40))
             if next_day:
-                self.text(self.right - 94, 25, ">", 8, bold=True, align="center")
-                self.link("Next day", next_day, (self.right - 107, 15, self.right - 79, 40))
+                self.text(edge - 94, 25, ">", 8, bold=True, align="center")
+                self.link("Next day", next_day, (edge - 107, 15, edge - 79, 40))
             next_width = 66
         elif previous and previous_label:
-            self.text(self.right - next_width - 59, 25, "< " + previous_label, 8, bold=True, max_width=49)
-            self.link("Previous", previous, (self.right - next_width - 64, 15, self.right - next_width - 10, 40))
+            self.text(edge - next_width - 59, 25, "< " + previous_label, 8, bold=True, max_width=49)
+            self.link("Previous", previous, (edge - next_width - 64, 15, edge - next_width - 10, 40))
+        next_width = min(next_width, max(30, edge - (self.left + 128)))
         if next_page:
             label, target = next_page
-            self.text(self.right - 5, 25, label + " >", 8, bold=True, align="right", max_width=next_width - 5)
-            self.link("Next", target, (self.right - next_width, 15, self.right, 40))
+            self.text(edge - 5, 25, label + " >", 8, bold=True, align="right", max_width=next_width - 5)
+            self.link("Next", target, (edge - next_width, 15, edge, 40))
         self.text(self.w - 19, 25, self.ordinal, 7, gray=MUTED, align="center", numeric=True)
 
     def home_weeks(self):
@@ -254,7 +278,7 @@ class DatedPlannerPages(PlannerPages):
             self.text(x + cell - 2, y, ">", 11, align="right")
             self.line(x, y - 9, x + cell, y - 9)
             self.link(self.tr("Liste {number:02d}", number=number), f"list-{number}",
-                      (x, y - 8, x + cell, y + 22))
+                      (x, y - 8, x + cell, y - 8 + min(30, backlog_step - 2)))
         self.footer(context=self.projects_link(),
                     next_page=(self.label("Commencer", "Start"), "day-1"))
         self.end()
@@ -467,7 +491,7 @@ class DatedPlannerPages(PlannerPages):
             else:
                 self.text(x + cell / 2, self.h - 121, label, 7, gray=0.7, align="center")
         rows = ceil(tasks / 2)
-        row_step = self.layout.fit(self.h - 165, self.layout.weekly_row_height, rows)
+        row_step = self.layout.fill(self.h - 165, self.layout.weekly_row_height, rows)
         reference_width, reference_gap = 22, 7
         reference_step = reference_width + reference_gap
         reference_end = 2 * reference_step + reference_width
@@ -577,8 +601,8 @@ class DatedPlannerPages(PlannerPages):
                   (self.left, self.h - 43, header_right, self.h - 22))
         self.rail()
         self.meeting_notes_actions()
-        self.meeting_footer(day, self.meeting_tail(day),
-                            context=(f"< Meeting {value:%d/%m}", f"day-{day}",
+        self.meeting_footer(day, self.meeting_tail(day), shortcut=None,
+                            context=(self.label("‹ Meeting", "‹ Meeting"), f"day-{day}",
                                      f"Meeting {value.isoformat()}"))
         self.end()
 
@@ -605,7 +629,7 @@ class DatedPlannerPages(PlannerPages):
             following = (self.label("Jour suivant", "Next day"), f"day-{day + 1}")
         else:
             following = (self.label("Calendrier", "Calendar"), self.month_key(value))
-        self.footer(context=(f"< Meeting {value:%d/%m}", f"day-{day}", f"Meeting {value.isoformat()}"),
+        self.footer(context=("‹ Meeting", f"day-{day}", f"Meeting {value.isoformat()}"),
                     previous=f"day-{day}-notes-{number - 1}" if number > 1 else None,
                     previous_label=f"Notes {number - 1}" if number > 1 else None, next_page=following)
         self.end()

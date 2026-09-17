@@ -157,7 +157,8 @@ class MonthlyPrioritiesTests(unittest.TestCase):
         self.assertIn('September 2026', text)
         self.assertIn('My three priorities', text)
         small = DatedPlannerConfig(
-            base=replace(config.base, device='viwoods-aipaper-mini'),
+            base=replace(config.base, device='custom', custom_width_mm=125.0,
+                         custom_height_mm=167.0),
             start_date='2026-09-16', months=2, monthly_priorities=True)
         output = io.BytesIO()
         self.assertEqual(generate_dated_pdf(small, output), small.total_pages)
