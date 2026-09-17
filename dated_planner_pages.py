@@ -301,7 +301,7 @@ class DatedPlannerPages(PlannerPages):
         top = self.h - 145
         row_height = min(self.layout.scaled(59),
                          (top - self.layout.footer_rule - 14) / len(weeks))
-        self.text(self.left + 11, top + 15, "W", 7, gray=MUTED, align="center")
+        self.text(self.left + 11, top + 15, self.label("S", "W"), 7, gray=MUTED, align="center")
         for col, name in enumerate(WEEKDAYS[self.config.language]):
             self.text(self.left + week_width + col * cell + cell / 2, top + 15,
                       name.upper(), 7, bold=True, gray=MUTED, align="center")
