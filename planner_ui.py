@@ -15,7 +15,8 @@ from planner_manifest import build_manifest, preview_kinds
 from planner_pdf import generate_pdf, generate_samples
 
 
-PREVIEW_LABELS = {"meeting": "Meetings", "task-list": "Liste TODO", "task-notes": "Contexte",
+PREVIEW_LABELS = {"meeting": "Meetings", "meeting-actions": "Décisions",
+                  "task-list": "Liste TODO", "task-notes": "Contexte",
                   "projects-index": "Projets", "project": "Fiche projet",
                   "project-notes": "Notes projet"}
 

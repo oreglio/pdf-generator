@@ -36,6 +36,7 @@ ENGLISH = {
     "Meetings non datés et tâches partagées - Viwoods AiPaper":
         "Undated meetings and shared tasks - Viwoods AiPaper",
     "Décisions": "Decisions",
+    "Décisions & actions": "Decisions & actions",
     "Projets": "Projects",
     "PROJETS": "PROJECTS",
     "< Projets": "< Projects",

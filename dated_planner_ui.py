@@ -18,7 +18,8 @@ from planner_i18n import LANGUAGES
 
 KIND_LABELS = {'calendar': 'Calendrier', 'month-plan': 'Priorités',
                'week-overview': 'Sept jours', 'weekly': 'Semaine', 'week-review': 'Bilan',
-               'meeting': 'Meeting', 'task-list': 'Backlog', 'task-notes': 'Contexte',
+               'meeting': 'Meeting', 'meeting-actions': 'Décisions',
+               'task-list': 'Backlog', 'task-notes': 'Contexte',
                'projects-index': 'Projets', 'project': 'Fiche projet',
                'project-notes': 'Notes projet'}
 LAYOUT_VERSION = 'dated-12:'

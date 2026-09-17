@@ -13,7 +13,8 @@ from planner_manifest import sheets, undated_manifest
 PAGE_WIDTH = DEVICES[DEFAULT_DEVICE].width_pt
 PAGE_HEIGHT = DEVICES[DEFAULT_DEVICE].height_pt
 MEETING_LAYOUTS = {"classic": "Objectifs & agenda",
-                   "notes_actions": "Notes, décisions & actions"}
+                   "notes_actions": "Notes, décisions & actions",
+                   "both": "Les deux, sur deux pages"}
 TYPOGRAPHIES = {
     "manrope": "Manrope",
     "manrope-contrast": "Manrope - contraste renforcé",

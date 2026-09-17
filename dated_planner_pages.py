@@ -514,11 +514,44 @@ class DatedPlannerPages(PlannerPages):
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.rail()
         self.meeting_body()
-        next_page = ("Notes 1", f"day-{day}-notes-1") if self.config.notes_pages else None
-        self.footer(context=(self.week_label(self.active_week), self.week_target(self.active_week),
-                             self.schedule.week_key(self.active_week)), next_page=next_page,
+        following = ((self.label("Décisions", "Decisions"), f"day-{day}-actions")
+                     if self.split_meeting else self.meeting_tail(day))
+        self.meeting_footer(day, following)
+        self.end()
+
+    def meeting_tail(self, day):
+        return ("Notes 1", f"day-{day}-notes-1") if self.config.notes_pages else None
+
+    def meeting_footer(self, day, following, **extra):
+        extra.setdefault("context", (self.week_label(self.active_week),
+                                     self.week_target(self.active_week),
+                                     self.schedule.week_key(self.active_week)))
+        self.footer(next_page=following,
                     previous_day=f"day-{day - 1}" if day > 1 else None,
-                    next_day=f"day-{day + 1}" if day < len(self.schedule.dates) else None)
+                    next_day=f"day-{day + 1}" if day < len(self.schedule.dates) else None,
+                    **extra)
+
+    def meeting_actions(self, day):
+        """Second page of the same meeting, reached from the first."""
+        value = self.schedule.dates[day - 1]
+        self.current_date = value
+        self.active_week = self.schedule.week_for_day(day)
+        title = self.label("Décisions & actions", "Decisions & actions")
+        self.start(f"day-{day}-actions", outline=f"{self.full_date(value)} — {title}", level=2)
+        self.header(f"{self.week_label(self.active_week)} / {self.full_date(value).upper()}", title)
+        header_right = self.right
+        if self.schedule.long_navigation:  # The rail shows months, not weeks.
+            header_right = self.right - 52
+            self.pill(self.right - 46, self.h - 46, 46, 21, self.week_label(self.active_week),
+                      self.week_target(self.active_week), size=7.5,
+                      title=self.schedule.week_key(self.active_week))
+        self.link(f"Meeting {value.isoformat()}", f"day-{day}",
+                  (self.left, self.h - 43, header_right, self.h - 22))
+        self.rail()
+        self.meeting_notes_actions()
+        self.meeting_footer(day, self.meeting_tail(day),
+                            context=(f"< Meeting {value:%d/%m}", f"day-{day}",
+                                     f"Meeting {value.isoformat()}"))
         self.end()
 
     def meeting_notes(self, day, number):

@@ -159,6 +159,11 @@ zone d’écriture : jamais un titre, un lien ni la barre latérale.
 `--meeting-layout classic` (défaut) garde Objectives / Agenda / Notes.
 `--meeting-layout notes_actions` donne des notes dominantes puis
 **Décisions / Actions**, avec exactement les mêmes destinations.
+`--meeting-layout both` produit les **deux pages pour le même Meeting** :
+la page classique pour préparer, puis une page **Décisions & actions** pour
+la clore, avant les pages Notes. La journée reste ouverte par `day-N` depuis
+le calendrier, la semaine et l'index ; la seconde page porte l'ancre
+`day-N-actions` et revient à la première.
 
 ### Fiches projet
 

@@ -102,10 +102,12 @@ def _projects(base: "PlannerConfig") -> list[PageSpec]:
     return pages
 
 
-def _days(count: int, notes_pages: int) -> list[PageSpec]:
+def _days(count: int, notes_pages: int, meeting_layout: str = "classic") -> list[PageSpec]:
     pages = []
     for day in range(1, count + 1):
         pages.append(PageSpec(f"day-{day}", "meeting", str(day)))
+        if meeting_layout == "both":
+            pages.append(PageSpec(f"day-{day}-actions", "meeting-actions", str(day)))
         for part in range(1, notes_pages + 1):
             pages.append(PageSpec(f"day-{day}-notes-{part}", "meeting-notes",
                                   str(day), part))
@@ -119,7 +121,7 @@ def undated_manifest(config: "PlannerConfig") -> tuple[PageSpec, ...]:
             sheets(config.days, layout.index_capacity, balance=False)):
         pages.append(PageSpec(f"days-{block}", "day-index", str(block),
                               1, first, last, block + 1, config.index_pages))
-    pages += _days(config.days, config.notes_pages)
+    pages += _days(config.days, config.notes_pages, config.meeting_layout)
     pages += _backlog(config, layout)
     pages += _projects(config)
     return tuple(pages)
@@ -147,7 +149,7 @@ def dated_manifest(schedule: "DatedPlannerConfig") -> tuple[PageSpec, ...]:
         if getattr(schedule, "weekly_review", False):
             pages.append(PageSpec(f"week-review-{monday.isoformat()}", "week-review",
                                   monday.isoformat()))
-    pages += _days(len(schedule.dates), base.notes_pages)
+    pages += _days(len(schedule.dates), base.notes_pages, base.meeting_layout)
     pages += _backlog(base, layout)
     pages += _projects(base)
     return tuple(pages)
@@ -161,10 +163,10 @@ def build_manifest(config) -> tuple[PageSpec, ...]:
 
 # One representative page per section, in the order a reader meets them.
 PREVIEW_KINDS = {
-    "undated": ("meeting", "task-list", "task-notes",
+    "undated": ("meeting", "meeting-actions", "task-list", "task-notes",
                 "projects-index", "project", "project-notes"),
     "dated": ("calendar", "month-plan", "week-overview", "weekly", "week-review",
-              "meeting", "task-list", "task-notes",
+              "meeting", "meeting-actions", "task-list", "task-notes",
               "projects-index", "project", "project-notes"),
 }
 

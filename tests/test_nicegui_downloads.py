@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import tempfile
 import unittest
@@ -62,6 +63,35 @@ class PdfDownloadTests(unittest.IsolatedAsyncioTestCase):
             download, notify = await self.click_download(True, window)
             download.assert_not_called()
             self.assertTrue(any(call.kwargs.get('type') == 'negative' for call in notify.call_args_list))
+
+    async def test_the_preview_panel_offers_refresh_and_download_side_by_side(self):
+        from nicegui import core
+        from nicegui_service import PDFArtifact
+        client = Client(ui.page('/preview-actions'))
+        state = PlannerWorkspace()
+        state.client = client
+        with patch.object(core, 'loop', asyncio.get_running_loop()):
+            try:
+                with client:
+                    state.preview_area()
+                    self.assertEqual(self.button_labels(client), ['Actualiser l’aperçu'])
+                    state.sample = PDFArtifact(b'%PDF-preview', 'apercu.pdf', 11)
+                    state.preview_area.refresh()
+                    await asyncio.sleep(0)
+                    self.assertEqual(self.button_labels(client),
+                                     ['Actualiser l’aperçu', 'Télécharger les 11 pages d’aperçu'])
+                    rows = [element for element in client.elements.values()
+                            if isinstance(element, ui.row)
+                            and 'preview-actions' in element.classes and not element.is_deleted]
+                    self.assertEqual(len(rows), 1)
+                    self.assertEqual(len(rows[0].default_slot.children), 2)
+            finally:
+                client.delete()
+
+    @staticmethod
+    def button_labels(client):
+        return [element.text for element in client.elements.values()
+                if isinstance(element, ui.button) and not element.is_deleted]
 
     async def test_web_download_stays_standard(self):
         download, _ = await self.click_download(True, None)

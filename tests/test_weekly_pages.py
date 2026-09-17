@@ -187,8 +187,55 @@ class MeetingLayoutTests(unittest.TestCase):
         self.assertIn('Décisions', meeting.extract_text())
         self.assertIn(config.week_key(config.weeks[0]), destinations(reader, meeting))
 
+    def test_both_gives_one_meeting_two_pages_then_its_notes(self):
+        classic = replace(BASE, days=3, notes_pages=2)
+        both = replace(classic, meeting_layout='both')
+        self.assertEqual(both.total_pages - classic.total_pages, 3)
+        output = io.BytesIO()
+        self.assertEqual(generate_pdf(both, output), both.total_pages)
+        reader = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(both))}
+        for day in (1, 2, 3):
+            with self.subTest(day=day):
+                self.assertEqual(keys[f'day-{day}-actions'], keys[f'day-{day}'] + 1)
+                self.assertEqual(keys[f'day-{day}-notes-1'], keys[f'day-{day}-actions'] + 1)
+                first = destinations(reader, reader.pages[keys[f'day-{day}']])
+                second = destinations(reader, reader.pages[keys[f'day-{day}-actions']])
+                self.assertEqual(first['Suite'], keys[f'day-{day}-actions'])
+                self.assertEqual(second['Suite'], keys[f'day-{day}-notes-1'])
+                self.assertEqual(second[f'Meeting {day:03d}'], keys[f'day-{day}'])
+        self.assertIn('Objectives', reader.pages[keys['day-1']].extract_text())
+        actions = reader.pages[keys['day-1-actions']].extract_text()
+        self.assertIn('Décisions & actions', actions)
+        self.assertIn('Actions', actions)
+        self.assertNotIn('Objectives', actions)
+        self.assertIn('Décisions >', reader.pages[keys['day-1']].extract_text())
+
+    def test_both_chains_the_dated_meeting_to_its_decisions_page(self):
+        config = DatedPlannerConfig(base=replace(BASE, meeting_layout='both', notes_pages=0),
+                                    start_date='2026-09-16', months=1)
+        output = io.BytesIO()
+        self.assertEqual(generate_dated_pdf(config, output), config.total_pages)
+        reader = PdfReader(output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(config))}
+        first = destinations(reader, reader.pages[keys['day-1']])
+        second = destinations(reader, reader.pages[keys['day-1-actions']])
+        self.assertEqual(first['Next'], keys['day-1-actions'])
+        self.assertEqual(second['Meeting 2026-09-16'], keys['day-1'])
+        self.assertEqual(second[config.week_key(config.weeks[0])], keys[f'week-{config.weeks[0]}-1'])
+        self.assertEqual(second['Next day'], keys['day-2'])
+        self.assertIn('Décisions & actions', reader.pages[keys['day-1-actions']].extract_text())
+        english = DatedPlannerConfig(base=replace(BASE, meeting_layout='both', notes_pages=0,
+                                                  language='en'),
+                                     start_date='2026-09-16', months=1)
+        output = io.BytesIO()
+        generate_dated_pdf(english, output)
+        keys = {spec.key: index for index, spec in enumerate(build_manifest(english))}
+        self.assertIn('Decisions & actions',
+                      PdfReader(output).pages[keys['day-1-actions']].extract_text())
+
     def test_unknown_layouts_are_refused(self):
-        self.assertEqual(set(MEETING_LAYOUTS), {'classic', 'notes_actions'})
+        self.assertEqual(set(MEETING_LAYOUTS), {'classic', 'notes_actions', 'both'})
         for value in ('simple', None, 1, ''):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 replace(PlannerConfig(), meeting_layout=value)

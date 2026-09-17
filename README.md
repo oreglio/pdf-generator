@@ -55,6 +55,7 @@ identique à ce qu’il était.
 | Sept jours | Une zone d’écriture par jour, plus un espace de planification | Avant les tâches de la semaine |
 | Bilan hebdomadaire | Terminé / À reporter / À retenir | Après les tâches de la semaine |
 | Meeting simplifié | Notes dominantes, puis Décisions / Actions | Remplace la composition Objectives / Agenda |
+| Meeting en deux pages | Objectifs & agenda, puis Décisions & actions | Deux pages pour le même Meeting, avant ses Notes |
 | Fonds d’écriture | Ligné, pointillé, quadrillé ou blanc | Zone d’écriture des pages Notes et Contexte |
 | Fiches projet | Objectif, prochaines actions, décisions, notes | Index Projets en fin de carnet |
 

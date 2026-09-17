@@ -214,6 +214,8 @@ class PlannerPages(ProjectPages):
             return self.day_index(spec)
         if spec.kind == "meeting":
             return self.meeting(int(spec.reference))
+        if spec.kind == "meeting-actions":
+            return self.meeting_actions(int(spec.reference))
         if spec.kind == "meeting-notes":
             return self.meeting_notes(int(spec.reference), spec.part)
         if spec.kind == "task-list":
@@ -300,13 +302,41 @@ class PlannerPages(ProjectPages):
         self.text(self.left + 183, self.h - 48, self.tr("Date / période"), 7, gray=MUTED)
         self.line(self.left + 183, self.h - 74, self.right, self.h - 74, gray=0.55)
         self.meeting_body()
-        next_page = ("Notes", f"day-{day}-notes-1") if self.config.notes_pages else (
-            (self.tr("Suite"), f"day-{day + 1}") if day < self.config.days else ("Index", self.index_key(day)))
-        prev = f"day-{day - 1}" if day > 1 else "days-0"
-        self.footer(day=day, previous=prev, next_page=next_page,
-                    next_day=f"day-{day + 1}" if day < self.config.days else None,
-                    previous_day=f"day-{day - 1}" if day > 1 else None)
+        following = ((self.tr("Décisions"), f"day-{day}-actions") if self.split_meeting
+                     else self.meeting_tail(day))
+        self.meeting_footer(day, following)
         self.end()
+
+    def meeting_tail(self, day):
+        """Where a Meeting leads once its own pages are done."""
+        if self.config.notes_pages:
+            return ("Notes", f"day-{day}-notes-1")
+        if day < self.config.days:
+            return (self.tr("Suite"), f"day-{day + 1}")
+        return ("Index", self.index_key(day))
+
+    def meeting_footer(self, day, following, **extra):
+        self.footer(day=day, next_page=following,
+                    next_day=f"day-{day + 1}" if day < self.config.days else None,
+                    previous_day=f"day-{day - 1}" if day > 1 else None, **extra)
+
+    def meeting_actions(self, day):
+        """Second page of the same meeting: what was decided, and by whom."""
+        self.start(f"day-{day}-actions", outline=f"Meeting {day:03d} — "
+                   + self.tr("Décisions & actions"), level=2)
+        self.header(self.tr("JOURNÉE {day:03d}", day=day), self.tr("Décisions & actions"))
+        self.link(f"Meeting {day:03d}", f"day-{day}",
+                  (self.left, self.h - 43, self.left + 120, self.h - 22))
+        self.rail()
+        self.meeting_notes_actions()
+        self.meeting_footer(day, self.meeting_tail(day),
+                            context=(f"< Meeting {day:03d}", f"day-{day}", f"Meeting {day:03d}"))
+        self.end()
+
+    @property
+    def split_meeting(self):
+        """`both` gives one meeting two pages: prepare it, then close it."""
+        return self.config.meeting_layout == "both"
 
     def meeting_body(self):
         """The written part of a Meeting page; its navigation never changes."""

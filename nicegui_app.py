@@ -28,7 +28,8 @@ ROOT = Path(__file__).resolve().parent
 MODES = {'dated': 'Carnet daté', 'undated': 'Carnet libre'}
 KIND_LABELS = {'calendar': 'Calendrier', 'month-plan': 'Priorités',
                'week-overview': 'Sept jours', 'weekly': 'Semaine', 'week-review': 'Bilan',
-               'meeting': 'Meeting', 'task-list': 'Backlog', 'task-notes': 'Contexte',
+               'meeting': 'Meeting', 'meeting-actions': 'Décisions',
+               'task-list': 'Backlog', 'task-notes': 'Contexte',
                'projects-index': 'Projets', 'project': 'Fiche projet',
                'project-notes': 'Notes projet'}
 UNDATED_LABELS = {'task-list': 'Liste TODO'}
@@ -64,6 +65,8 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .preview-toolbar { width: 100%; justify-content: space-between; align-items: center; gap: 12px; }
 .preview-tabs { width: 100%; background: transparent; }
 .preview-tabs .q-btn { font-size: 12px; padding: 8px 12px; }
+.preview-actions { width: 100%; align-items: center; gap: 16px; flex-wrap: wrap; }
+.preview-actions .q-btn { font-size: 12px; }
 .paper-wrap { width: 100%; display: flex; align-items: center; justify-content: center; min-height: 480px; }
 .paper { width: min(100%, 590px); background: white; box-shadow: 0 6px 24px #25352e14; }
 .status { border-left: 3px solid #1c584c; padding: 10px 14px; background: #eff4ee; font-size: 13px; width: 100%; }
@@ -663,10 +666,14 @@ class PlannerWorkspace:
                 with ui.column().classes('items-center p-12'):
                     ui.icon('description', size='48px').classes('text-gray-400')
                     ui.label('Votre aperçu apparaît ici').classes('muted')
-        if self.sample:
-            sample = self.sample
-            ui.button(f'Télécharger les {sample.pages} pages d’aperçu', icon='file_download',
-                      on_click=lambda: self.download_pdf(sample)).props('flat dense').bind_enabled_from(self, 'busy', backward=lambda value: not value)
+        with ui.row().classes('preview-actions'):
+            ui.button('Actualiser l’aperçu', icon='refresh', on_click=self.refresh_preview) \
+                .props('outline dense no-caps') \
+                .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+            if self.sample:
+                sample = self.sample
+                ui.button(f'Télécharger les {sample.pages} pages d’aperçu', icon='file_download',
+                          on_click=lambda: self.download_pdf(sample)).props('flat dense').bind_enabled_from(self, 'busy', backward=lambda value: not value)
 
     def short_changed(self, event):
         self.revision += 1
