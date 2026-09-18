@@ -3,7 +3,10 @@ import io
 import json
 import pickle
 import shutil
+import re
 import unittest
+from pathlib import Path
+from datetime import datetime
 from dataclasses import replace
 from itertools import product
 
@@ -13,6 +16,12 @@ from dated_planner_config import DatedPlannerConfig
 from dated_planner_pdf import generate_dated_pdf, generate_dated_samples
 from planner_config import PlannerConfig
 from planner_pdf import generate_pdf, generate_samples
+
+
+def assert_stamped(case, produced, expected):
+    """The generated stem, then fourteen digits — never a live clock."""
+    case.assertRegex(produced,
+                     r"^" + re.escape(Path(expected).stem) + r"-\d{14}\.pdf$")
 
 
 class NiceGUIServiceTests(unittest.TestCase):
@@ -59,7 +68,7 @@ class NiceGUIServiceTests(unittest.TestCase):
                     engine(config, direct)
                     artifact = self.service.generate_artifact(mode, config.to_dict())
                     self.assertEqual(artifact.pdf_bytes, direct.getvalue())
-                    self.assertEqual(artifact.filename, config.pdf_filename)
+                    assert_stamped(self, artifact.filename, config.pdf_filename)
                     self.assertEqual(pickle.loads(pickle.dumps(artifact)), artifact)
                     reader = PdfReader(io.BytesIO(artifact.pdf_bytes))
                     self.assertEqual(artifact.pages, len(reader.pages))
@@ -97,7 +106,7 @@ class NiceGUIServiceTests(unittest.TestCase):
         generate_pdf(replace(self.base, days=3), output)
         self.assertEqual(artifact.pdf_bytes, output.getvalue())
         self.assertEqual(artifact.pages, 18)
-        self.assertEqual(artifact.filename, 'aipaper-manrope-3j.pdf')
+        assert_stamped(self, artifact.filename, 'aipaper-manrope-3j.pdf')
         self.assertEqual(payload['days'], 4)
         two_days = replace(self.base, days=2)
         artifact = self.service.generate_artifact('undated', two_days.to_dict(), short=True)
@@ -148,3 +157,38 @@ class NiceGUIServiceTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DownloadNameTests(unittest.TestCase):
+    """What the generated file is called once it lands in Downloads."""
+
+    MOMENT = datetime(2026, 9, 18, 15, 30, 12)
+
+    def test_the_moment_tells_four_regenerations_apart(self):
+        from nicegui_service import stamped_name
+        self.assertEqual(stamped_name('dated-aipaper-fr.pdf', None, self.MOMENT),
+                         'dated-aipaper-fr-20260918153012.pdf')
+
+    def test_a_profile_says_which_settings_produced_the_carnet(self):
+        from nicegui_service import stamped_name
+        self.assertEqual(stamped_name('dated-aipaper-fr.pdf', 'Travail trimestre',
+                                      self.MOMENT),
+                         'Travail-trimestre-20260918153012.pdf')
+
+    def test_a_name_a_file_system_would_refuse_is_made_acceptable(self):
+        from nicegui_service import file_stem, stamped_name
+        self.assertEqual(file_stem('Carnet été / 2026 — perso'), 'Carnet-été-2026-perso')
+        self.assertEqual(file_stem('../../etc/passwd'), 'etc-passwd')
+        self.assertEqual(file_stem('x' * 200), 'x' * 64)
+        # A name made only of punctuation leaves the generated one in place.
+        self.assertEqual(stamped_name('carnet.pdf', '///', self.MOMENT),
+                         'carnet-20260918153012.pdf')
+
+    def test_a_preview_keeps_its_own_name(self):
+        """Previews are never downloaded; a stamp would only confuse the tabs."""
+        from nicegui_service import generate_artifact
+        from planner_config import PlannerConfig
+        artifact = generate_artifact('undated', PlannerConfig(days=2, list_count=1,
+                                                             tasks_per_list=1).to_dict(),
+                                     samples=True)
+        self.assertEqual(artifact.filename, 'aipaper-apercu.pdf')

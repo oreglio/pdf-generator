@@ -121,6 +121,7 @@ class PlannerWorkspace:
         self.preferences = preferences.empty()
         self.storage_off = False
         self.profile_name = None
+        self.profile_label = None
         self.fields = {}
         self.busy = False
         self.dirty = False
@@ -275,6 +276,7 @@ class PlannerWorkspace:
         if event.value == self.mode:
             return
         self.mode = event.value
+        self.profile_label = None
         self.sample = self.output = None
         self.images.clear()
         self.kind = 0
@@ -296,6 +298,7 @@ class PlannerWorkspace:
             mode = 'dated' if isinstance(payload, dict) and 'base' in payload else 'undated'
             config = parse_config(mode, payload)
             self.mode = mode
+            self.profile_label = None
             self.configs[mode] = config
             self.mode_control.set_value(mode)
             self.sample = self.output = None
@@ -387,7 +390,7 @@ class PlannerWorkspace:
             revision = self.revision
             artifact = await cpu_job(generate_artifact, self.mode, self.config.to_dict(),
                                      short=self.short if self.mode == 'undated' else False,
-                                     compact=self.compact)
+                                     compact=self.compact, label=self.profile_label)
             if revision == self.revision:
                 self.output = artifact
                 ui.notify('Votre carnet est prêt.', type='positive')
@@ -528,6 +531,7 @@ class PlannerWorkspace:
             self.download_area.refresh()
             return
         self.write_storage()
+        self.profile_label = name
         self.profile_name.set_value('')
         self.error = ''
         self.profiles_area.refresh()
@@ -570,6 +574,8 @@ class PlannerWorkspace:
             (('Annuler', False, False), ('Supprimer', True, True)))
         if not confirmed:
             return
+        if profile['name'] == self.profile_label:
+            self.profile_label = None
         self.preferences = preferences.delete_profile(self.preferences, identifier)
         self.write_storage()
         self.profiles_area.refresh()
@@ -581,6 +587,7 @@ class PlannerWorkspace:
         self.busy = True
         try:
             config = parse_config(profile['mode'], profile['config'])
+            self.profile_label = profile['name']
             self.mode = profile['mode']
             self.configs[self.mode] = config
             self.mode_control.set_value(self.mode)
