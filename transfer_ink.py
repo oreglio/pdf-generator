@@ -122,6 +122,70 @@ def read_source(path, report):
     return read_flattened(path, report)
 
 
+# --- rebuilding the tablet's own notebook ----------------------------------
+
+def template_entry(names):
+    """The archive member holding the PDF the notebook was written on."""
+    found = [name for name in names if name.lower().endswith(".pdf")]
+    if len(found) != 1:
+        raise ValueError("Cette archive ne contient pas exactement un gabarit PDF : "
+                         "elle ne vient pas d’un carnet AiPaper.")
+    return found[0]
+
+
+def rebuild_note(source, target, output, report=print):
+    """Re-issue a `.note` on a new edition, keeping the strokes editable.
+
+    Only the template PDF is exchanged. Layers, strokes and metadata are copied
+    byte for byte: the notebook keeps its handwriting as strokes the tablet can
+    still select, move and erase, which no PDF can offer.
+
+    This holds at 1:1 only. The strokes live in panel coordinates, and the file
+    that carries them is an undocumented history buffer that does not even map
+    one page to one layer — moving them would be guesswork on someone's notes.
+    An edition that shifted its writing column is refused, and takes the PDF
+    route instead, where the ink is an image that can safely be moved.
+    """
+    source, target, output = Path(source), Path(target), Path(output)
+    if not zipfile.is_zipfile(source):
+        raise ValueError("Un carnet ne peut être réédité qu’à partir de l’archive "
+                         ".note de la tablette, pas d’un PDF exporté.")
+    pages = len(PdfReader(str(target)).pages)
+    with zipfile.ZipFile(source) as archive:
+        names = archive.namelist()
+        entry = template_entry(names)
+        written = len(json.loads(archive.read(next(
+            name for name in names if name.endswith("PageListFileInfo.json")))))
+        if written != pages:
+            raise ValueError(f"Le carnet compte {written} pages et le nouveau PDF "
+                             f"{pages} : régénérez-le avec les mêmes réglages de "
+                             "durée, de backlog et de projets.")
+        holder = output.with_suffix(".gabarit.pdf")
+        holder.write_bytes(archive.read(entry))
+        try:
+            report("Vérification que la mise en page n’a pas bougé :")
+            dx, dy, _ = measure(holder, False, target, [1, max(1, pages // 2)], report)
+        finally:
+            holder.unlink(missing_ok=True)
+        if (dx, dy) != (0.0, 0.0):
+            raise ValueError(
+                f"La nouvelle édition décale la colonne d’écriture de "
+                f"{dx / PANEL_DPI * 25.4:+.1f} × {dy / PANEL_DPI * 25.4:+.1f} mm. "
+                "Un carnet réédité garde ses tracés là où ils ont été écrits : ils "
+                "tomberaient à côté. Régénérez le PDF avec la même mise en page, ou "
+                "demandez un PDF, où l’encre est une image qui suit le décalage.")
+        report(f"Réédition du carnet : {pages} pages, gabarit « {entry} » remplacé.")
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as rebuilt:
+            for item in archive.infolist():
+                data = target.read_bytes() if item.filename == entry \
+                    else archive.read(item.filename)
+                rebuilt.writestr(item, data)
+    report("Vos tracés restent des tracés : sélection, déplacement et gomme "
+           "fonctionnent encore sur la tablette.")
+    report(f"→ {output} ({output.stat().st_size / 1e6:.1f} Mo)")
+    return pages
+
+
 # --- alignment -------------------------------------------------------------
 
 def render(pdf, page, dpi, clean=False):
@@ -260,14 +324,17 @@ def transfer(source, target, output, offset_mm=None, report=print):
     return sorted(written)
 
 
-def transfer_report(source, target, output, offset_mm=None):
-    """`transfer`, with its running commentary returned instead of printed.
+def transfer_report(source, target, output, offset_mm=None, rebuild=False):
+    """`transfer` or `rebuild_note`, with its commentary returned, not printed.
 
     A worker process has nowhere to print, so the lines come back together
     with the result for whoever asked.
     """
     lines = []
-    pages = transfer(source, target, output, offset_mm, report=lines.append)
+    if rebuild:
+        pages = rebuild_note(source, target, output, report=lines.append)
+    else:
+        pages = transfer(source, target, output, offset_mm, report=lines.append)
     return pages, lines
 
 
@@ -279,11 +346,18 @@ def main():
     parser.add_argument("--into", type=Path, required=True,
                         help="PDF régénéré qui doit recevoir l’encre")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--as", dest="shape", choices=("pdf", "note"), default="pdf",
+                        help="pdf : l’encre devient une image, lisible partout. "
+                             "note : le carnet de la tablette est réédité et vos "
+                             "tracés restent modifiables (archive .note requise)")
     parser.add_argument("--offset-mm", type=float,
                         help="Décalage horizontal imposé, au lieu du calage automatique")
     args = parser.parse_args()
     try:
-        transfer(args.source, args.into, args.output, args.offset_mm)
+        if args.shape == "note":
+            rebuild_note(args.source, args.into, args.output)
+        else:
+            transfer(args.source, args.into, args.output, args.offset_mm)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         parser.error(str(error))
 
