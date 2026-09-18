@@ -201,39 +201,34 @@ Le PDF de destination est modifié en **mise à jour incrémentale** : ses octet
 d’origine sont conservés et seules les pages écrites sont ajoutées. Liens et
 signets restent intacts, et un carnet de 2 400 pages ne sature pas la pile.
 
-#### Deux formes de sortie
+#### La réédition du carnet de la tablette a échoué
 
-`--as pdf` (défaut) porte votre écriture **comme une image** : le fichier
-s’ouvre partout, vous écrivez par-dessus, mais vous ne reprenez plus les
-anciens tracés trait par trait — la gomme ne les voit pas.
+`--as note` réédite l’archive : seul le gabarit PDF y est échangé, tout le reste
+est recopié octet pour octet. Techniquement l’opération est propre — sur un
+carnet réel de 2 388 pages, une seule entrée modifiée sur 82, les 18 calques et
+les 18 fichiers de tracés conservés à l’identique.
 
-`--as note` réédite le **carnet de la tablette** : seul le gabarit PDF est
-échangé dans l’archive, tout le reste est recopié octet pour octet. Vos tracés
-restent des tracés, donc sélectionnables, déplaçables et effaçables.
+**L’AiPaper la refuse.** Mesuré contre `com.wisky.notewriter` 1.8.9,
+dbVersion 22 :
 
-```bash
-venv/bin/python transfer_ink.py --as note \
-  --from ~/carnet.pdf.note --into nouveau.pdf --output ~/carnet-repris.pdf.note
-```
+| Gabarit proposé | Emplacement | Résultat |
+| --- | --- | --- |
+| Déjà installé sur la tablette | d’origine | accepté |
+| Neuf | d’origine (`id` 302) | « dossier endommagé ou incomplet » |
+| Neuf | neuf (`id` et chemin inédits) | idem |
+| Déjà installé | neuf | idem |
 
-Le carnet réédité reçoit **sa propre identité** : nouveau nom, pris du fichier
-de sortie, et nouvel identifiant repointé dans les 2 388 pages et les 7 204
-ressources. La tablette classe un carnet par son identifiant : réimporter une
-archive qui garde celui de l’original le range à côté de lui en « (1) » au lieu
-de le remplacer. Le carnet réédité se range donc seul, sans doublon ni
-écrasement, dans le même dossier.
+Quatre tentatives, deux emplacements, trois jeux d’octets. L’application
+n’installe pas un gabarit qu’elle ne possède pas déjà : le seul `.note` accepté
+est celui qui ne change rien. Le renommage du carnet est donc resté optionnel
+(`--name`) plutôt que systématique — un carnet inconnu est ce que l’importateur
+rejette dès que quoi que ce soit d’autre cloche.
 
-La réédition n’est possible qu’**à l’identique**, et l’outil le vérifie avant
-d’écrire quoi que ce soit : le nouveau PDF doit avoir le même nombre de pages
-et la même mise en page. Les tracés vivent en coordonnées d’écran, et le
-fichier qui les porte (`path_*.json`) est un historique qui n’associe même pas
-une page à un calque : les déplacer serait deviner sur les notes de quelqu’un.
-Une édition qui a bougé sa colonne d’écriture est donc refusée et renvoyée vers
-le PDF, où l’encre est une image qu’on peut décaler sans risque.
+Le code est conservé pour mémoire et pour qui trouverait la manœuvre, avec un
+avertissement en tête d’exécution. Folio n’expose plus que le PDF, qui marche.
 
-Dans Folio, la même opération est à `/transfert` : on dépose les deux fichiers,
-on choisit la forme de sortie, on récupère le résultat. Rien ne sort de la
-machine.
+Dans Folio, la reprise est à `/transfert` : on dépose les deux fichiers, on
+récupère le PDF repris. Rien ne sort de la machine.
 
 ### Confort d’écriture et répartition sur plusieurs feuillets
 

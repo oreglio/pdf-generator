@@ -878,28 +878,13 @@ class TransferWorkspace:
             return None
         return transfer_report
 
-    SHAPES = {'pdf': 'Un PDF, lisible partout',
-              'note': 'Un carnet .note, tracés modifiables'}
-
     def __init__(self):
         self.folder = Path(tempfile.mkdtemp(prefix='folio-transfert-'))
         self.files = {}
         self.status = {}
         self.result = None
         self.busy = False
-        self.shape = 'pdf'
         self.lines = []
-
-    def choose_shape(self, event):
-        self.shape = event.value
-        self.result = None
-        self.actions.refresh()
-
-    @property
-    def rebuildable(self):
-        """Only the tablet's own archive still holds strokes to hand back."""
-        source = self.files.get('source')
-        return bool(source and source.suffix.lower() == '.note')
 
     def close(self):
         shutil.rmtree(self.folder, ignore_errors=True)
@@ -958,17 +943,10 @@ class TransferWorkspace:
     @ui.refreshable
     def actions(self):
         ready = {'source', 'target'} <= set(self.files) and not self.busy
-        shape = self.shape if self.shape == 'pdf' or self.rebuildable else 'pdf'
-        ui.toggle(self.SHAPES, value=shape, on_change=self.choose_shape) \
-            .props('unelevated toggle-color=primary color=white text-color=grey-8') \
-            .set_enabled(not self.busy)
-        ui.label('Un PDF porte votre écriture comme une image : elle s’ouvre partout, '
-                 'et vous écrivez par-dessus, sans pouvoir la reprendre trait par '
-                 'trait. Un carnet .note rend la main à la tablette : les tracés '
-                 'restent des tracés, donc effaçables et déplaçables.'
-                 if self.rebuildable else
-                 'Le carnet .note demande l’archive .note de la tablette : un PDF '
-                 'exporté n’a plus les tracés, seulement leur photo.').classes('muted')
+        ui.label('Votre écriture arrive comme une image : elle s’ouvre partout, et '
+                 'vous écrivez par-dessus. Elle ne redevient pas des tracés que la '
+                 'gomme peut reprendre — l’AiPaper n’installe pas de carnet dont il '
+                 'ne possède pas déjà le gabarit.').classes('muted')
         ui.button('Reporter mon écriture', icon='draw', on_click=self.run) \
             .classes('py-2').set_enabled(ready)
         if self.lines:
@@ -976,11 +954,10 @@ class TransferWorkspace:
                     + '\n'.join(line.replace('&', '&amp;').replace('<', '&lt;')
                                 for line in self.lines) + '</div>')
         if self.result:
-            kind = ('application/pdf' if self.result.suffix == '.pdf'
-                    else 'application/octet-stream')
             ui.button(f'Télécharger {self.result.name}', icon='download',
                       on_click=lambda: ui.download(self.result.read_bytes(),
-                                                   self.result.name, kind)) \
+                                                   self.result.name,
+                                                   'application/pdf')) \
                 .props('outline')
 
     async def run(self):
@@ -990,12 +967,11 @@ class TransferWorkspace:
         self.lines = ['Lecture du carnet écrit, calage, report de l’encre…',
                       'Comptez une vingtaine de secondes pour un carnet complet.']
         self.actions.refresh()
-        rebuild = self.shape == 'note' and self.rebuildable
         stem = self.files['target'].name.split('-', 1)[-1].removesuffix('.pdf')
-        output = self.folder / (stem + ('-repris.pdf.note' if rebuild else '-repris.pdf'))
+        output = self.folder / (stem + '-repris.pdf')
         try:
             _, lines = await cpu_job(self.available(), self.files['source'],
-                                     self.files['target'], output, None, rebuild)
+                                     self.files['target'], output)
             self.lines, self.result = lines, output
             ui.notify('Écriture reportée.', type='positive')
         except Exception as error:  # noqa: BLE001 — the message belongs on screen

@@ -136,12 +136,16 @@ def note_identity(archive, names):
 
 
 def rename_notebook(data, old_name, old_id, new_name, new_id):
-    """A rebuilt notebook is a new notebook, never a silent overwrite.
+    """Give the rebuilt notebook a name and an identifier of its own.
 
-    The tablet keys a notebook by its identifier, so re-importing one that kept
-    the original's identity lands beside it as a duplicate. Name and identifier
-    are opaque strings, and every place that repeats them is a plain field:
-    swapping both, everywhere, hands back a notebook the tablet files on its own.
+    Name and identifier are opaque strings, and every place that repeats them
+    is a plain field: swapping both, everywhere, hands back a notebook the
+    tablet files separately instead of beside the original.
+
+    Asked for, never assumed. A notebook that keeps the original identity is
+    the only shape the tablet has been observed to accept; one that changes it
+    arrives as an unknown, and an unknown is what the importer refuses when
+    anything else is wrong. The duplicate is the safe outcome.
     """
     return data.replace(old_id.encode(), new_id.encode()) \
                .replace(json.dumps(old_name).encode(), json.dumps(new_name).encode())
@@ -156,8 +160,22 @@ def template_entry(names):
     return found[0]
 
 
+# Measured against com.wisky.notewriter 1.8.9, dbVersion 22, on an AiPaper.
+# Four notebooks were offered to it: the template in its original slot and in a
+# fresh one, with three different sets of bytes. Every one was refused as a
+# damaged folder. The only archive it accepted carried a template already
+# installed on the tablet — which is to say, an archive that changed nothing.
+REBUILD_WARNING = (
+    "Attention : l’AiPaper testé refuse d’installer un gabarit qu’il ne possède "
+    "pas déjà, et rejette le carnet réédité comme « dossier endommagé ». Cette "
+    "réédition n’a été acceptée que lorsque le gabarit était déjà sur la "
+    "tablette. Préférez le PDF, qui fonctionne.")
+
+
 def rebuild_note(source, target, output, report=print, name=None):
     """Re-issue a `.note` on a new edition, keeping the strokes editable.
+
+    Kept for the record and for whoever finds the trick; see REBUILD_WARNING.
 
     Only the template PDF is exchanged. Layers, strokes and metadata are copied
     byte for byte: the notebook keeps its handwriting as strokes the tablet can
@@ -170,6 +188,7 @@ def rebuild_note(source, target, output, report=print, name=None):
     route instead, where the ink is an image that can safely be moved.
     """
     source, target, output = Path(source), Path(target), Path(output)
+    report(REBUILD_WARNING)
     if not zipfile.is_zipfile(source):
         raise ValueError("Un carnet ne peut être réédité qu’à partir de l’archive "
                          ".note de la tablette, pas d’un PDF exporté.")
@@ -198,21 +217,24 @@ def rebuild_note(source, target, output, report=print, name=None):
                 "tomberaient à côté. Régénérez le PDF avec la même mise en page, ou "
                 "demandez un PDF, où l’encre est une image qui suit le décalage.")
         old_name, old_id = note_identity(archive, names)
-        new_name = name or output.name.removesuffix(".note")
         new_id = uuid.uuid4().hex.upper()
         report(f"Réédition du carnet : {pages} pages, gabarit « {entry} » remplacé.")
-        report(f"Nouveau carnet « {new_name} », distinct de « {old_name} » : "
-               "il se rangera à côté, sans doublon ni écrasement.")
+        if name:
+            report(f"Nouveau carnet « {name} », distinct de « {old_name} ».")
+        else:
+            report(f"Carnet « {old_name} », identité inchangée : il arrivera à côté "
+                   "de l’original, en double. C’est voulu — la tablette accepte "
+                   "mal un carnet qu’elle ne reconnaît pas.")
         with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as rebuilt:
             for item in archive.infolist():
                 if item.filename == entry:
                     data = target.read_bytes()
                 else:
                     data = archive.read(item.filename)
-                    if item.filename.endswith(".json"):
-                        data = rename_notebook(data, old_name, old_id, new_name, new_id)
-                name_in_zip = item.filename.replace(old_name + "_", new_name + "_", 1) \
-                    if item.filename.startswith(old_name + "_") else item.filename
+                    if name and item.filename.endswith(".json"):
+                        data = rename_notebook(data, old_name, old_id, name, new_id)
+                name_in_zip = item.filename.replace(old_name + "_", name + "_", 1) \
+                    if name and item.filename.startswith(old_name + "_") else item.filename
                 rebuilt.writestr(name_in_zip, data)
     report("Vos tracés restent des tracés : sélection, déplacement et gomme "
            "fonctionnent encore sur la tablette.")
@@ -358,7 +380,7 @@ def transfer(source, target, output, offset_mm=None, report=print):
     return sorted(written)
 
 
-def transfer_report(source, target, output, offset_mm=None, rebuild=False):
+def transfer_report(source, target, output, offset_mm=None, rebuild=False, name=None):
     """`transfer` or `rebuild_note`, with its commentary returned, not printed.
 
     A worker process has nowhere to print, so the lines come back together
@@ -366,7 +388,7 @@ def transfer_report(source, target, output, offset_mm=None, rebuild=False):
     """
     lines = []
     if rebuild:
-        pages = rebuild_note(source, target, output, report=lines.append)
+        pages = rebuild_note(source, target, output, report=lines.append, name=name)
     else:
         pages = transfer(source, target, output, offset_mm, report=lines.append)
     return pages, lines
@@ -382,14 +404,19 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--as", dest="shape", choices=("pdf", "note"), default="pdf",
                         help="pdf : l’encre devient une image, lisible partout. "
-                             "note : le carnet de la tablette est réédité et vos "
-                             "tracés restent modifiables (archive .note requise)")
+                             "note : réédite le carnet de la tablette — refusé à "
+                             "l’import par l’AiPaper testé, conservé pour mémoire")
+    parser.add_argument("--name",
+                        help="Réédition : nommer le carnet à part, au lieu de garder "
+                             "l’identité de l’original. La tablette accepte mal un "
+                             "carnet qu’elle ne reconnaît pas ; sans cette option il "
+                             "arrive en double, ce qui est le comportement sûr")
     parser.add_argument("--offset-mm", type=float,
                         help="Décalage horizontal imposé, au lieu du calage automatique")
     args = parser.parse_args()
     try:
         if args.shape == "note":
-            rebuild_note(args.source, args.into, args.output)
+            rebuild_note(args.source, args.into, args.output, name=args.name)
         else:
             transfer(args.source, args.into, args.output, args.offset_mm)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
