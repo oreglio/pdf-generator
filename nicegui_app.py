@@ -21,6 +21,7 @@ from nicegui_service import generate_artifact, parse_config, render_preview
 from planner_manifest import build_manifest, preview_kinds
 from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
 from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES, devices_of
+from planner_layout import DEFAULT_TOOLBAR_MM, TOOLBAR_MM, TOOLBAR_SIDES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
 
@@ -195,6 +196,10 @@ class PlannerWorkspace:
                     'meeting_note_style', 'task_note_style'):
             payload[key] = self.fields[key].value
         payload['density'] = self.fields['density'].value
+        payload['toolbar'] = self.fields['toolbar'].value
+        band = self.fields['toolbar_mm'].value  # Hidden and cleared: keep the default.
+        payload['toolbar_mm'] = float(band) if isinstance(band, (int, float)) \
+            and not isinstance(band, bool) else DEFAULT_TOOLBAR_MM
         device = self.fields['device'].value if 'device' in self.fields else CUSTOM
         payload['device'] = device
         payload['custom_width_mm'] = payload['custom_height_mm'] = None
@@ -414,7 +419,8 @@ class PlannerWorkspace:
     @ui.refreshable
     def device_fields(self):
         base = self.base_config()
-        for key in ('device', 'density', 'custom_width_mm', 'custom_height_mm'):
+        for key in ('device', 'density', 'custom_width_mm', 'custom_height_mm',
+                    'toolbar', 'toolbar_mm'):
             self.fields.pop(key, None)
         family = self.family or (CUSTOM if base.device == CUSTOM else DEVICES[base.device].brand)
         with ui.element('div').classes('fields'):
@@ -440,6 +446,17 @@ class PlannerWorkspace:
                                             label='Confort d’écriture'))
         ui.label('Aéré écrit plus au large : une liste qui ne tient plus se poursuit '
                  'sur un feuillet suivant, sans perdre une seule tâche.').classes('muted')
+        with ui.element('div').classes('fields'):
+            side = self.field('toolbar', ui.select(TOOLBAR_SIDES, value=base.toolbar,
+                                                   label='Barre d’outils de la tablette'))
+            width = self.field('toolbar_mm',
+                               ui.number('Largeur de la barre', value=float(base.toolbar_mm),
+                                         min=TOOLBAR_MM[0], max=TOOLBAR_MM[1],
+                                         step=0.5, precision=1, suffix='mm'))
+            width.bind_visibility_from(side, 'value', backward=lambda value: value != 'none')
+        ui.label('La barre intégrée flotte au-dessus de la page : à droite elle masque la '
+                 'navigation, à gauche le début des lignes. Folio laisse sa bande libre et '
+                 'pose tout le reste juste à côté.').classes('muted')
 
     # --- named profiles -----------------------------------------------------
     async def ask(self, title, message, choices):

@@ -5,7 +5,7 @@ from math import ceil
 
 from planner_formats import DEFAULT_DEVICE, DEVICES
 from planner_i18n import LANGUAGES, translate
-from planner_layout import make_layout
+from planner_layout import DEFAULT_TOOLBAR_MM, make_layout
 from planner_note_styles import NOTE_STYLES
 from planner_manifest import sheets, undated_manifest
 
@@ -43,6 +43,8 @@ class PlannerConfig:
     project_count: int = 0
     project_names: tuple = ()
     project_notes_pages: int = 1
+    toolbar: str = "none"
+    toolbar_mm: float = DEFAULT_TOOLBAR_MM
 
     def __post_init__(self):
         for name, low, high in (
@@ -85,10 +87,11 @@ class PlannerConfig:
     @property
     def format_suffix(self):
         """Empty for the historical profile, so published names never move."""
-        if self.device == DEFAULT_DEVICE and self.density == "standard":
+        toolbar = {"left": "-barre-g", "right": "-barre-d"}.get(self.toolbar, "")
+        if self.device == DEFAULT_DEVICE and self.density == "standard" and not toolbar:
             return ""
         device = self.device if self.device in DEVICES else "custom"
-        return f"-{device}" + ("" if self.density == "standard" else "-aere")
+        return f"-{device}" + ("" if self.density == "standard" else "-aere") + toolbar
 
     @property
     def days_per_index(self):

@@ -7,7 +7,8 @@ page, so the layout scales without any anisotropic distortion.
 
 from dataclasses import dataclass
 
-from planner_formats import DEFAULT_DEVICE, DENSITIES, DEVICES, DeviceFormat, resolve_format
+from planner_formats import (DEFAULT_DEVICE, DENSITIES, DEVICES, MM, DeviceFormat,
+                             resolve_format)
 
 
 # Ink levels shared by every page template.
@@ -18,6 +19,13 @@ RULE = 0.70
 MARGIN = 24
 RAIL_GUTTER = 49
 RAIL_WIDTH = 39
+# Several tablets float their own toolbar above the page instead of shrinking
+# it: on the AiPaper, docked right it swallows the navigation rail, docked left
+# it eats the first centimetre of every line. The band is left empty, not
+# merely narrowed, so the drawing lands exactly beside it.
+TOOLBAR_SIDES = {"none": "Aucune", "left": "À gauche", "right": "À droite"}
+TOOLBAR_MM = (4.0, 30.0)
+DEFAULT_TOOLBAR_MM = 11.0
 # (note rules, backlog task rows, weekly task rows) for each writing comfort.
 ROW_HEIGHTS = {"standard": (22, 22.5, 20), "comfortable": (28, 28.5, 26)}
 REFERENCE_HEIGHT = DEVICES[DEFAULT_DEVICE].height_pt
@@ -38,10 +46,18 @@ class PageLayout:
     weekly_row_height: float
     body_bottom: float
     footer_rule: float
+    toolbar: str = "none"
+    toolbar_width: float = 0.0
 
     @property
     def pagesize(self):
         return (self.width, self.height)
+
+    @property
+    def page_right(self):
+        """Right edge of everything drawn: the rail hangs from it, not from the
+        sheet, so a toolbar docked right never covers the navigation."""
+        return self.width - (self.toolbar_width if self.toolbar == "right" else 0)
 
     # A writing grid may tighten its lines by this much before it gives up and
     # asks for a second sheet: two tight pages beat two three-fifths empty ones.
@@ -99,18 +115,38 @@ class PageLayout:
         return min(ideal, step * stretch)
 
 
+def resolve_toolbar(config):
+    """The band a built-in toolbar covers, as (side, width in points)."""
+    side = getattr(config, "toolbar", "none")
+    if not isinstance(side, str) or side not in TOOLBAR_SIDES:
+        raise ValueError("Barre d’outils inconnue : none, left ou right.")
+    width = getattr(config, "toolbar_mm", DEFAULT_TOOLBAR_MM)
+    low, high = TOOLBAR_MM
+    if isinstance(width, bool) or not isinstance(width, (int, float)) \
+            or not low <= width <= high:
+        raise ValueError(f"La largeur de la barre d’outils doit être comprise entre "
+                         f"{low:.0f} et {high:.0f} mm.")
+    return side, (0.0 if side == "none" else float(width) * MM)
+
+
 def make_layout(config):
     device = resolve_format(config)
     density = getattr(config, "density", "standard")
     if not isinstance(density, str) or density not in DENSITIES:
         raise ValueError("Confort d’écriture inconnu : standard ou comfortable.")
     rules, task, weekly = ROW_HEIGHTS[density]
+    toolbar, band = resolve_toolbar(config)
+    left = MARGIN + (band if toolbar == "left" else 0)
+    right = device.width_pt - (band if toolbar == "right" else 0) - RAIL_GUTTER
+    if right - left < 180:
+        raise ValueError("La barre d’outils ne laisse plus assez de place pour écrire : "
+                         "réduisez sa largeur ou choisissez un écran plus large.")
     return PageLayout(
         device=device, density=density,
         width=device.width_pt, height=device.height_pt,
-        left=MARGIN, right=device.width_pt - RAIL_GUTTER,
-        content_width=device.width_pt - RAIL_GUTTER - MARGIN,
+        left=left, right=right, content_width=right - left,
         rail_width=RAIL_WIDTH, row_height=rules,
         task_row_height=task, weekly_row_height=weekly,
         body_bottom=67, footer_rule=45,
+        toolbar=toolbar, toolbar_width=band,
     )

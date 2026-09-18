@@ -9,6 +9,7 @@ import streamlit as st
 
 from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
 from planner_formats import BRANDS, CUSTOM, DENSITIES, DEVICES
+from planner_layout import TOOLBAR_MM, TOOLBAR_SIDES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
 from planner_manifest import build_manifest, preview_kinds
@@ -50,6 +51,17 @@ def device_form(config, prefix):
                                  value=int(config.custom_height_mm or 217), step=1,
                                  key=f"{prefix}_field_height_mm",
                                  help="Portrait uniquement : hauteur au moins égale à la largeur.")
+    st.markdown("**Barre d’outils de la tablette**")
+    toolbar = st.selectbox("Côté de la barre", list(TOOLBAR_SIDES),
+                           index=list(TOOLBAR_SIDES).index(config.toolbar),
+                           format_func=TOOLBAR_SIDES.get, key=f"{prefix}_field_toolbar")
+    toolbar_mm = st.number_input("Largeur de la barre (mm)", min_value=TOOLBAR_MM[0],
+                                 max_value=TOOLBAR_MM[1], value=float(config.toolbar_mm),
+                                 step=0.5, key=f"{prefix}_field_toolbar_mm",
+                                 help="Mesurez-la une fois sur votre écran : le carnet "
+                                      "se pose ensuite exactement à côté.")
+    st.caption("La barre intégrée flotte au-dessus de la page. À droite elle masque la "
+               "navigation, à gauche le début des lignes : la bande est laissée libre.")
     layout_choice = st.selectbox("Composition des Meetings", list(MEETING_LAYOUTS),
                                  index=list(MEETING_LAYOUTS).index(config.meeting_layout),
                                  format_func=MEETING_LAYOUTS.get, key=f"{prefix}_field_meeting_layout")
@@ -66,6 +78,7 @@ def device_form(config, prefix):
     st.caption("Le fond ne couvre que la zone d’écriture ; titres, liens et barre latérale "
                "restent nets.")
     return {"device": device, "density": density, "meeting_layout": layout_choice,
+            "toolbar": toolbar, "toolbar_mm": float(toolbar_mm),
             "meeting_note_style": meeting_style, "task_note_style": task_style,
             "custom_width_mm": float(width) if device == CUSTOM else None,
             "custom_height_mm": float(height) if device == CUSTOM else None}

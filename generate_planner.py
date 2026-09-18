@@ -9,6 +9,7 @@ from pathlib import Path
 
 from planner_config import MEETING_LAYOUTS, PlannerConfig, TYPOGRAPHIES
 from planner_formats import CUSTOM, DENSITIES, DEVICES
+from planner_layout import TOOLBAR_SIDES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
 from planner_pdf import generate_comparison, generate_pdf
@@ -23,6 +24,10 @@ def main():
     parser.add_argument("--device", choices=list(DEVICES) + [CUSTOM],
                         help="Modèle de tablette ; custom demande les deux dimensions en mm")
     parser.add_argument("--density", choices=DENSITIES, help="Confort d’écriture : standard ou comfortable")
+    parser.add_argument("--toolbar", choices=TOOLBAR_SIDES,
+                        help="Côté de la barre d’outils intégrée de la tablette ; la bande correspondante reste libre")
+    parser.add_argument("--toolbar-mm", type=float,
+                        help="Largeur de la barre d’outils intégrée, en mm (4 à 30)")
     parser.add_argument("--custom-width-mm", type=float, help="Largeur du format personnalisé, en mm")
     parser.add_argument("--custom-height-mm", type=float, help="Hauteur du format personnalisé, en mm")
     parser.add_argument("--project-count", type=int, help="Nombre de fiches projet, de 0 à 12")
@@ -43,7 +48,8 @@ def main():
     if args.language is not None:
         config = replace(config, language=args.language)
     surface = {name: getattr(args, name) for name in
-               ("device", "density", "custom_width_mm", "custom_height_mm",
+               ("device", "density", "toolbar", "toolbar_mm",
+                "custom_width_mm", "custom_height_mm",
                 "meeting_note_style", "task_note_style", "meeting_layout",
                 "project_count", "project_notes_pages")
                if getattr(args, name) is not None}
