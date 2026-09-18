@@ -23,19 +23,22 @@ onto its lines instead of beside them.
 """
 
 import argparse
+import base64
 import io
 import json
 import subprocess
 import sys
-import uuid
 import zipfile
 from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageChops, ImageFilter
+from PIL.PngImagePlugin import PngInfo
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
+
+import note_archive
 
 
 PANEL_DPI = 300
@@ -123,7 +126,7 @@ def read_source(path, report):
     return read_flattened(path, report)
 
 
-# --- rebuilding the tablet's own notebook ----------------------------------
+# --- grafting into the notebook the tablet itself made ---------------------
 
 def note_identity(archive, names):
     """The notebook's own name and identifier, as the archive states them."""
@@ -135,22 +138,6 @@ def note_identity(archive, names):
     return info["fileName"], info["id"]
 
 
-def rename_notebook(data, old_name, old_id, new_name, new_id):
-    """Give the rebuilt notebook a name and an identifier of its own.
-
-    Name and identifier are opaque strings, and every place that repeats them
-    is a plain field: swapping both, everywhere, hands back a notebook the
-    tablet files separately instead of beside the original.
-
-    Asked for, never assumed. A notebook that keeps the original identity is
-    the only shape the tablet has been observed to accept; one that changes it
-    arrives as an unknown, and an unknown is what the importer refuses when
-    anything else is wrong. The duplicate is the safe outcome.
-    """
-    return data.replace(old_id.encode(), new_id.encode()) \
-               .replace(json.dumps(old_name).encode(), json.dumps(new_name).encode())
-
-
 def template_entry(names):
     """The archive member holding the PDF the notebook was written on."""
     found = [name for name in names if name.lower().endswith(".pdf")]
@@ -160,86 +147,226 @@ def template_entry(names):
     return found[0]
 
 
-# Measured against com.wisky.notewriter 1.8.9, dbVersion 22, on an AiPaper.
-# Four notebooks were offered to it: the template in its original slot and in a
-# fresh one, with three different sets of bytes. Every one was refused as a
-# damaged folder. The only archive it accepted carried a template already
-# installed on the tablet — which is to say, an archive that changed nothing.
-REBUILD_WARNING = (
-    "Attention : l’AiPaper testé refuse d’installer un gabarit qu’il ne possède "
-    "pas déjà, et rejette le carnet réédité comme « dossier endommagé ». Cette "
-    "réédition n’a été acceptée que lorsque le gabarit était déjà sur la "
-    "tablette. Préférez le PDF, qui fonctionne.")
+def move_layer(data, dx, dy):
+    """The same transparent canvas, with the ink slid across it."""
+    layer = Image.open(io.BytesIO(data))
+    moved = Image.new(layer.mode, layer.size, (0, 0, 0, 0))
+    moved.paste(layer, (dx, dy))
+    keep, index = PngInfo(), 8
+    while index < len(data):   # keep the chunks the tablet writes beside the pixels
+        size = int.from_bytes(data[index:index + 4], "big")
+        kind = data[index + 4:index + 8]
+        if kind in (b"sRGB", b"sBIT", b"gAMA", b"cHRM", b"pHYs"):
+            keep.add(kind, data[index + 8:index + 8 + size])
+        index += 12 + size
+    buffer = io.BytesIO()
+    moved.save(buffer, format="PNG", pnginfo=keep)
+    return buffer.getvalue()
 
 
-def rebuild_note(source, target, output, report=print, name=None):
-    """Re-issue a `.note` on a new edition, keeping the strokes editable.
+def move_strokes(data, dx, dy):
+    """Every recorded point slid by the same amount.
 
-    Kept for the record and for whoever finds the trick; see REBUILD_WARNING.
+    The first two numbers of each point are its screen coordinates — rasterising
+    them reproduces the handwriting exactly. What the third holds, and how the
+    points group into strokes, stays unknown; moving them all by one offset does
+    not need to know, because nothing is reordered and nothing is regrouped.
+    """
+    points = json.loads(data)
+    for point in points:
+        point[0] += dx
+        point[1] += dy
+    return json.dumps(points, separators=(",", ":")).encode()
 
-    Only the template PDF is exchanged. Layers, strokes and metadata are copied
-    byte for byte: the notebook keeps its handwriting as strokes the tablet can
-    still select, move and erase, which no PDF can offer.
 
-    This holds at 1:1 only. The strokes live in panel coordinates, and the file
-    that carries them is an undocumented history buffer that does not even map
-    one page to one layer — moving them would be guesswork on someone's notes.
-    An edition that shifted its writing column is refused, and takes the PDF
-    route instead, where the ink is an image that can safely be moved.
+def written_pages(source):
+    """{page: share of ink} for a `.note`, ignoring pages opened but left blank."""
+    with zipfile.ZipFile(Path(source)) as ink:
+        declared = note_archive.resources(ink)
+        present = set(ink.namelist())
+        found = {}
+        for page, kinds in declared.items():
+            name = kinds.get(note_archive.LAYER)
+            if name in present:
+                share = coverage(Image.open(io.BytesIO(ink.read(name))).convert("RGBA"))
+                if share > 0:
+                    found[page] = share
+    return found
+
+
+def inventory(source):
+    """What a written notebook holds, in the order it holds it.
+
+    Returns [(section, [(page, label, share of ink), …]), …] — sections in page
+    order, which is reading order. Thumbnails are deliberately left out: they
+    cost a second per handful of pages, and a notebook filled for a year has
+    hundreds. They are drawn for the section being looked at.
+    """
+    pages = written_pages(source)
+    named = page_sections(source, pages)
+    sections = []
+    for page in sorted(pages):
+        section, label = named[page]
+        if not sections or sections[-1][0] != section:
+            sections.append((section, []))
+        sections[-1][1].append((page, label, pages[page]))
+    return sections
+
+
+def page_previews(source, pages, width=260):
+    """A thumbnail of the handwriting itself, as a data URI, for each page.
+
+    Cropped to the ink rather than shrunk from the whole sheet: a page is
+    mostly blank, and a postage stamp of blankness tells nobody anything.
+    """
+    previews = {}
+    with zipfile.ZipFile(Path(source)) as ink:
+        declared = note_archive.resources(ink)
+        present = set(ink.namelist())
+        for page in pages:
+            name = declared.get(page, {}).get(note_archive.LAYER)
+            if name not in present:
+                continue
+            layer = Image.open(io.BytesIO(ink.read(name))).convert("RGBA")
+            box = layer.getbbox()
+            if box is None:
+                continue
+            margin = 24
+            box = (max(0, box[0] - margin), max(0, box[1] - margin),
+                   min(layer.width, box[2] + margin), min(layer.height, box[3] + margin))
+            crop = layer.crop(box)
+            sheet = Image.new("RGB", crop.size, "white")
+            sheet.paste(crop, mask=crop)
+            height = max(1, round(sheet.height * width / sheet.width))
+            sheet = sheet.resize((width, min(height, width * 2)), Image.LANCZOS)
+            buffer = io.BytesIO()
+            sheet.save(buffer, format="PNG", optimize=True)
+            previews[page] = ("data:image/png;base64,"
+                              + base64.b64encode(buffer.getvalue()).decode())
+    return previews
+
+
+def page_sections(source, pages):
+    """Name each page after its outline entry, and the section that holds it.
+
+    A list of page numbers says nothing three weeks later. The template carries
+    the notebook's own bookmarks, so « 53 » becomes « Mer 16 septembre 2026 »
+    under « Septembre 2026 ». Starting a new period, one rarely wants the whole
+    of the old notebook — one wants its backlog, or its projects, or a single
+    list. The section is the grain that choice is made in.
+
+    The section comes from the outline tree, never from page order: a week's
+    pages sit after the last month in the file while belonging to neither.
+    """
+    import bisect
+    with zipfile.ZipFile(Path(source)) as archive:
+        reader = PdfReader(io.BytesIO(archive.read(note_archive.template_entry(archive))))
+        flat = []
+
+        def walk(items, depth=0, inherited=None):
+            """Carry the second-level title down the tree, never up the pages."""
+            section = inherited
+            for item in items:
+                if isinstance(item, list):
+                    walk(item, depth + 1, section)
+                    continue
+                try:
+                    page = reader.get_destination_page_number(item)
+                except Exception:  # noqa: BLE001 — a stale bookmark is not fatal
+                    continue
+                # A month, a week, a backlog list, the projects: the second
+                # level is the unit. Deeper entries inherit the one above them.
+                section = item.title if depth <= 1 else (inherited or item.title)
+                flat.append((page, section, item.title))
+
+        try:
+            walk(reader.outline)
+        except Exception:  # noqa: BLE001 — a notebook without bookmarks still works
+            flat = []
+    flat.sort(key=lambda entry: entry[0])
+    starts = [entry[0] for entry in flat]
+    named = {}
+    for page in sorted(pages):
+        index = bisect.bisect_right(starts, page - 1) - 1
+        if index < 0:
+            named[page] = ("Carnet", f"Page {page}")
+            continue
+        _, section, label = flat[index]
+        offset = page - 1 - flat[index][0]
+        named[page] = (section, label if not offset else f"{label} +{offset}")
+    return named
+
+
+def graft_note(source, target, output, report=print, pages=None):
+    """Add the handwriting of one notebook to one the tablet has just made.
+
+    The tablet will not install a template it does not already have, and refuses
+    any archive whose bytes it did not write — recompressing one, contents
+    unchanged, is enough to have it rejected. So the new edition is imported on
+    the tablet first, exported empty, and that export is what receives the ink:
+    its notebook, its template, its identifiers, its bytes. Every page it holds
+    already declares a layer and a stroke file; only the contents are missing.
     """
     source, target, output = Path(source), Path(target), Path(output)
-    report(REBUILD_WARNING)
-    if not zipfile.is_zipfile(source):
-        raise ValueError("Un carnet ne peut être réédité qu’à partir de l’archive "
-                         ".note de la tablette, pas d’un PDF exporté.")
-    pages = len(PdfReader(str(target)).pages)
-    with zipfile.ZipFile(source) as archive:
-        names = archive.namelist()
-        entry = template_entry(names)
-        written = len(json.loads(archive.read(next(
-            name for name in names if name.endswith("PageListFileInfo.json")))))
-        if written != pages:
-            raise ValueError(f"Le carnet compte {written} pages et le nouveau PDF "
-                             f"{pages} : régénérez-le avec les mêmes réglages de "
-                             "durée, de backlog et de projets.")
-        holder = output.with_suffix(".gabarit.pdf")
-        holder.write_bytes(archive.read(entry))
-        try:
-            report("Vérification que la mise en page n’a pas bougé :")
-            dx, dy, _ = measure(holder, False, target, [1, max(1, pages // 2)], report)
-        finally:
-            holder.unlink(missing_ok=True)
-        if (dx, dy) != (0.0, 0.0):
-            raise ValueError(
-                f"La nouvelle édition décale la colonne d’écriture de "
-                f"{dx / PANEL_DPI * 25.4:+.1f} × {dy / PANEL_DPI * 25.4:+.1f} mm. "
-                "Un carnet réédité garde ses tracés là où ils ont été écrits : ils "
-                "tomberaient à côté. Régénérez le PDF avec la même mise en page, ou "
-                "demandez un PDF, où l’encre est une image qui suit le décalage.")
-        old_name, old_id = note_identity(archive, names)
-        new_id = uuid.uuid4().hex.upper()
-        report(f"Réédition du carnet : {pages} pages, gabarit « {entry} » remplacé.")
-        if name:
-            report(f"Nouveau carnet « {name} », distinct de « {old_name} ».")
-        else:
-            report(f"Carnet « {old_name} », identité inchangée : il arrivera à côté "
-                   "de l’original, en double. C’est voulu — la tablette accepte "
-                   "mal un carnet qu’elle ne reconnaît pas.")
-        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as rebuilt:
-            for item in archive.infolist():
-                if item.filename == entry:
-                    data = target.read_bytes()
-                else:
-                    data = archive.read(item.filename)
-                    if name and item.filename.endswith(".json"):
-                        data = rename_notebook(data, old_name, old_id, name, new_id)
-                name_in_zip = item.filename.replace(old_name + "_", name + "_", 1) \
-                    if name and item.filename.startswith(old_name + "_") else item.filename
-                rebuilt.writestr(name_in_zip, data)
-    report("Vos tracés restent des tracés : sélection, déplacement et gomme "
-           "fonctionnent encore sur la tablette.")
+    for path, role in ((source, "le carnet écrit"), (target, "le nouveau carnet")):
+        if not zipfile.is_zipfile(path):
+            raise ValueError(f"Pour garder des tracés modifiables, {role} doit être "
+                             "une archive .note de la tablette.")
+    with zipfile.ZipFile(source) as ink, zipfile.ZipFile(target) as base:
+        dx, dy = graft_offset(ink, base, output, report)
+        written, declared = note_archive.resources(ink), note_archive.resources(base)
+        present, taken = set(ink.namelist()), set(base.namelist())
+        wanted = None if pages is None else set(pages)
+        added, grafted = [], set()
+        for page in sorted(written):
+            if wanted is not None and page not in wanted:
+                continue
+            slots = declared.get(page, {})
+            # A page the tablet wrote itself keeps everything it has: grafting
+            # old strokes under a newer layer would leave the two disagreeing.
+            if any(slots.get(kind) in taken for kind in
+                   (note_archive.LAYER, note_archive.STROKES)):
+                continue
+            for kind in (note_archive.LAYER, note_archive.STROKES):
+                name = written[page].get(kind)
+                slot = slots.get(kind)
+                if name not in present or slot is None:
+                    continue
+                data = ink.read(name)
+                if (dx, dy) != (0, 0):
+                    data = (move_layer(data, dx, dy) if kind == note_archive.LAYER
+                            else move_strokes(data, dx, dy))
+                added.append((slot, data))
+                grafted.add(page)
+        if not added:
+            raise ValueError(f"{source.name} : aucune page écrite à reporter, ou le "
+                             "nouveau carnet n’a pas les mêmes pages.")
+    report(f"{len(grafted)} page(s) greffée(s) : "
+           + ", ".join(str(page) for page in sorted(grafted)))
+    total = note_archive.append(target, output, added)
+    report(f"Carnet de la tablette conservé octet pour octet ; {len(added)} fichiers "
+           f"ajoutés, {total} entrées au total.")
     report(f"→ {output} ({output.stat().st_size / 1e6:.1f} Mo)")
-    return pages
+    return sorted(grafted)
+
+
+def graft_offset(ink, base, output, report):
+    """How far the new edition moved its writing column, in panel pixels."""
+    holders = []
+    try:
+        for archive in (ink, base):
+            holder = output.with_suffix(f".gabarit-{len(holders)}.pdf")
+            holder.write_bytes(archive.read(note_archive.template_entry(archive)))
+            holders.append(holder)
+        report("Calage sur le carnet d’origine :")
+        dx, dy, spread = measure(holders[0], False, holders[1], [1, 2], report)
+    finally:
+        for holder in holders:
+            holder.unlink(missing_ok=True)
+    report(f"Décalage retenu : {dx / PANEL_DPI * 25.4:+.2f} × "
+           f"{dy / PANEL_DPI * 25.4:+.2f} mm"
+           + (f" (dispersion {spread:.0f} px)" if spread else " (unanime)"))
+    return round(dx), round(dy)
 
 
 # --- alignment -------------------------------------------------------------
@@ -380,18 +507,54 @@ def transfer(source, target, output, offset_mm=None, report=print):
     return sorted(written)
 
 
-def transfer_report(source, target, output, offset_mm=None, rebuild=False, name=None):
-    """`transfer` or `rebuild_note`, with its commentary returned, not printed.
+def carry(source, target, output, offset_mm=None, report=print, pages=None):
+    """Carry handwriting over, in the shape the destination asks for.
+
+    A `.note` destination is a notebook the tablet just made: the ink is grafted
+    into it and stays strokes. A PDF destination receives the ink as an image.
+    """
+    if zipfile.is_zipfile(Path(target)):
+        return graft_note(source, target, output, report=report, pages=pages)
+    return transfer(source, target, output, offset_mm, report=report)
+
+
+def transfer_report(source, target, output, offset_mm=None, pages=None):
+    """`carry`, with its commentary returned instead of printed.
 
     A worker process has nowhere to print, so the lines come back together
     with the result for whoever asked.
     """
     lines = []
-    if rebuild:
-        pages = rebuild_note(source, target, output, report=lines.append, name=name)
-    else:
-        pages = transfer(source, target, output, offset_mm, report=lines.append)
-    return pages, lines
+    done = carry(source, target, output, offset_mm, report=lines.append, pages=pages)
+    return done, lines
+
+
+def parse_pages(text):
+    """« 268-374,2279 » as a set of page numbers, or None for everything."""
+    if not text:
+        return None
+    chosen = set()
+    for part in text.replace(" ", "").split(","):
+        if not part:
+            continue
+        bounds = part.split("-")
+        try:
+            first = int(bounds[0])
+            last = int(bounds[-1]) if len(bounds) <= 2 else None
+        except ValueError:
+            last = None
+        if last is None or first < 1 or last < first:
+            raise ValueError(f"Sélection de pages illisible : « {part} ». "
+                             "Attendu : 12, ou 12-30, séparés par des virgules.")
+        chosen.update(range(first, last + 1))
+    return chosen or None
+
+
+def print_inventory(source):
+    for section, rows in inventory(source):
+        print(f"{section}  ({len(rows)} page(s))")
+        for page, label, share in rows:
+            print(f"    {page:>6}  {share:5.2f} %  {label}")
 
 
 def main():
@@ -399,26 +562,27 @@ def main():
         description="Reporter l’écriture d’un carnet AiPaper sur une nouvelle édition.")
     parser.add_argument("--from", dest="source", type=Path, required=True,
                         help="Archive .note de la tablette, ou PDF exporté aplati")
-    parser.add_argument("--into", type=Path, required=True,
-                        help="PDF régénéré qui doit recevoir l’encre")
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--as", dest="shape", choices=("pdf", "note"), default="pdf",
-                        help="pdf : l’encre devient une image, lisible partout. "
-                             "note : réédite le carnet de la tablette — refusé à "
-                             "l’import par l’AiPaper testé, conservé pour mémoire")
-    parser.add_argument("--name",
-                        help="Réédition : nommer le carnet à part, au lieu de garder "
-                             "l’identité de l’original. La tablette accepte mal un "
-                             "carnet qu’elle ne reconnaît pas ; sans cette option il "
-                             "arrive en double, ce qui est le comportement sûr")
+    parser.add_argument("--into", type=Path,
+                        help="PDF régénéré, ou archive .note que la tablette vient "
+                             "d’exporter — auquel cas les tracés restent modifiables")
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--pages",
+                        help="Ne reprendre que ces pages : « 268-374,2279-2282 ». "
+                             "Par défaut, toutes les pages écrites")
+    parser.add_argument("--list", action="store_true",
+                        help="Afficher ce que le carnet écrit contient, par section, "
+                             "sans rien produire")
     parser.add_argument("--offset-mm", type=float,
                         help="Décalage horizontal imposé, au lieu du calage automatique")
     args = parser.parse_args()
     try:
-        if args.shape == "note":
-            rebuild_note(args.source, args.into, args.output, name=args.name)
-        else:
-            transfer(args.source, args.into, args.output, args.offset_mm)
+        if args.list:
+            print_inventory(args.source)
+            return
+        if not args.into or not args.output:
+            parser.error("--into et --output sont requis, sauf avec --list.")
+        carry(args.source, args.into, args.output, args.offset_mm,
+              pages=parse_pages(args.pages))
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         parser.error(str(error))
 

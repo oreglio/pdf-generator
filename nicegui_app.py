@@ -63,6 +63,17 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; width: 100%; align-items: start; }
 .slot { background: #fff; border: 1px solid #e0e3dc; border-radius: 12px; padding: 20px; gap: 12px; width: 100%; }
 .slot .q-uploader { width: 100%; max-width: none; box-shadow: none; border: 1px dashed #c6cec8; border-radius: 8px; }
+.pick { width: 100%; border: 1px solid #e0e3dc; border-radius: 12px; background: #fff; overflow: hidden; }
+.pick .q-expansion-item { border-top: 1px solid #edefe9; }
+.pick .q-expansion-item:first-child { border-top: none; }
+.pick-head { width: 100%; align-items: center; justify-content: space-between; gap: 12px; }
+.pick-count { font-size: 12px; color: #68746e; white-space: nowrap; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; width: 100%; padding: 4px 0 10px; }
+.shot { border: 1px solid #e4e7e0; border-radius: 10px; overflow: hidden; background: #fbfcfa; transition: border-color .15s, box-shadow .15s; }
+.shot.on { border-color: #235c4f; box-shadow: 0 0 0 1px #235c4f; }
+.shot img { width: 100%; display: block; background: #fff; }
+.shot-foot { padding: 8px 10px; font-size: 11px; line-height: 1.5; color: #43514c; }
+.shot-foot b { display: block; font-weight: 700; color: #222c2a; }
 .journal { background: #212624; color: #dfe6e0; border-radius: 12px; padding: 18px 20px; width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.75;
   white-space: pre-wrap; min-height: 150px; max-height: 420px; overflow: auto; }
@@ -859,10 +870,11 @@ class TransferWorkspace:
               'hint': ('L’archive .note de la tablette garde l’encre sur un calque à part : '
                        'c’est la meilleure source. Un PDF exporté marche aussi, en '
                        'reconstituant l’encre par soustraction.')}
-    TARGET = {'suffix': ('.pdf',),
-              'label': 'Mon nouveau carnet · PDF',
-              'hint': ('Régénéré avec les mêmes réglages de durée, de backlog et de '
-                       'projets : c’est ce qui garantit que chaque page retombe juste.')}
+    TARGET = {'suffix': ('.pdf', '.note'),
+              'label': 'Mon nouveau carnet · PDF ou .note',
+              'hint': ('Un PDF reçoit votre écriture comme une image. Pour garder des '
+                       'tracés que la gomme reprend, importez d’abord ce PDF dans la '
+                       'tablette, réexportez-le en .note vide, et déposez ce .note ici.')}
     SLOTS = (('source', SOURCE), ('target', TARGET))
     LIMIT = 400 * 1024 * 1024
     MISSING = ('La reprise d’écriture demande des bibliothèques supplémentaires : '
@@ -873,10 +885,10 @@ class TransferWorkspace:
     def available():
         """The generator must keep working when the transfer extras are absent."""
         try:
-            from transfer_ink import transfer_report
+            import transfer_ink
         except ImportError:
             return None
-        return transfer_report
+        return transfer_ink
 
     def __init__(self):
         self.folder = Path(tempfile.mkdtemp(prefix='folio-transfert-'))
@@ -885,9 +897,92 @@ class TransferWorkspace:
         self.result = None
         self.busy = False
         self.lines = []
+        self.sections, self.chosen, self.previews = [], set(), {}
 
     def close(self):
         shutil.rmtree(self.folder, ignore_errors=True)
+
+    @property
+    def keeps_strokes(self):
+        """A `.note` destination is a notebook the tablet has just made."""
+        target = self.files.get('target')
+        return bool(target and target.suffix.lower() == '.note')
+
+    async def take_stock(self):
+        """List what the written notebook holds, once both files are in."""
+        self.sections, self.chosen, self.previews = [], set(), {}
+        if not ({'source', 'target'} <= set(self.files) and self.keeps_strokes
+                and self.files['source'].suffix.lower() == '.note'):
+            return
+        try:
+            module = self.available()
+            if module is None:
+                return
+            self.sections = await cpu_job(module.inventory,
+                                          self.files['source'])
+            self.chosen = {page for _, rows in self.sections for page, _, _ in rows}
+        except Exception as error:  # noqa: BLE001 — the message belongs on screen
+            self.lines = [f'Lecture du carnet écrit impossible : {error}']
+
+    def toggle_page(self, page, value):
+        self.chosen.add(page) if value else self.chosen.discard(page)
+        self.picker.refresh()
+
+    def toggle_section(self, rows, value):
+        for page, _, _ in rows:
+            self.chosen.add(page) if value else self.chosen.discard(page)
+        self.picker.refresh()
+
+    def choose_all(self, value):
+        self.chosen = ({page for _, rows in self.sections for page, _, _ in rows}
+                       if value else set())
+        self.picker.refresh()
+
+    async def show_section(self, section, rows):
+        """Draw the handwriting of one section, the first time it is opened."""
+        missing = [page for page, _, _ in rows if page not in self.previews]
+        if missing:
+            module = self.available()
+            self.previews.update(await cpu_job(module.page_previews,
+                                               self.files['source'], missing))
+            self.picker.refresh()
+
+    @ui.refreshable
+    def picker(self):
+        if not self.sections:
+            return
+        total = sum(len(rows) for _, rows in self.sections)
+        with ui.row().classes('items-center justify-between w-full'):
+            ui.label(f'{total} pages écrites · {len(self.sections)} sections') \
+                .classes('text-sm font-bold')
+            with ui.row().classes('gap-1'):
+                ui.button('Tout', on_click=lambda: self.choose_all(True)).props('flat dense')
+                ui.button('Rien', on_click=lambda: self.choose_all(False)).props('flat dense')
+        with ui.column().classes('pick'):
+            for section, rows in self.sections:
+                taken = sum(1 for page, _, _ in rows if page in self.chosen)
+                with ui.expansion(on_value_change=lambda event, s=section, r=rows:
+                                  self.show_section(s, r) if event.value else None) \
+                        .classes('w-full') as panel:
+                    with panel.add_slot('header'):
+                        with ui.row().classes('pick-head'):
+                            ui.checkbox(section, value=taken == len(rows),
+                                        on_change=lambda event, r=rows:
+                                        self.toggle_section(r, event.value))
+                            ui.label(f'{taken}/{len(rows)}').classes('pick-count')
+                    with ui.element('div').classes('shots'):
+                        for page, label, share in rows:
+                            with ui.column().classes(
+                                    'shot' + (' on' if page in self.chosen else '')) \
+                                    .classes('gap-0'):
+                                shot = self.previews.get(page)
+                                if shot:
+                                    ui.html(f'<img src="{shot}" alt="page {page}">')
+                                with ui.column().classes('shot-foot gap-1'):
+                                    ui.checkbox(f'Page {page}', value=page in self.chosen,
+                                                on_change=lambda event, p=page:
+                                                self.toggle_page(p, event.value))
+                                    ui.html(f'<span>{label}</span>')
 
     def destination(self, slot, spec, name):
         """Where an uploaded file lands, or None when its suffix is wrong."""
@@ -914,10 +1009,12 @@ class TransferWorkspace:
                 self.result = None
                 self.status[slot].set_text(
                     f'{path.name.split("-", 1)[-1]} · {path.stat().st_size / 1e6:.1f} Mo')
+                await self.take_stock()
             except Exception as error:  # noqa: BLE001 — a swallowed upload is a dead button
                 self.lines = [f'Import impossible : {error}']
                 self.status[slot].set_text('Ce fichier n’a pas pu être lu.')
             finally:
+                self.picker.refresh()
                 self.actions.refresh()
         return handler
 
@@ -943,10 +1040,18 @@ class TransferWorkspace:
     @ui.refreshable
     def actions(self):
         ready = {'source', 'target'} <= set(self.files) and not self.busy
-        ui.label('Votre écriture arrive comme une image : elle s’ouvre partout, et '
-                 'vous écrivez par-dessus. Elle ne redevient pas des tracés que la '
-                 'gomme peut reprendre — l’AiPaper n’installe pas de carnet dont il '
-                 'ne possède pas déjà le gabarit.').classes('muted')
+        if self.sections:
+            ready = ready and bool(self.chosen)
+        if self.keeps_strokes:
+            ui.label('Vos tracés restent des tracés : le carnet que la tablette vient '
+                     'de créer garde ses identifiants et ses octets, votre écriture '
+                     'vient s’y ajouter. Gomme et déplacement fonctionnent encore.'
+                     ).classes('muted')
+        else:
+            ui.label('Votre écriture arrive comme une image : elle s’ouvre partout, et '
+                     'vous écrivez par-dessus, sans pouvoir la reprendre trait par '
+                     'trait. Déposez un .note en destination pour garder les tracés.'
+                     ).classes('muted')
         ui.button('Reporter mon écriture', icon='draw', on_click=self.run) \
             .classes('py-2').set_enabled(ready)
         if self.lines:
@@ -954,10 +1059,11 @@ class TransferWorkspace:
                     + '\n'.join(line.replace('&', '&amp;').replace('<', '&lt;')
                                 for line in self.lines) + '</div>')
         if self.result:
+            kind = ('application/pdf' if self.result.suffix == '.pdf'
+                    else 'application/octet-stream')
             ui.button(f'Télécharger {self.result.name}', icon='download',
                       on_click=lambda: ui.download(self.result.read_bytes(),
-                                                   self.result.name,
-                                                   'application/pdf')) \
+                                                   self.result.name, kind)) \
                 .props('outline')
 
     async def run(self):
@@ -967,11 +1073,14 @@ class TransferWorkspace:
         self.lines = ['Lecture du carnet écrit, calage, report de l’encre…',
                       'Comptez une vingtaine de secondes pour un carnet complet.']
         self.actions.refresh()
-        stem = self.files['target'].name.split('-', 1)[-1].removesuffix('.pdf')
-        output = self.folder / (stem + '-repris.pdf')
+        target = self.files['target']
+        stem = target.name.split('-', 1)[-1].removesuffix('.pdf').removesuffix('.note')
+        suffix = '-repris.pdf.note' if self.keeps_strokes else '-repris.pdf'
+        output = self.folder / (stem.removesuffix('.pdf') + suffix)
+        pages = sorted(self.chosen) if self.sections else None
         try:
-            _, lines = await cpu_job(self.available(), self.files['source'],
-                                     self.files['target'], output)
+            _, lines = await cpu_job(self.available().transfer_report,
+                                     self.files['source'], target, output, None, pages)
             self.lines, self.result = lines, output
             ui.notify('Écriture reportée.', type='positive')
         except Exception as error:  # noqa: BLE001 — the message belongs on screen
@@ -999,6 +1108,7 @@ class TransferWorkspace:
                 ui.label(self.MISSING).classes('muted')
                 return
             self.slots()
+            self.picker()
             with ui.column().classes('w-full gap-3'):
                 self.actions()
 

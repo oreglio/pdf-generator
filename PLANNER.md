@@ -201,34 +201,58 @@ Le PDF de destination est modifié en **mise à jour incrémentale** : ses octet
 d’origine sont conservés et seules les pages écrites sont ajoutées. Liens et
 signets restent intacts, et un carnet de 2 400 pages ne sature pas la pile.
 
-#### La réédition du carnet de la tablette a échoué
+#### Garder des tracés modifiables : la greffe
 
-`--as note` réédite l’archive : seul le gabarit PDF y est échangé, tout le reste
-est recopié octet pour octet. Techniquement l’opération est propre — sur un
-carnet réel de 2 388 pages, une seule entrée modifiée sur 82, les 18 calques et
-les 18 fichiers de tracés conservés à l’identique.
+Un PDF porte l’écriture comme une image : elle s’ouvre partout, mais la gomme
+ne la voit plus. Pour qu’elle reste des tracés, il faut passer par le format de
+la tablette — et deux règles, découvertes à l’usage, commandent tout :
 
-**L’AiPaper la refuse.** Mesuré contre `com.wisky.notewriter` 1.8.9,
-dbVersion 22 :
+1. **Elle n’installe pas un gabarit qu’elle ne possède pas déjà.** Un `.note`
+   dont on remplace le PDF est rejeté comme « dossier endommagé », quel que
+   soit l’emplacement qu’on lui donne.
+2. **Elle refuse toute archive dont les octets ne sont pas les siens.**
+   Recompresser une archive à contenus rigoureusement identiques suffit à la
+   faire rejeter. Mesuré contre `com.wisky.notewriter` 1.8.9, dbVersion 22.
 
-| Gabarit proposé | Emplacement | Résultat |
-| --- | --- | --- |
-| Déjà installé sur la tablette | d’origine | accepté |
-| Neuf | d’origine (`id` 302) | « dossier endommagé ou incomplet » |
-| Neuf | neuf (`id` et chemin inédits) | idem |
-| Déjà installé | neuf | idem |
+D’où la marche à suivre, qui laisse l’appareil nommer ses propres affaires :
 
-Quatre tentatives, deux emplacements, trois jeux d’octets. L’application
-n’installe pas un gabarit qu’elle ne possède pas déjà : le seul `.note` accepté
-est celui qui ne change rien. Le renommage du carnet est donc resté optionnel
-(`--name`) plutôt que systématique — un carnet inconnu est ce que l’importateur
-rejette dès que quoi que ce soit d’autre cloche.
+1. Importer le nouveau PDF dans la tablette, comme n’importe quel PDF.
+2. Le réexporter en `.note` — il est vide, mais il porte **son** carnet, **son**
+   gabarit, **ses** identifiants, et déclare déjà un calque et un fichier de
+   tracés pour chacune de ses pages.
+3. Donner ce `.note` comme destination : l’écriture vient s’ajouter dans les
+   emplacements qu’il a lui-même annoncés.
 
-Le code est conservé pour mémoire et pour qui trouverait la manœuvre, avec un
-avertissement en tête d’exécution. Folio n’expose plus que le PDF, qui marche.
+```bash
+venv/bin/python transfer_ink.py --from ~/ancien.pdf.note \
+  --into ~/nouveau.pdf.note --output ~/repris.pdf.note
+```
 
-Dans Folio, la reprise est à `/transfert` : on dépose les deux fichiers, on
-récupère le PDF repris. Rien ne sort de la machine.
+L’archive de destination n’est **jamais réécrite** : ses octets sont recopiés
+tels quels, les fichiers d’encre ajoutés à la suite, et seul le répertoire
+central est reconstruit — ce qui est sa raison d’être. Une page sur laquelle la
+tablette a déjà écrit garde ce qu’elle a.
+
+#### Choisir ce qu’on reprend
+
+Une nouvelle période veut rarement tout l’ancien carnet — plutôt son backlog,
+ses projets, ou une seule liste. `--list` montre ce qu’il contient, par section
+du sommaire, et `--pages` n’en reprend qu’une partie :
+
+```bash
+venv/bin/python transfer_ink.py --from ~/ancien.pdf.note --list
+venv/bin/python transfer_ink.py --from ~/ancien.pdf.note --into ~/nouveau.pdf.note \
+  --output ~/repris.pdf.note --pages 268-374,2279-2282
+```
+
+La section vient de l’arbre du sommaire et non de l’ordre des pages : les pages
+d’une semaine se trouvent après le dernier mois dans le fichier sans appartenir
+à aucun des deux. Dans Folio, chaque page écrite s’accompagne d’une vignette de
+**l’écriture elle-même**, recadrée sur l’encre — on reprend ce qu’on voit. Les
+vignettes ne sont calculées que pour la section ouverte : un carnet rempli une
+année durant en compte des centaines.
+
+Dans Folio, tout cela est à `/transfert`. Rien ne sort de la machine.
 
 ### Confort d’écriture et répartition sur plusieurs feuillets
 
