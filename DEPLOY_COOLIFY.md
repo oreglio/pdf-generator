@@ -56,9 +56,16 @@ sélectionner `main`. Le dépôt contient aussi un Dockerfile historique : chois
 explicitement **Dockerfile.nicegui**.
 [Déploiement Dockerfile depuis Git](https://coolify.io/docs/applications/builds/dockerfile).
 
-L’image embarque Python 3.12, NiceGUI, ReportLab, Poppler et les polices. Elle
-démarre `python nicegui_app.py --web --host 0.0.0.0 --port 8080`, sous l’utilisateur
-`notebook` (UID 10001). Aucun service de base de données n’est nécessaire.
+L’image embarque Python 3.12, NiceGUI, ReportLab, Poppler, Ghostscript et les
+polices. Elle démarre `python nicegui_app.py --web --host 0.0.0.0 --port 8080`,
+sous l’utilisateur `notebook` (UID 10001). Aucun service de base de données
+n’est nécessaire.
+
+Poppler rend les aperçus ; Ghostscript mesure le décalage entre deux éditions
+pour la reprise d’écriture (`/transfert`). Sans lui, l’atelier génère
+normalement et la page de reprise annonce ce qui manque au lieu de se taire.
+Les fichiers déposés vivent dans un dossier temporaire propre à l’onglet et
+disparaissent avec lui : rien n’est conservé côté serveur.
 
 ## 3. Domaine et HTTPS
 
@@ -177,6 +184,8 @@ secret et le même volume. Refaire le contrôle de génération après retour ar
 | Certificat absent | DNS A/AAAA et accessibilité du proxy sur HTTP/HTTPS |
 | Interface déconnectée ou boutons inactifs | Connexion Socket.IO/WebSocket, éventuel proxy supplémentaire |
 | PDF disponible mais aperçu absent | Présence de Poppler avec `pdftoppm -v` |
+| Reprise d’écriture indisponible | Présence de Ghostscript avec `gs --version` |
+| Import de gros carnet refusé | Limite de taille du proxy : une archive `.note` atteint 50 Mo |
 | Permission denied sous `.nicegui` | Destination du volume et droits de l’UID 10001 |
 | Réglages perdus après redémarrage | Réimporter le JSON exporté ; le volume n’archive pas les carnets |
 

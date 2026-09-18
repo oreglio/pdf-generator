@@ -5,12 +5,15 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# poppler-utils rend les aperçus ; ghostscript mesure le décalage entre deux
+# éditions pour la reprise d’écriture. Sans lui, l’atelier génère normalement
+# mais la page /transfert le dit au lieu de se taire.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends poppler-utils \
+    && apt-get install -y --no-install-recommends poppler-utils ghostscript \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 notebook
 
-COPY requirements-pdf.txt requirements-nicegui.txt ./
+COPY requirements-pdf.txt requirements-transfer.txt requirements-nicegui.txt ./
 RUN python -m pip install --no-cache-dir -r requirements-nicegui.txt
 
 COPY nicegui_app.py nicegui_service.py nicegui_jobs.py nicegui_preferences.py ./
@@ -18,6 +21,7 @@ COPY planner_config.py planner_i18n.py planner_pages.py planner_pdf.py ./
 COPY planner_formats.py planner_layout.py planner_manifest.py ./
 COPY planner_note_styles.py planner_project_pages.py ./
 COPY dated_planner_config.py dated_planner_pages.py dated_planner_pdf.py ./
+COPY transfer_ink.py note_archive.py ./
 COPY assets/fonts/ ./assets/fonts/
 
 RUN mkdir -p /app/.nicegui \
