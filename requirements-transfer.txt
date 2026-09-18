@@ -1,0 +1,7 @@
+# Reprise de l’écriture d’un carnet AiPaper vers une nouvelle édition.
+# Ghostscript est également requis, pour mesurer le décalage entre les deux
+# éditions : brew install ghostscript, ou apt install ghostscript.
+-r requirements-pdf.txt
+pypdf==6.1.1
+numpy==1.26.4
+pillow==10.4.0

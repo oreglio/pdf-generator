@@ -9,6 +9,8 @@ import logging
 import math
 import os
 import secrets
+import shutil
+import tempfile
 from dataclasses import replace
 from pathlib import Path
 
@@ -58,6 +60,13 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .q-btn { border-radius: 8px; text-transform: none; font-weight: 700; letter-spacing: 0; }
 .mode-switch .q-btn { font-size: 12px; padding: 9px 16px; }
 .split-note { border-left: 2px solid #b8c4bd; padding-left: 10px; }
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; width: 100%; align-items: start; }
+.slot { background: #fff; border: 1px solid #e0e3dc; border-radius: 12px; padding: 20px; gap: 12px; width: 100%; }
+.slot .q-uploader { width: 100%; max-width: none; box-shadow: none; border: 1px dashed #c6cec8; border-radius: 8px; }
+.journal { background: #212624; color: #dfe6e0; border-radius: 12px; padding: 18px 20px; width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.75;
+  white-space: pre-wrap; min-height: 150px; max-height: 420px; overflow: auto; }
+@media(max-width: 720px) { .slots { grid-template-columns: 1fr; } }
 .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #43514c;
   background: #eceee8; border: 1px solid #dee2d8; border-radius: 999px; padding: 6px 13px; white-space: nowrap; }
 .chip b { font-weight: 700; color: #222c2a; }
@@ -830,10 +839,162 @@ class PlannerWorkspace:
         with ui.column().classes('shell'):
             with ui.row().classes('masthead'):
                 ui.label('Folio').classes('brand')
+                ui.button('Reprendre mon écriture', icon='draw',
+                          on_click=lambda: ui.navigate.to('/transfert')).props('flat')
                 self.mode_control = ui.toggle(MODES, value=self.mode, on_change=self.switch_mode).props('unelevated toggle-color=primary color=white text-color=grey-8').classes('mode-switch').bind_enabled_from(self, 'busy', backward=lambda value: not value)
             self.body()
             ui.label('Votre atelier PDF · Réglages exportables · Français & English').classes('footer-note muted')
         ui.timer(0.1, self.refresh_preview, once=True)
+
+
+class TransferWorkspace:
+    """Carry the handwriting of a written notebook onto a freshly generated one.
+
+    Nothing is kept: both files land in a directory of their own, which goes
+    away with the tab that created it.
+    """
+
+    SOURCE = {'suffix': ('.note', '.pdf'),
+              'label': 'Mon carnet écrit · .note ou PDF',
+              'hint': ('L’archive .note de la tablette garde l’encre sur un calque à part : '
+                       'c’est la meilleure source. Un PDF exporté marche aussi, en '
+                       'reconstituant l’encre par soustraction.')}
+    TARGET = {'suffix': ('.pdf',),
+              'label': 'Mon nouveau carnet · PDF',
+              'hint': ('Régénéré avec les mêmes réglages de durée, de backlog et de '
+                       'projets : c’est ce qui garantit que chaque page retombe juste.')}
+    LIMIT = 300 * 1024 * 1024
+
+    MISSING = ('La reprise d’écriture demande des bibliothèques supplémentaires : '
+               'pip install -r requirements-transfer.txt, puis Ghostscript '
+               '(brew install ghostscript).')
+
+    @staticmethod
+    def available():
+        """The generator must keep working when the transfer extras are absent."""
+        try:
+            from transfer_ink import transfer_report
+        except ImportError:
+            return None
+        return transfer_report
+
+    def __init__(self):
+        self.folder = Path(tempfile.mkdtemp(prefix='folio-transfert-'))
+        self.files = {}
+        self.result = None
+        self.busy = False
+        self.lines = []
+
+    def close(self):
+        shutil.rmtree(self.folder, ignore_errors=True)
+
+    def accept(self, slot, spec):
+        def handler(event):
+            name = Path(event.name).name
+            if not name.lower().endswith(spec['suffix']):
+                ui.notify(f'Choisissez un fichier {" ou ".join(spec["suffix"])}.',
+                          type='negative')
+                return
+            path = self.folder / f'{slot}-{name}'
+            with open(path, 'wb') as handle:
+                shutil.copyfileobj(event.content, handle)
+            self.files[slot] = path
+            self.result = None
+            ui.notify(f'{name} · {path.stat().st_size / 1e6:.1f} Mo', type='positive')
+            self.slots.refresh()
+            self.actions.refresh()
+        return handler
+
+    def forget(self, slot):
+        path = self.files.pop(slot, None)
+        if path:
+            path.unlink(missing_ok=True)
+        self.result = None
+        self.slots.refresh()
+        self.actions.refresh()
+
+    @ui.refreshable
+    def slots(self):
+        with ui.element('div').classes('slots'):
+            for slot, spec in (('source', self.SOURCE), ('target', self.TARGET)):
+                with ui.column().classes('slot'):
+                    ui.label(spec['label']).classes('text-sm font-bold')
+                    chosen = self.files.get(slot)
+                    if chosen:
+                        with ui.row().classes('items-center gap-2 w-full'):
+                            ui.label(chosen.name.split('-', 1)[-1]).classes('chip')
+                            ui.button(icon='close', on_click=lambda s=slot: self.forget(s)) \
+                                .props('flat dense round').bind_enabled_from(
+                                    self, 'busy', backward=lambda value: not value)
+                    else:
+                        ui.upload(label='Déposer le fichier', auto_upload=True,
+                                  max_file_size=self.LIMIT,
+                                  on_upload=self.accept(slot, spec),
+                                  on_rejected=lambda: ui.notify(
+                                      'Fichier trop lourd : 300 Mo au maximum.',
+                                      type='negative')) \
+                            .props(f'accept={",".join(spec["suffix"])}') \
+                            .bind_enabled_from(self, 'busy',
+                                               backward=lambda value: not value)
+                    ui.label(spec['hint']).classes('muted')
+
+    @ui.refreshable
+    def actions(self):
+        ready = {'source', 'target'} <= set(self.files)
+        ui.button('Reporter mon écriture', icon='draw', on_click=self.run) \
+            .classes('py-2').bind_enabled_from(
+                self, 'busy', backward=lambda value: ready and not value)
+        if self.lines:
+            ui.html('<div class="journal">'
+                    + '\n'.join(line.replace('&', '&amp;').replace('<', '&lt;')
+                                for line in self.lines) + '</div>')
+        if self.result:
+            ui.button(f'Télécharger {self.result.name}', icon='download',
+                      on_click=lambda: ui.download(self.result.read_bytes(),
+                                                   self.result.name, 'application/pdf')) \
+                .props('outline')
+
+    async def run(self):
+        if self.busy:
+            return
+        self.busy, self.result, self.lines = True, None, ['Transfert en cours…']
+        self.slots.refresh()
+        self.actions.refresh()
+        output = self.folder / (self.files['target'].name.split('-', 1)[-1]
+                                .removesuffix('.pdf') + '-repris.pdf')
+        try:
+            _, lines = await cpu_job(self.available(), self.files['source'],
+                                     self.files['target'], output)
+            self.lines, self.result = lines, output
+            ui.notify('Écriture reportée.', type='positive')
+        except Exception as error:  # noqa: BLE001 — the message belongs on screen
+            self.lines = [str(error) or error.__class__.__name__]
+            ui.notify('Le transfert a échoué : voyez le journal.', type='negative')
+        finally:
+            self.busy = False
+            self.slots.refresh()
+            self.actions.refresh()
+
+    def render(self):
+        ui.context.client.on_disconnect(self.close)
+        with ui.column().classes('shell'):
+            with ui.row().classes('masthead'):
+                ui.label('Folio').classes('brand')
+                ui.button('Retour à l’atelier', icon='arrow_back',
+                          on_click=lambda: ui.navigate.to('/')).props('flat')
+            with ui.column().classes('intro w-full items-start'):
+                ui.label('REPRENDRE MON ÉCRITURE').classes('eyebrow')
+                ui.html('<h1>Votre carnet écrit, reporté sur la nouvelle édition</h1>')
+                ui.label('Folio lit les pages que vous avez écrites, mesure le décalage '
+                         'entre les deux éditions et repose votre encre exactement sur '
+                         'ses lignes. Rien n’est envoyé ailleurs : tout se passe ici, et '
+                         'les fichiers disparaissent avec cet onglet.').classes('muted')
+            if self.available() is None:
+                ui.label(self.MISSING).classes('muted')
+                return
+            self.slots()
+            with ui.column().classes('w-full gap-3'):
+                self.actions()
 
 
 app.add_static_files('/planner-fonts', ROOT / 'assets/fonts/Manrope')
@@ -845,6 +1006,13 @@ def index():
     ui.colors(primary='#235c4f', secondary='#dfe8da', accent='#235c4f')
     ui.add_css(CSS)
     PlannerWorkspace().render()
+
+
+@ui.page('/transfert')
+def transfer_page():
+    ui.colors(primary='#235c4f', secondary='#dfe8da', accent='#235c4f')
+    ui.add_css(CSS)
+    TransferWorkspace().render()
 
 
 def main():
