@@ -158,6 +158,22 @@ les carnets publiés restent identiques octet pour octet.
 venv/bin/python generate_dated_planner.py --toolbar right --toolbar-mm 11
 ```
 
+### Nom du fichier produit
+
+Un carnet régénéré quatre fois dans l’après-midi donne quatre fichiers portant
+le même nom. Folio horodate donc ce qu’il livre — `…-20260918153012.pdf` — et,
+quand les réglages viennent d’un profil, c’est **le nom du profil** qui précède
+l’horodatage plutôt que le nom construit à partir des options :
+
+    Travail-trimestre-20260918153012.pdf
+
+Le profil actif est celui qu’on vient de charger ou d’enregistrer. Changer de
+mode, importer un JSON ou supprimer ce profil le libère : les réglages ne
+viennent plus de lui, son nom ne les désigne plus.
+
+Les générateurs en ligne de commande gardent leurs noms déterministes : des
+scripts en dépendent, et `config.pdf_filename` reste la source de ces noms.
+
 ### Carnet compacté
 
 Un carnet de 2 388 pages porte quelque **quatre-vingt-dix mille annotations de

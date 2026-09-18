@@ -1,6 +1,7 @@
 """Picklable planner operations, independent of either UI framework."""
 
 from dataclasses import dataclass, replace
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,8 +35,29 @@ def parse_config(mode: str, payload: dict) -> PlannerConfig | DatedPlannerConfig
     return PlannerConfig.from_dict(payload)
 
 
+def file_stem(label: str) -> str:
+    """A profile name turned into something a file system will accept."""
+    kept = ''.join(character if character.isalnum() or character in '-_' else ' '
+                   for character in label)
+    return '-'.join(kept.split())[:64]
+
+
+def stamped_name(filename: str, label: str | None = None,
+                 moment: datetime | None = None) -> str:
+    """The download name: the profile it came from, and when it was made.
+
+    A carnet regenerated four times in an afternoon is four files called the
+    same thing. The stamp tells them apart, and the profile name says which
+    set of settings produced this one — which the generated name never did.
+    """
+    stem = file_stem(label or '') or Path(filename).stem
+    when = (moment or datetime.now()).strftime('%Y%m%d%H%M%S')
+    return f'{stem}-{when}.pdf'
+
+
 def generate_artifact(mode: str, payload: dict, *, samples: bool = False,
-                      short: bool = False, compact: bool = False) -> PDFArtifact:
+                      short: bool = False, compact: bool = False,
+                      label: str | None = None) -> PDFArtifact:
     if type(samples) is not bool or type(short) is not bool or type(compact) is not bool:
         raise ValueError("Les options samples, short et compact doivent être des booléens.")
     if short and (samples or mode != 'undated'):
@@ -61,6 +83,8 @@ def generate_artifact(mode: str, payload: dict, *, samples: bool = False,
     if compact and not samples:   # An eight-page preview has nothing to gain.
         import pdf_compact
         data = pdf_compact.compact(data, report=lambda line: None)
+    if not samples:
+        filename = stamped_name(filename, label)
     return PDFArtifact(data, filename, pages)
 
 
