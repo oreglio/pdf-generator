@@ -247,7 +247,19 @@ venv/bin/python transfer_ink.py --from ~/ancien.pdf.note --into ~/nouveau.pdf.no
 
 La section vient de l’arbre du sommaire et non de l’ordre des pages : les pages
 d’une semaine se trouvent après le dernier mois dans le fichier sans appartenir
-à aucun des deux. Dans Folio, chaque page écrite s’accompagne d’une vignette du **résultat** :
+à aucun des deux.
+
+**Les pages sont appariées par ce qu’elles sont, jamais par leur rang.** Un
+numéro ne veut rien dire d’un carnet à l’autre : une période de 52 jours au
+lieu de 47 pousse le backlog 25 pages plus bas, et une liste de moins déplace
+les projets d’un millier de pages. Chaque page est donc retrouvée par l’entrée
+de sommaire qui la nomme — « TODO 01 - Liste 01 +101 » — et suit sa section où
+que la nouvelle édition la mette. Folio annonce les déplacements : « page 2279
+→ page 2416 ».
+
+Une page dont le nom n’existe plus n’a nulle part où aller et reste en arrière,
+ce qui est la bonne réponse : une journée de septembre n’a pas sa place dans un
+carnet qui commence en décembre, alors qu’un backlog et ses projets, oui. Dans Folio, chaque page écrite s’accompagne d’une vignette du **résultat** :
 la page d’arrivée, dans ses proportions, avec l’écriture posée là où elle
 atterrira. L’encre seule dit ce qui a été écrit ; la page en dessous dit sur
 quoi, et où la nouvelle édition la mettra. Les vignettes ne sont calculées que

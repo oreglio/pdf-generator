@@ -227,7 +227,7 @@ class GraftTests(unittest.TestCase):
         return archive(self.folder / f"{name}.note", self.template.read_bytes(),
                        layers, name=name, count=self.pages)
 
-    def skeleton(self, template=None, name="carnet_neuf.pdf", count=None):
+    def skeleton(self, template=None, name="carnet_neuf.pdf", count=None):  # noqa: D401
         """What the tablet exports after importing a new edition: no ink."""
         return archive(self.folder / f"{name}.note",
                        (template or self.template).read_bytes(), {}, name=name,
@@ -289,6 +289,27 @@ class GraftTests(unittest.TestCase):
                                 self.folder / "cale.note", report=lines.append)
         measured = next(line for line in lines if line.startswith("Décalage retenu"))
         self.assertIn("+11.0", measured)
+
+    def test_a_section_keeps_its_writing_wherever_the_new_edition_puts_it(self):
+        """A longer period pushes everything down; the ink follows its section."""
+        longer = self.build(replace(SMALL, days=SMALL.days + 4), "plus-long.pdf")
+        source = self.written({3: ink_layer()})
+        base = self.skeleton(longer, count=len(PdfReader(str(longer)).pages))
+        lines = []
+        pages = transfer_ink.graft_note(source, base, self.folder / "suivi.note",
+                                        report=lines.append)
+        self.assertEqual(pages, [3])
+        where = transfer_ink.landing(source, base, [3])
+        self.assertIsNotNone(where[3][1])
+
+    def test_a_page_whose_section_is_gone_is_left_behind(self):
+        """A dated page from September does not belong in a shorter notebook."""
+        shorter = self.build(replace(SMALL, days=1, project_count=0), "court.pdf")
+        source = self.written({self.pages - 1: ink_layer()})
+        base = self.skeleton(shorter, count=len(PdfReader(str(shorter)).pages))
+        with self.assertRaises(ValueError):
+            transfer_ink.graft_note(source, base, self.folder / "jamais.note",
+                                    report=lambda line: None)
 
     def test_a_notebook_with_nothing_to_give_is_refused(self):
         with self.assertRaises(ValueError):

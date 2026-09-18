@@ -213,7 +213,8 @@ def inventory(source):
     return sections
 
 
-def page_previews(source, pages, target=None, offset=(0, 0), width=320):
+def page_previews(source, pages, target=None, offset=(0, 0), width=320,
+                  where=None):
     """A thumbnail of each page as it will read once carried over.
 
     The handwriting alone says what was written; the page under it says what it
@@ -222,7 +223,8 @@ def page_previews(source, pages, target=None, offset=(0, 0), width=320):
 
     Without a destination the ink is shown on its own, cropped to itself: a
     page is mostly blank, and a postage stamp of blankness tells nobody
-    anything.
+    anything. `where` says which page of the destination each one lands on,
+    since a section rarely keeps its rank between two editions.
     """
     previews, sheet_of = {}, {}
     holder = None
@@ -241,7 +243,9 @@ def page_previews(source, pages, target=None, offset=(0, 0), width=320):
                 layer = Image.open(io.BytesIO(ink.read(name))).convert("RGBA")
                 if layer.getbbox() is None:
                     continue
-                sheet = _sheet(holder, page, width) if holder else None
+                arrival = page if where is None else where.get(page)
+                sheet = (_sheet(holder, arrival, width)
+                         if holder and arrival else None)
                 previews[page] = _compose(layer, sheet, offset, width)
     finally:
         if holder is not None:
@@ -332,6 +336,43 @@ def page_sections(source, pages):
     return named
 
 
+def page_count(archive_path):
+    """How many pages a notebook has, from the template it was built on.
+
+    The template is what the outline describes, so it is what page numbers are
+    counted against — the page list should agree, and does on a notebook the
+    tablet made itself.
+    """
+    with zipfile.ZipFile(Path(archive_path)) as archive:
+        pdf = archive.read(note_archive.template_entry(archive))
+    return len(PdfReader(io.BytesIO(pdf)).pages)
+
+
+def landing(source, target, pages):
+    """Where each page goes in the new notebook: {page: (label, destination)}.
+
+    A page number means nothing across two notebooks: a period of fifty-two
+    days instead of forty-seven pushes the backlog twenty-five pages down, and
+    grafting by number would write a backlog onto a Thursday. Pages are matched
+    by **what they are** — the outline entry that names them, « TODO 01 -
+    Liste 01 +101 » — so a section keeps its writing wherever the new edition
+    happens to put it.
+
+    A page whose name no longer exists has nowhere to go, and says so. That is
+    the right answer too: a dated page from September does not belong in a
+    notebook that starts in December, while a backlog and its projects do.
+    """
+    here = page_sections(source, pages)
+    total = page_count(target)
+    there = page_sections(target, range(1, total + 1))
+    index = {}
+    for page, (_, label) in there.items():
+        index.setdefault(label, page)
+    return {page: (here.get(page, ("", f"Page {page}"))[1],
+                   index.get(here.get(page, ("", None))[1]))
+            for page in pages}
+
+
 def graft_note(source, target, output, report=print, pages=None):
     """Add the handwriting of one notebook to one the tablet has just made.
 
@@ -348,6 +389,23 @@ def graft_note(source, target, output, report=print, pages=None):
             raise ValueError(f"Pour garder des tracés modifiables, {role} doit être "
                              "une archive .note de la tablette.")
     dx, dy = alignment(source, target, output, report)
+    with zipfile.ZipFile(source) as ink:
+        candidates = sorted(note_archive.resources(ink))
+    wanted_pages = [page for page in written_pages(source)
+                    if pages is None or page in set(pages)]
+    where = landing(source, target, wanted_pages)
+    astray = {page: where[page][0] for page in wanted_pages if where[page][1] is None}
+    moved = {page: where[page][1] for page in wanted_pages
+             if where[page][1] not in (None, page)}
+    if moved:
+        report(f"{len(moved)} page(s) ont changé de rang et suivent leur section.")
+        for page, destination in sorted(moved.items())[:4]:
+            report(f"  « {where[page][0]} » : page {page} → page {destination}")
+    if astray:
+        report(f"{len(astray)} page(s) sans place dans le nouveau carnet, laissée(s) "
+               "de côté.")
+        for page, label in sorted(astray.items())[:4]:
+            report(f"  page {page} : « {label} »")
     with zipfile.ZipFile(source) as ink, zipfile.ZipFile(target) as base:
         written, declared = note_archive.resources(ink), note_archive.resources(base)
         present, taken = set(ink.namelist()), set(base.namelist())
@@ -356,7 +414,10 @@ def graft_note(source, target, output, report=print, pages=None):
         for page in sorted(written):
             if wanted is not None and page not in wanted:
                 continue
-            slots = declared.get(page, {})
+            arrival = where.get(page, (None, None))[1]
+            if arrival is None:
+                continue
+            slots = declared.get(arrival, {})
             # A page the tablet wrote itself keeps everything it has: grafting
             # old strokes under a newer layer would leave the two disagreeing.
             if any(slots.get(kind) in taken for kind in
@@ -374,8 +435,12 @@ def graft_note(source, target, output, report=print, pages=None):
                 added.append((slot, data))
                 grafted.add(page)
         if not added:
-            raise ValueError(f"{source.name} : aucune page écrite à reporter, ou le "
-                             "nouveau carnet n’a pas les mêmes pages.")
+            raise ValueError(
+                f"{source.name} : aucune page à reporter. "
+                + ("Les pages choisies ne désignent plus la même chose dans le "
+                   "nouveau carnet : régénérez-le avec les mêmes réglages de "
+                   "backlog et de projets, ou choisissez d’autres pages."
+                   if astray else "Aucune page écrite dans la sélection."))
     report(f"{len(grafted)} page(s) greffée(s) : "
            + ", ".join(str(page) for page in sorted(grafted)))
     total = note_archive.append(target, output, added)
