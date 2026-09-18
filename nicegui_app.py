@@ -927,7 +927,7 @@ class TransferWorkspace:
                 return
             self.sections = await cpu_job(module.inventory,
                                           self.files['source'])
-            self.chosen = {page for _, rows in self.sections for page, _, _ in rows}
+            self.chosen = {page for _, rows in self.sections for page, _ in rows}
         except Exception as error:  # noqa: BLE001 — the message belongs on screen
             self.lines = [f'Lecture du carnet écrit impossible : {error}']
 
@@ -939,14 +939,14 @@ class TransferWorkspace:
         self.picker.refresh()
 
     def toggle_section(self, rows, value):
-        for page, _, _ in rows:
+        for page, _ in rows:
             if page in self.kept or page in self.lost:
                 continue
             self.chosen.add(page) if value else self.chosen.discard(page)
         self.picker.refresh()
 
     def choose_all(self, value):
-        self.chosen = ({page for _, rows in self.sections for page, _, _ in rows
+        self.chosen = ({page for _, rows in self.sections for page, _ in rows
                         if page not in self.kept and page not in self.lost}
                        if value else set())
         self.picker.refresh()
@@ -961,7 +961,7 @@ class TransferWorkspace:
         self.unfolded.add(section) if opened else self.unfolded.discard(section)
         if not opened:
             return
-        missing = [page for page, _, _ in rows if page not in self.previews]
+        missing = [page for page, _ in rows if page not in self.previews]
         if missing:
             module = self.available()
             arrivals = {page: self.where.get(page, (None, page))[1] for page in missing}
@@ -983,7 +983,7 @@ class TransferWorkspace:
                 ui.button('Rien', on_click=lambda: self.choose_all(False)).props('flat dense')
         with ui.column().classes('pick'):
             for section, rows in self.sections:
-                free = [page for page, _, _ in rows
+                free = [page for page, _ in rows
                         if page not in self.kept and page not in self.lost]
                 taken = sum(1 for page in free if page in self.chosen)
                 with ui.expansion(value=section in self.unfolded,
@@ -998,12 +998,12 @@ class TransferWorkspace:
                                 .on('click.stop').set_enabled(bool(free))
                             ui.label(f'{taken}/{len(rows)}').classes('pick-count')
                     with ui.element('div').classes('shots'):
-                        for page, label, share in rows:
+                        for page, label in rows:
                             held = page in self.kept or page in self.lost
                             classes = 'shot gap-0' + (' on' if page in self.chosen else '')
                             with ui.column().classes(classes + (' held' if held else '')) \
                                     .on('click', lambda p=page: self.toggle_page(p)):
-                                shot = self.previews.get(page)
+                                shot, share = self.previews.get(page, (None, None))
                                 if shot:
                                     ui.html(f'<img src="{shot}" alt="page {page}">')
                                 with ui.column().classes('shot-foot gap-1'):
@@ -1024,8 +1024,8 @@ class TransferWorkspace:
                                     arrival = self.where.get(page, (None, page))[1]
                                     moved = ('' if arrival in (None, page)
                                              else f' → page {arrival}')
-                                    ui.html(f'<span>{label} · {share:.1f} % d’encre'
-                                            f'{moved}</span>')
+                                    ink = '' if share is None else f' · {share:.1f} % d’encre'
+                                    ui.html(f'<span>{label}{ink}{moved}</span>')
 
     def destination(self, slot, spec, name):
         """Where an uploaded file lands, or None when its suffix is wrong."""

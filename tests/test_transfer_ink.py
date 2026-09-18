@@ -335,29 +335,35 @@ class InventoryTests(unittest.TestCase):
     def test_a_page_opened_but_never_written_is_not_listed(self):
         self.assertEqual(sorted(transfer_ink.written_pages(self.source)), [3, 6])
 
+    def test_a_blank_layer_is_recognised_whatever_it_weighs(self):
+        """One encoder writes a blank layer at 267 bytes, another at 19 kB."""
+        weights = transfer_ink.written_pages(self.source)
+        self.assertEqual(sorted(weights), [3, 6])
+        self.assertTrue(all(weight > 0 for weight in weights.values()))
+
     def test_every_page_is_named_and_filed_under_a_section(self):
         sections = transfer_ink.inventory(self.source)
-        listed = [page for _, rows in sections for page, _, _ in rows]
+        listed = [page for _, rows in sections for page, _ in rows]
         self.assertEqual(listed, [3, 6])
         for section, rows in sections:
             self.assertTrue(section)
-            for _, label, share in rows:
+            for _, label in rows:
                 self.assertTrue(label)
-                self.assertGreater(share, 0)
 
     def test_a_thumbnail_shows_the_writing_not_the_empty_sheet(self):
         previews = transfer_ink.page_previews(self.source, [3, 4, 6])
         self.assertEqual(sorted(previews), [3, 6])   # 4 is blank, nothing to show
-        for uri in previews.values():
+        for uri, share in previews.values():
             self.assertTrue(uri.startswith("data:image/png;base64,"))
+            self.assertGreater(share, 0)
 
     def test_a_thumbnail_keeps_the_sheet_proportions_when_it_has_one(self):
         """The page under the writing says what it was written on."""
         import base64, io
         from PIL import Image
-        alone = transfer_ink.page_previews(self.source, [3])[3]
+        alone = transfer_ink.page_previews(self.source, [3])[3][0]
         onsheet = transfer_ink.page_previews(self.source, [3], target=self.source,
-                                             offset=(60, 0))[3]
+                                             offset=(60, 0))[3][0]
         self.assertNotEqual(alone, onsheet)
         read = lambda uri: Image.open(io.BytesIO(base64.b64decode(uri.split(",", 1)[1])))
         page = read(onsheet)
