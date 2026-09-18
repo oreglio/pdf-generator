@@ -29,6 +29,7 @@ import json
 import subprocess
 import sys
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -179,28 +180,42 @@ def move_strokes(data, dx, dy):
     return json.dumps(points, separators=(",", ":")).encode()
 
 
+# Decoding one panel-sized layer costs 55 ms, and a notebook filled for a year
+# holds hundreds: read serially, the inventory would take half a minute. The
+# compressed size looked like a shortcut — a blank layer from the tablet
+# deflates to 267 bytes against 23 kB for the lightest written one — but that
+# gap belongs to one encoder's settings, and another writes a blank layer at
+# 19 kB. So every layer is looked at, and Pillow releases the interpreter lock
+# while it decodes: eight threads turn twenty-two seconds into under four.
+INVENTORY_THREADS = 8
+
+
 def written_pages(source):
-    """{page: share of ink} for a `.note`, ignoring pages opened but left blank."""
+    """{page: weight of its layer} for a `.note`, blank pages left out."""
     with zipfile.ZipFile(Path(source)) as ink:
         declared = note_archive.resources(ink)
-        present = set(ink.namelist())
-        found = {}
-        for page, kinds in declared.items():
-            name = kinds.get(note_archive.LAYER)
-            if name in present:
-                share = coverage(Image.open(io.BytesIO(ink.read(name))).convert("RGBA"))
-                if share > 0:
-                    found[page] = share
-    return found
+        weights = {info.filename: info.compress_size for info in ink.infolist()}
+        candidates = [(page, kinds[note_archive.LAYER]) for page, kinds
+                      in sorted(declared.items())
+                      if kinds.get(note_archive.LAYER) in weights]
+        blobs = [ink.read(name) for _, name in candidates]
+
+    def inked(data):
+        return Image.open(io.BytesIO(data)).convert("RGBA").getbbox() is not None
+
+    with ThreadPoolExecutor(max_workers=INVENTORY_THREADS) as pool:
+        verdicts = list(pool.map(inked, blobs))
+    return {page: weights[name]
+            for (page, name), written in zip(candidates, verdicts) if written}
 
 
 def inventory(source):
     """What a written notebook holds, in the order it holds it.
 
-    Returns [(section, [(page, label, share of ink), …]), …] — sections in page
-    order, which is reading order. Thumbnails are deliberately left out: they
-    cost a second per handful of pages, and a notebook filled for a year has
-    hundreds. They are drawn for the section being looked at.
+    Returns [(section, [(page, label), …]), …] — sections in page order, which
+    is reading order. Thumbnails are deliberately left out: they cost a quarter
+    of a second each, and a notebook filled for a year has hundreds. They are
+    drawn for the section being looked at.
     """
     pages = written_pages(source)
     named = page_sections(source, pages)
@@ -209,13 +224,13 @@ def inventory(source):
         section, label = named[page]
         if not sections or sections[-1][0] != section:
             sections.append((section, []))
-        sections[-1][1].append((page, label, pages[page]))
+        sections[-1][1].append((page, label))
     return sections
 
 
 def page_previews(source, pages, target=None, offset=(0, 0), width=320,
                   where=None):
-    """A thumbnail of each page as it will read once carried over.
+    """{page: (thumbnail, share of ink)} — each page as it will read once carried.
 
     The handwriting alone says what was written; the page under it says what it
     was written on, and where the new edition will put it. Proportions are the
@@ -246,7 +261,8 @@ def page_previews(source, pages, target=None, offset=(0, 0), width=320,
                 arrival = page if where is None else where.get(page)
                 sheet = (_sheet(holder, arrival, width)
                          if holder and arrival else None)
-                previews[page] = _compose(layer, sheet, offset, width)
+                previews[page] = (_compose(layer, sheet, offset, width),
+                                  coverage(layer))
     finally:
         if holder is not None:
             holder.unlink(missing_ok=True)
@@ -389,8 +405,6 @@ def graft_note(source, target, output, report=print, pages=None):
             raise ValueError(f"Pour garder des tracés modifiables, {role} doit être "
                              "une archive .note de la tablette.")
     dx, dy = alignment(source, target, output, report)
-    with zipfile.ZipFile(source) as ink:
-        candidates = sorted(note_archive.resources(ink))
     wanted_pages = [page for page in written_pages(source)
                     if pages is None or page in set(pages)]
     where = landing(source, target, wanted_pages)
@@ -409,12 +423,11 @@ def graft_note(source, target, output, report=print, pages=None):
     with zipfile.ZipFile(source) as ink, zipfile.ZipFile(target) as base:
         written, declared = note_archive.resources(ink), note_archive.resources(base)
         present, taken = set(ink.namelist()), set(base.namelist())
-        wanted = None if pages is None else set(pages)
         added, grafted = [], set()
-        for page in sorted(written):
-            if wanted is not None and page not in wanted:
-                continue
-            arrival = where.get(page, (None, None))[1]
+        # Only pages that hold ink and have somewhere to land: a layer opened
+        # and left blank is not worth carrying, and says nothing when it does.
+        for page in wanted_pages:
+            arrival = where[page][1]
             if arrival is None:
                 continue
             slots = declared.get(arrival, {})
