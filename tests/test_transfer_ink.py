@@ -330,6 +330,18 @@ class InventoryTests(unittest.TestCase):
         for uri in previews.values():
             self.assertTrue(uri.startswith("data:image/png;base64,"))
 
+    def test_a_thumbnail_keeps_the_sheet_proportions_when_it_has_one(self):
+        """The page under the writing says what it was written on."""
+        import base64, io
+        from PIL import Image
+        alone = transfer_ink.page_previews(self.source, [3])[3]
+        onsheet = transfer_ink.page_previews(self.source, [3], target=self.source,
+                                             offset=(60, 0))[3]
+        self.assertNotEqual(alone, onsheet)
+        read = lambda uri: Image.open(io.BytesIO(base64.b64decode(uri.split(",", 1)[1])))
+        page = read(onsheet)
+        self.assertAlmostEqual(page.width / page.height, 1920 / 2560, places=2)
+
     def test_a_selection_is_read_the_way_people_write_it(self):
         self.assertEqual(transfer_ink.parse_pages("3"), {3})
         self.assertEqual(transfer_ink.parse_pages("3-5, 9"), {3, 4, 5, 9})

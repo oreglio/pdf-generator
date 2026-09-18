@@ -247,10 +247,12 @@ venv/bin/python transfer_ink.py --from ~/ancien.pdf.note --into ~/nouveau.pdf.no
 
 La section vient de l’arbre du sommaire et non de l’ordre des pages : les pages
 d’une semaine se trouvent après le dernier mois dans le fichier sans appartenir
-à aucun des deux. Dans Folio, chaque page écrite s’accompagne d’une vignette de
-**l’écriture elle-même**, recadrée sur l’encre — on reprend ce qu’on voit. Les
-vignettes ne sont calculées que pour la section ouverte : un carnet rempli une
-année durant en compte des centaines.
+à aucun des deux. Dans Folio, chaque page écrite s’accompagne d’une vignette du **résultat** :
+la page d’arrivée, dans ses proportions, avec l’écriture posée là où elle
+atterrira. L’encre seule dit ce qui a été écrit ; la page en dessous dit sur
+quoi, et où la nouvelle édition la mettra. Les vignettes ne sont calculées que
+pour la section ouverte — un carnet rempli une année durant en compte des
+centaines — et le décalage n’est mesuré qu’une fois pour toutes.
 
 Dans Folio, tout cela est à `/transfert`. Rien ne sort de la machine.
 

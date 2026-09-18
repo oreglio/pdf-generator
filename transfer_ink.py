@@ -213,37 +213,72 @@ def inventory(source):
     return sections
 
 
-def page_previews(source, pages, width=260):
-    """A thumbnail of the handwriting itself, as a data URI, for each page.
+def page_previews(source, pages, target=None, offset=(0, 0), width=320):
+    """A thumbnail of each page as it will read once carried over.
 
-    Cropped to the ink rather than shrunk from the whole sheet: a page is
-    mostly blank, and a postage stamp of blankness tells nobody anything.
+    The handwriting alone says what was written; the page under it says what it
+    was written on, and where the new edition will put it. Proportions are the
+    sheet's, so a glance places the writing on its lines.
+
+    Without a destination the ink is shown on its own, cropped to itself: a
+    page is mostly blank, and a postage stamp of blankness tells nobody
+    anything.
     """
-    previews = {}
-    with zipfile.ZipFile(Path(source)) as ink:
-        declared = note_archive.resources(ink)
-        present = set(ink.namelist())
-        for page in pages:
-            name = declared.get(page, {}).get(note_archive.LAYER)
-            if name not in present:
-                continue
-            layer = Image.open(io.BytesIO(ink.read(name))).convert("RGBA")
-            box = layer.getbbox()
-            if box is None:
-                continue
-            margin = 24
-            box = (max(0, box[0] - margin), max(0, box[1] - margin),
-                   min(layer.width, box[2] + margin), min(layer.height, box[3] + margin))
-            crop = layer.crop(box)
-            sheet = Image.new("RGB", crop.size, "white")
-            sheet.paste(crop, mask=crop)
-            height = max(1, round(sheet.height * width / sheet.width))
-            sheet = sheet.resize((width, min(height, width * 2)), Image.LANCZOS)
-            buffer = io.BytesIO()
-            sheet.save(buffer, format="PNG", optimize=True)
-            previews[page] = ("data:image/png;base64,"
-                              + base64.b64encode(buffer.getvalue()).decode())
+    previews, sheet_of = {}, {}
+    holder = None
+    try:
+        if target is not None:
+            with zipfile.ZipFile(Path(target)) as base:
+                holder = Path(target).with_suffix(".apercu.pdf")
+                holder.write_bytes(base.read(note_archive.template_entry(base)))
+        with zipfile.ZipFile(Path(source)) as ink:
+            declared = note_archive.resources(ink)
+            present = set(ink.namelist())
+            for page in pages:
+                name = declared.get(page, {}).get(note_archive.LAYER)
+                if name not in present:
+                    continue
+                layer = Image.open(io.BytesIO(ink.read(name))).convert("RGBA")
+                if layer.getbbox() is None:
+                    continue
+                sheet = _sheet(holder, page, width) if holder else None
+                previews[page] = _compose(layer, sheet, offset, width)
+    finally:
+        if holder is not None:
+            holder.unlink(missing_ok=True)
     return previews
+
+
+def _sheet(template, page, width):
+    """One page of the destination, drawn small, in its own proportions."""
+    try:
+        out = subprocess.run(["pdftoppm", "-png", "-r", str(round(width / 6.4)),
+                              "-f", str(page), "-l", str(page), str(template)],
+                             capture_output=True, check=True).stdout
+        return Image.open(io.BytesIO(out)).convert("RGB")
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None  # A preview is a convenience, never a reason to stop.
+
+
+def _compose(layer, sheet, offset, width):
+    if sheet is None:            # No destination page: show the writing itself.
+        box = layer.getbbox()
+        margin = 24
+        box = (max(0, box[0] - margin), max(0, box[1] - margin),
+               min(layer.width, box[2] + margin), min(layer.height, box[3] + margin))
+        crop = layer.crop(box)
+        sheet = Image.new("RGB", crop.size, "white")
+        sheet.paste(crop, mask=crop)
+        height = max(1, round(sheet.height * width / sheet.width))
+        sheet = sheet.resize((width, min(height, width * 2)), Image.LANCZOS)
+    else:
+        scale = sheet.width / layer.width
+        small = layer.resize((sheet.width, round(layer.height * scale)), Image.LANCZOS)
+        sheet = sheet.copy()
+        sheet.paste(small, (round(offset[0] * scale), round(offset[1] * scale)), small)
+    buffer = io.BytesIO()
+    sheet.save(buffer, format="PNG", optimize=True)
+    return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
 
 
 def page_sections(source, pages):
@@ -312,8 +347,8 @@ def graft_note(source, target, output, report=print, pages=None):
         if not zipfile.is_zipfile(path):
             raise ValueError(f"Pour garder des tracés modifiables, {role} doit être "
                              "une archive .note de la tablette.")
+    dx, dy = alignment(source, target, output, report)
     with zipfile.ZipFile(source) as ink, zipfile.ZipFile(target) as base:
-        dx, dy = graft_offset(ink, base, output, report)
         written, declared = note_archive.resources(ink), note_archive.resources(base)
         present, taken = set(ink.namelist()), set(base.namelist())
         wanted = None if pages is None else set(pages)
@@ -350,14 +385,21 @@ def graft_note(source, target, output, report=print, pages=None):
     return sorted(grafted)
 
 
-def graft_offset(ink, base, output, report):
-    """How far the new edition moved its writing column, in panel pixels."""
+def templates(source, target, scratch):
+    """Both templates on disk, as a pair of paths to clean up afterwards."""
     holders = []
-    try:
-        for archive in (ink, base):
-            holder = output.with_suffix(f".gabarit-{len(holders)}.pdf")
+    for index, path in enumerate((source, target)):
+        with zipfile.ZipFile(Path(path)) as archive:
+            holder = Path(scratch).with_suffix(f".gabarit-{index}.pdf")
             holder.write_bytes(archive.read(note_archive.template_entry(archive)))
             holders.append(holder)
+    return holders
+
+
+def alignment(source, target, scratch, report=lambda line: None):
+    """How far the new edition moved its writing column, in panel pixels."""
+    holders = templates(source, target, scratch)
+    try:
         report("Calage sur le carnet d’origine :")
         dx, dy, spread = measure(holders[0], False, holders[1], [1, 2], report)
     finally:
