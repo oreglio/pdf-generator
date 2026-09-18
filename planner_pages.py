@@ -37,7 +37,9 @@ class PlannerPages(ProjectPages):
         self.c = canvas
         self.config = config
         self.layout = layout = make_layout(config)
-        self.w, self.h = layout.width, layout.height        # page box
+        # `w` is the right edge of what may be drawn, not of the sheet: a
+        # built-in toolbar docked right pulls the rail inwards with it.
+        self.w, self.h = layout.page_right, layout.height
         self.left, self.right = layout.left, layout.right   # writing column
         self.width = layout.content_width
         self.tr = config.text
@@ -228,7 +230,7 @@ class PlannerPages(ProjectPages):
         """Repeated on every context page: worth one reusable form object."""
         if self.config.task_note_style != "dots" or self.c.hasForm(self.dot_form):
             return
-        self.c.beginForm(self.dot_form, 0, 0, self.w, self.h)
+        self.c.beginForm(self.dot_form, 0, 0, self.layout.width, self.h)
         draw_note_background(self.c, self.task_bounds, "dots", 14)
         self.c.endForm()
 

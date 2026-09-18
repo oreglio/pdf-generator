@@ -118,7 +118,8 @@ Les dimensions viennent des fiches officielles
 PDF avec la densité du panneau. Ce sont des **proportions et des surfaces
 utiles**, pas un export raster : le PDF garde son texte et ses tracés
 vectoriels. Les barres d’outils des lecteurs réduisent la surface visible :
-tester en affichage pleine page. Le catalogue commence à dix pouces. En dessous — AiPaper Mini 8,2″, reMarkable
+tester en affichage pleine page, ou réserver leur bande (voir plus bas).
+Le catalogue commence à dix pouces. En dessous — AiPaper Mini 8,2″, reMarkable
 Paper Pro Move 7,3″ — les mises en page à deux colonnes ne tiennent plus sans
 sacrifier des raccourcis, et ces modèles sont volontairement absents. Le format
 personnalisé reste ouvert à partir de 100 × 150 mm, à vos risques : sous dix
@@ -131,6 +132,30 @@ anisotrope n’est appliquée.
 ```bash
 venv/bin/python generate_planner.py --device boox-note-max
 venv/bin/python generate_planner.py --device custom --custom-width-mm 150 --custom-height-mm 210
+```
+
+### Barre d’outils intégrée de la tablette
+
+Plusieurs liseuses — le Viwoods AiPaper en particulier — posent leur propre
+barre d’outils **au-dessus** de la page plutôt que de la rétrécir. Ancrée à
+droite elle recouvre entièrement la barre de navigation du carnet, ancrée à
+gauche elle mange le début de chaque ligne. `--toolbar left` ou
+`--toolbar right` laisse sa bande libre :
+
+| Côté | Ce qui bouge | Ce qui ne bouge pas |
+| --- | --- | --- |
+| `left` | La colonne d’écriture démarre après la bande | La barre de navigation garde le bord droit |
+| `right` | La barre de navigation rentre vers l’intérieur | La marge de gauche |
+
+`--toolbar-mm` donne sa largeur, de 4 à 30 mm, 11 mm par défaut : mesurez-la
+une fois sur votre écran et le carnet se pose exactement à côté. La feuille
+elle-même n’est jamais rognée — la barre flotte au-dessus, la rogner ne ferait
+que perdre de la place. Une bande qui ne laisserait plus 180 pt pour écrire
+est refusée plutôt que superposée. `--toolbar none` (défaut) ne change rien :
+les carnets publiés restent identiques octet pour octet.
+
+```bash
+venv/bin/python generate_dated_planner.py --toolbar right --toolbar-mm 11
 ```
 
 ### Confort d’écriture et répartition sur plusieurs feuillets

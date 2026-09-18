@@ -59,6 +59,7 @@ identique à ce qu’il était.
 | Meeting en deux pages | Objectifs & agenda, puis Décisions & actions | Deux pages pour le même Meeting, avant ses Notes |
 | Fonds d’écriture | Ligné, pointillé, quadrillé ou blanc | Zone d’écriture des pages Notes et Contexte |
 | Fiches projet | Objectif, prochaines actions, décisions, notes | Index Projets en fin de carnet |
+| Barre d’outils réservée | Bande libre à gauche ou à droite, largeur réglable | Toute la mise en page se décale à côté |
 
 Une fiche projet ne recopie pas les notes détaillées du backlog : elle réserve
 une place fixe pour y écrire sa référence. Les références manuscrites restent
@@ -75,6 +76,7 @@ Séparés des carnets historiques, dans
 | [reMarkable 2, 3 mois](examples/evolution/remarkable-2-90-jours.pdf?raw=true) | Trimestre complet sur un 10,3″ · 406 pages | ≈ 3 Mo |
 | [Toutes les options, 3 mois](examples/evolution/options-completes-3-mois.pdf?raw=true) | Priorités, sept jours, bilan, Meeting en deux pages, quadrillage et projets · 429 pages | ≈ 4 Mo |
 | [BOOX Note Max, aéré](examples/evolution/boox-note-max-aere-60-jours.pdf?raw=true) | Grand écran 13,3″, confort aéré, carnet libre de 60 journées · 287 pages | ≈ 1 Mo |
+| [AiPaper, barre d’outils à droite](examples/evolution/aipaper-barre-outils-droite.pdf?raw=true) | Bande de 11 mm réservée : la navigation rentre à côté de la barre intégrée · 247 pages | ≈ 2 Mo |
 
 Formats vérifiés par mesure et par audit des liens. **Usage sur appareil non
 testé** en dehors du Viwoods AiPaper : les proportions et la place d’écriture
