@@ -47,6 +47,7 @@ class PlannerPages(ProjectPages):
         self.interactive = interactive
         self.ordinal = 0
         self.dot_form = f"planner-dots-{config.typography}"
+        self._backgrounds = {}
         self._make_dot_form()
 
     def text(self, x, y, value, size=10, *, bold=False, gray=INK, max_width=None, align="left", numeric=False):
@@ -222,7 +223,30 @@ class PlannerPages(ProjectPages):
         right = self.right if right is None else right
         style = self.config.meeting_note_style if style is None else style
         step = self.layout.background_spacing(style) if step is None else step
-        draw_note_background(self.c, (left, bottom, right, top), style, step)
+        self.background((left, bottom, right, top), style, step)
+
+    def background(self, bounds, style, step):
+        """Draw one writing area, reusing it when the same one comes back.
+
+        A dotted area costs a few thousand circles. A notebook that repeats it
+        on two hundred Notes pages carries the same drawing two hundred times —
+        tens of megabytes, and past what a tablet accepts on import. Areas that
+        cost by surface become a form object, drawn once and placed since.
+        `lined` stays inline: it costs one operation per line, and it is the
+        historical drawing the published notebooks are compared against.
+        """
+        if style not in ("dots", "grid"):
+            draw_note_background(self.c, bounds, style, step)
+            return
+        key = (style, tuple(round(value, 3) for value in bounds), round(step, 3))
+        name = self._backgrounds.get(key)
+        if name is None:
+            name = f"planner-bg-{len(self._backgrounds)}-{self.config.typography}"
+            self._backgrounds[key] = name
+            self.c.beginForm(name, 0, 0, self.layout.width, self.h)
+            draw_note_background(self.c, bounds, style, step)
+            self.c.endForm()
+        self.c.doForm(name)
 
     @property
     def task_bounds(self):

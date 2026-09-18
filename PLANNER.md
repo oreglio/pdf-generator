@@ -259,6 +259,18 @@ feuille ; les notes d’une tâche reviennent à la feuille portant sa ligne.
 
 ### Fonds d’écriture
 
+Une zone pointillée coûte quelques milliers de cercles. Un carnet qui la répète
+sur deux cents pages de Notes portait ce dessin deux cents fois : sur un carnet
+de 2 388 pages, la page au 90ᵉ centile pesait **161 Ko** et il fallait décoder
+88,5 Mo de flux. Les fonds dont le coût suit la surface — `dots` et `grid` —
+deviennent maintenant un objet dessiné une fois puis placé : **13,5 Ko** par
+page, 32,7 Mo à décoder, 41,4 Mo de PDF ramenés à 29,7. Cela compte autant pour
+la fluidité sur la tablette que pour la taille, et l’import de certaines
+applications plafonne en taille de fichier.
+
+`lined` reste dessiné sur place : il coûte une opération par ligne, et c’est le
+tracé auquel les carnets publiés sont comparés octet pour octet.
+
 `--meeting-note-style` et `--task-note-style` acceptent `lined`, `dots`, `grid`
 et `blank`. Les défauts — `lined` pour les pages Notes, `dots` pour les pages de
 contexte — reproduisent exactement le rendu historique. Le fond ne couvre que la
