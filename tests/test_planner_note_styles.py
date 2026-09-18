@@ -174,3 +174,58 @@ class MonthlyPrioritiesTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BackgroundReuseTests(unittest.TestCase):
+    """A writing area that comes back is placed again, not drawn again."""
+
+    def notebook(self, **changes):
+        from planner_config import PlannerConfig
+        from planner_pdf import generate_pdf
+        settings = dict(days=6, list_count=1, tasks_per_list=2, detail_pages=2,
+                        notes_pages=3, project_count=2, project_notes_pages=3)
+        config = PlannerConfig(**dict(settings, **changes))
+        output = io.BytesIO()
+        generate_pdf(config, output)
+        return output.getvalue()
+
+    def page_weights(self, data):
+        from pypdf import PdfReader
+        weights = []
+        for page in PdfReader(io.BytesIO(data)).pages:
+            contents = page.get("/Contents")
+            contents = contents if isinstance(contents, list) else contents.get_object()
+            weights.append(len(contents.get_data()) if not isinstance(contents, list)
+                           else sum(len(part.get_object().get_data()) for part in contents))
+        return weights
+
+    def test_a_dotted_page_weighs_no_more_than_a_plain_one(self):
+        """Left inline, a dotted area costs thousands of circles per page."""
+        self.assertLess(max(self.page_weights(self.notebook(meeting_note_style="dots"))),
+                        max(self.page_weights(self.notebook(meeting_note_style="blank")))
+                        + 4000)
+
+    def test_the_drawing_is_paid_once_however_many_pages_repeat_it(self):
+        """What matters is the cost of one more Notes page, not the first."""
+        few = len(self.notebook(meeting_note_style="dots", notes_pages=1))
+        many = len(self.notebook(meeting_note_style="dots", notes_pages=3))
+        added = (many - few) / (2 * 6)  # two more Notes pages on each of six days
+        plain = self.notebook(meeting_note_style="blank")
+        self.assertLess(added, max(self.page_weights(plain)) + 2000)
+
+    def test_the_historical_lined_pages_are_still_drawn_in_place(self):
+        """`lined` is the drawing the published notebooks are compared against."""
+        from planner_config import PlannerConfig
+        from planner_pages import PlannerPages
+        from reportlab.pdfgen import canvas
+        pages = PlannerPages(canvas.Canvas(io.BytesIO()), PlannerConfig(days=2))
+        forms = []
+        pages.c.doForm = lambda name: forms.append(name)
+        pages.rules(400, bottom=200, style="lined")
+        self.assertEqual(forms, [])
+        pages.rules(400, bottom=200, style="grid")
+        self.assertEqual(len(forms), 1)
+        pages.rules(400, bottom=200, style="grid")  # the same area, placed again
+        self.assertEqual(forms, [forms[0], forms[0]])
+        pages.rules(390, bottom=200, style="grid")  # another area, its own form
+        self.assertNotEqual(forms[-1], forms[0])
