@@ -61,6 +61,7 @@ identique à ce qu’il était.
 | Fiches projet | Objectif, prochaines actions, décisions, notes | Index Projets en fin de carnet |
 | Barre d’outils réservée | Bande libre à gauche ou à droite, largeur réglable | Toute la mise en page se décale à côté |
 | Index des notes | Une ligne par page de notes, à nommer et à ouvrir d’un geste | Bas de chaque fiche projet |
+| Carnet compacté | Deux à trois fois plus léger à lire, page pour page identique | `--compact`, ou la case dans Folio |
 | Reprise de l’écriture | Les pages déjà écrites reportées sur le carnet régénéré | `transfer_ink.py`, ou Folio `/transfert` |
 | Tracés conservés | Greffe dans le `.note` que la tablette vient d’exporter | La gomme fonctionne encore |
 | Reprise choisie | Par section : le backlog, les projets, une seule liste | Vignette de l’écriture à l’appui |

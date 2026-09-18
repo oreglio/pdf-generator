@@ -35,9 +35,9 @@ def parse_config(mode: str, payload: dict) -> PlannerConfig | DatedPlannerConfig
 
 
 def generate_artifact(mode: str, payload: dict, *, samples: bool = False,
-                      short: bool = False) -> PDFArtifact:
-    if type(samples) is not bool or type(short) is not bool:
-        raise ValueError("Les options samples et short doivent être des booléens.")
+                      short: bool = False, compact: bool = False) -> PDFArtifact:
+    if type(samples) is not bool or type(short) is not bool or type(compact) is not bool:
+        raise ValueError("Les options samples, short et compact doivent être des booléens.")
     if short and (samples or mode != 'undated'):
         raise ValueError("Le carnet court concerne uniquement le PDF non daté complet.")
     config = parse_config(mode, payload)
@@ -57,7 +57,11 @@ def generate_artifact(mode: str, payload: dict, *, samples: bool = False,
         engine = generate_dated_pdf if mode == 'dated' else generate_pdf
         pages = engine(config, output)
         filename = config.pdf_filename
-    return PDFArtifact(output.getvalue(), filename, pages)
+    data = output.getvalue()
+    if compact and not samples:   # An eight-page preview has nothing to gain.
+        import pdf_compact
+        data = pdf_compact.compact(data, report=lambda line: None)
+    return PDFArtifact(data, filename, pages)
 
 
 def render_preview(pdf_bytes: bytes, page: int = 1) -> bytes:

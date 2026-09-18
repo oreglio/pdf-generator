@@ -12,6 +12,7 @@ from planner_formats import CUSTOM, DENSITIES, DEVICES
 from planner_layout import TOOLBAR_SIDES
 from planner_note_styles import NOTE_STYLES
 from planner_i18n import LANGUAGES
+import pdf_compact
 from planner_pdf import generate_comparison, generate_pdf
 
 
@@ -38,6 +39,9 @@ def main():
     parser.add_argument("--task-note-style", choices=NOTE_STYLES, help="Fond des pages de contexte")
     parser.add_argument("--all-variants", action="store_true")
     parser.add_argument("--comparison", action="store_true")
+    parser.add_argument("--compact", action="store_true",
+                        help="Repaquetter le PDF : deux à trois fois plus léger à "
+                             "lire pour la tablette, rendu identique (qpdf requis)")
     parser.add_argument("--output-dir", type=Path, default=Path(__file__).resolve().parent / "output/pdf")
     args = parser.parse_args()
     config = PlannerConfig.from_dict(json.loads(args.config.read_text())) if args.config else PlannerConfig()
@@ -65,6 +69,8 @@ def main():
         target = args.output_dir / current.pdf_filename
         start = time.perf_counter()
         count = generate_pdf(current, target)
+        if args.compact:
+            target.write_bytes(pdf_compact.compact(target.read_bytes()))
         result = {"file": str(target), "pages": count, "bytes": target.stat().st_size,
                   "seconds": round(time.perf_counter() - start, 3)}
         results.append(result)

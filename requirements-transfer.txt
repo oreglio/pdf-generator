@@ -1,6 +1,8 @@
 # Reprise de l’écriture d’un carnet AiPaper vers une nouvelle édition.
-# Ghostscript est également requis, pour mesurer le décalage entre les deux
-# éditions : brew install ghostscript, ou apt install ghostscript.
+# Deux outils système accompagnent ces bibliothèques :
+#   ghostscript — mesure le décalage entre deux éditions ;
+#   qpdf        — compacte les carnets, deux à trois fois plus légers à lire.
+# brew install ghostscript qpdf, ou apt install ghostscript qpdf.
 -r requirements-pdf.txt
 pypdf==6.1.1
 numpy==1.26.4

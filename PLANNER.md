@@ -158,6 +158,29 @@ les carnets publiés restent identiques octet pour octet.
 venv/bin/python generate_dated_planner.py --toolbar right --toolbar-mm 11
 ```
 
+### Carnet compacté
+
+Un carnet de 2 388 pages porte quelque **quatre-vingt-dix mille annotations de
+liens**, une par renvoi, chacune objet distinct avec son en-tête et son
+dictionnaire en clair. Le format a une réponse depuis sa version 1.5 : les flux
+d’objets, qui empaquettent les petits objets dans un flux compressé.
+
+```bash
+venv/bin/python generate_dated_planner.py --compact
+```
+
+Mesuré sur un carnet réel : **29,7 Mo → 10,2 Mo**, soit 66 % de moins à lire.
+Le rendu est identique au pixel près, les 99 351 liens et les 141 signets sont
+tous là, et les flux de contenu ne changent pas d’un octet. Seuls changent la
+version du fichier, 1.4 vers 1.5, et l’endroit où vivent les objets.
+
+L’option ne fait pas partie de la configuration du carnet : elle décrit comment
+le fichier est rangé, pas ce qui est dessiné dessus, et laisse donc les carnets
+publiés intacts tant qu’on ne la demande pas. `qpdf` est requis ; en son
+absence le carnet est produit tel quel, avec un message.
+
+Dans Folio, c’est la case « Carnet compacté », sous les réglages.
+
 ### Reprendre l’écriture d’un carnet déjà rempli
 
 Régénérer un carnet ne doit pas coûter les pages déjà écrites. `transfer_ink.py`
