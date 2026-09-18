@@ -13,6 +13,7 @@ import numpy as np
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
+import note_archive
 import transfer_ink
 from planner_config import PlannerConfig
 from planner_pdf import generate_pdf
@@ -43,21 +44,28 @@ NOTE_NAME = "carnet_origine.pdf"
 NOTE_ID = "090F70D3BF647C850F6C0EB4A01774B2"
 
 
-def archive(path, template, layers, name=NOTE_NAME, note_id=NOTE_ID):
-    """A `.note` shaped like the tablet's own export."""
-    count = max(40, max(layers, default=0) + 1)
-    pages = [{"id": f"page-{index}", "order": index, "pid": note_id}
+def archive(path, template, layers, name=NOTE_NAME, note_id=NOTE_ID, count=None):
+    """A `.note` shaped like the tablet's own export.
+
+    Every page declares a layer and a stroke file, written on or not; only a
+    written one ships the file. That is what the tablet does, and what makes
+    grafting possible.
+    """
+    count = max(40, max(layers, default=0) + 1) if count is None else count
+    pages = [{"id": f"{name}-page-{index}", "order": index, "pid": note_id}
              for index in range(count)]
     resources = []
     with zipfile.ZipFile(path, "w") as bundle:
-        for page, layer in layers.items():
-            member = f"mainBmp_{page:04d}.png"
-            resources.append({"fileName": member, "pid": f"page-{page - 1}",
-                              "noteId": note_id, "resourceType": 1})
-            bundle.writestr(member, png(layer))
-        # A page that was opened but never written declares a layer it never ships.
-        resources.append({"fileName": "mainBmp_absent.png", "pid": "page-30",
-                          "noteId": note_id, "resourceType": 1})
+        for index in range(count):
+            page = index + 1
+            for kind, prefix in ((1, "mainBmp"), (7, "path")):
+                member = f"{prefix}_{name}-{page:05d}.{'png' if kind == 1 else 'json'}"
+                resources.append({"fileName": member, "pid": f"{name}-page-{index}",
+                                  "noteId": note_id, "resourceType": kind,
+                                  "resourceState": 3 if kind == 1 else 1})
+                if page in layers:
+                    bundle.writestr(member, png(layers[page]) if kind == 1
+                                    else json.dumps([[100, 200, 1], [110, 210, 2]]).encode())
         bundle.writestr(f"{name}_NoteFileInfo.json",
                         json.dumps({"fileName": name, "id": note_id,
                                     "pid": "NOTE_USER_DIR_ID_7178"}))
@@ -200,125 +208,136 @@ class TransferTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_GHOSTSCRIPT, "Ghostscript est requis pour le calage")
-class RebuildTests(unittest.TestCase):
-    """Re-issuing the tablet's own notebook, so the strokes stay strokes."""
+class GraftTests(unittest.TestCase):
+    """Adding handwriting to a notebook the tablet itself exported."""
 
     def setUp(self):
         self.folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.folder, ignore_errors=True)
-        self.template = self.folder / "gabarit.pdf"
-        with open(self.template, "wb") as handle:
-            generate_pdf(SMALL, handle)
+        self.template = self.build(SMALL, "gabarit.pdf")
         self.pages = len(PdfReader(str(self.template)).pages)
 
-    def note(self, template=None, count=None):
-        path = self.folder / "carnet.note"
-        source = (template or self.template).read_bytes()
-        archive(path, source, {3: ink_layer()})
-        # The page list must describe the template it was written on.
-        count = self.pages if count is None else count
-        with zipfile.ZipFile(path) as bundle:
-            members = {name: bundle.read(name) for name in bundle.namelist()}
-        members[f"{NOTE_NAME}_PageListFileInfo.json"] = json.dumps(
-            [{"id": f"page-{index}", "order": index, "pid": NOTE_ID}
-             for index in range(count)]).encode()
-        with zipfile.ZipFile(path, "w") as bundle:
-            for name, data in members.items():
-                bundle.writestr(name, data)
-        return path
-
-    def edition(self, name):
-        """The same layout, a different file: what a regeneration produces."""
+    def build(self, config, name):
         path = self.folder / name
-        writer = PdfWriter(str(self.template), incremental=True)
-        writer.add_metadata({"/Subject": name})
         with open(path, "wb") as handle:
-            writer.write(handle)
+            generate_pdf(config, handle)
         return path
 
-    def test_the_template_is_replaced_and_the_handwriting_is_copied_as_is(self):
-        source, target = self.note(), self.edition("nouvelle.pdf")
-        output = self.folder / "reedite.note"
-        pages = transfer_ink.rebuild_note(source, target, output, report=lambda line: None)
-        self.assertEqual(pages, self.pages)
-        with zipfile.ZipFile(source) as before, zipfile.ZipFile(output) as after:
-            self.assertEqual(after.read("note_template.pdf"), target.read_bytes())
-            drawings = [name for name in before.namelist() if name.endswith(".png")]
-            self.assertTrue(drawings)
-            for name in drawings:  # The ink itself is never touched.
-                self.assertEqual(before.read(name), after.read(name))
+    def written(self, layers, name="carnet_ecrit.pdf"):
+        return archive(self.folder / f"{name}.note", self.template.read_bytes(),
+                       layers, name=name, count=self.pages)
 
-    def test_the_notebook_keeps_its_identity_unless_a_name_is_asked_for(self):
-        """An unknown notebook is what the importer refuses when anything is off."""
-        output = self.folder / "tel quel.note"
-        transfer_ink.rebuild_note(self.note(), self.edition("nouvelle.pdf"), output,
-                                  report=lambda line: None)
-        with zipfile.ZipFile(output) as after:
-            info = json.loads(after.read(f"{NOTE_NAME}_NoteFileInfo.json"))
-            self.assertEqual(info["fileName"], NOTE_NAME)
-            self.assertEqual(info["id"], NOTE_ID)
+    def skeleton(self, template=None, name="carnet_neuf.pdf", count=None):
+        """What the tablet exports after importing a new edition: no ink."""
+        return archive(self.folder / f"{name}.note",
+                       (template or self.template).read_bytes(), {}, name=name,
+                       note_id="F00DFACE" * 4, count=count or self.pages)
 
-    def test_a_name_asked_for_is_carried_through_every_field(self):
-        output = self.folder / "Carnet 2026.note"
-        transfer_ink.rebuild_note(self.note(), self.edition("nouvelle.pdf"), output,
-                                  report=lambda line: None, name="Carnet 2026")
-        with zipfile.ZipFile(output) as after:
-            info = json.loads(after.read("Carnet 2026_NoteFileInfo.json"))
-            self.assertEqual(info["fileName"], "Carnet 2026")
-            self.assertNotEqual(info["id"], NOTE_ID)
-            self.assertEqual(info["pid"], "NOTE_USER_DIR_ID_7178")  # same folder
-            pages = json.loads(after.read("Carnet 2026_PageListFileInfo.json"))
-            self.assertTrue(all(page["pid"] == info["id"] for page in pages))
-            resources = json.loads(after.read("Carnet 2026_PageResource.json"))
-            self.assertTrue(all(item["noteId"] == info["id"] for item in resources))
-            template = json.loads(after.read("Carnet 2026_NoteTemplateResource.json"))
-            self.assertEqual(template["ownerId"], info["id"])
-            for name in after.namelist():
-                if name.endswith(".json"):
-                    self.assertNotIn(NOTE_ID.encode(), after.read(name))
-                    self.assertNotIn(NOTE_NAME.encode(), after.read(name))
+    def test_the_tablet_notebook_is_kept_byte_for_byte_and_the_ink_added(self):
+        base = self.skeleton()
+        before = base.read_bytes()
+        output = self.folder / "greffe.note"
+        pages = transfer_ink.graft_note(self.written({3: ink_layer(), 6: ink_layer()}),
+                                        base, output, report=lambda line: None)
+        self.assertEqual(pages, [3, 6])
+        # Not "same contents": the original bytes are still the original bytes.
+        self.assertEqual(output.read_bytes()[:len(before) - 4000], before[:len(before) - 4000])
+        with zipfile.ZipFile(base) as was, zipfile.ZipFile(output) as now:
+            self.assertTrue(set(was.namelist()) < set(now.namelist()))
+            for name in was.namelist():
+                self.assertEqual(was.read(name), now.read(name))
 
-    def test_the_refusal_of_the_tablet_is_stated_before_anything_is_written(self):
-        lines = []
-        transfer_ink.rebuild_note(self.note(), self.edition("nouvelle.pdf"),
-                                  self.folder / "pour memoire.note", report=lines.append)
-        self.assertEqual(lines[0], transfer_ink.REBUILD_WARNING)
+    def test_the_ink_lands_in_the_slots_the_tablet_declared(self):
+        base = self.skeleton()
+        output = self.folder / "greffe.note"
+        transfer_ink.graft_note(self.written({3: ink_layer()}), base, output,
+                                report=lambda line: None)
+        with zipfile.ZipFile(base) as was, zipfile.ZipFile(output) as now:
+            declared = note_archive.resources(was)[3]
+            for kind in (note_archive.LAYER, note_archive.STROKES):
+                self.assertNotIn(declared[kind], was.namelist())
+                self.assertIn(declared[kind], now.namelist())
 
-    def test_an_archive_that_names_no_notebook_is_refused(self):
-        path = self.folder / "muet.note"
-        with zipfile.ZipFile(path, "w") as bundle:
-            bundle.writestr("note_PageListFileInfo.json", json.dumps(
-                [{"id": f"page-{i}", "order": i} for i in range(self.pages)]))
-            bundle.writestr("note_template.pdf", self.template.read_bytes())
+    def test_only_the_chosen_pages_are_carried_over(self):
+        """A new period rarely wants the whole of the old notebook."""
+        source = self.written({3: ink_layer(), 6: ink_layer(), 9: ink_layer()})
+        output = self.folder / "choisi.note"
+        pages = transfer_ink.graft_note(source, self.skeleton(), output,
+                                        report=lambda line: None, pages=[3, 9])
+        self.assertEqual(pages, [3, 9])
+
+    def test_a_page_the_tablet_already_wrote_is_never_overwritten(self):
+        base = self.skeleton()
+        with zipfile.ZipFile(base) as was:
+            theirs = note_archive.resources(was)[3][note_archive.LAYER]
+        note_archive.append(base, base, [(theirs, png(ink_layer()))])
+        output = self.folder / "greffe.note"
+        pages = transfer_ink.graft_note(self.written({3: ink_layer(), 6: ink_layer()}),
+                                        base, output, report=lambda line: None)
+        self.assertEqual(pages, [6])
+
+    def test_a_flattened_pdf_has_no_strokes_left_to_graft(self):
         with self.assertRaises(ValueError):
-            transfer_ink.rebuild_note(path, self.edition("nouvelle.pdf"),
-                                      self.folder / "jamais.note", report=lambda line: None)
+            transfer_ink.graft_note(self.template, self.skeleton(),
+                                    self.folder / "jamais.note", report=lambda line: None)
 
-    def test_a_flattened_pdf_has_no_strokes_left_to_hand_back(self):
-        with self.assertRaises(ValueError) as refusal:
-            transfer_ink.rebuild_note(self.template, self.edition("autre.pdf"),
-                                      self.folder / "jamais.note", report=lambda line: None)
-        self.assertIn(".note", str(refusal.exception))
+    def test_a_reserved_band_is_measured_and_the_ink_follows_it(self):
+        moved = self.build(PlannerConfig(**dict(SMALL.to_dict(), toolbar="left",
+                                                toolbar_mm=11.0)), "decale.pdf")
+        lines = []
+        transfer_ink.graft_note(self.written({3: ink_layer()}), self.skeleton(moved),
+                                self.folder / "cale.note", report=lines.append)
+        measured = next(line for line in lines if line.startswith("Décalage retenu"))
+        self.assertIn("+11.0", measured)
 
-    def test_an_edition_of_another_length_is_refused(self):
-        with self.assertRaises(ValueError) as refusal:
-            transfer_ink.rebuild_note(self.note(count=self.pages + 5),
-                                      self.edition("nouvelle.pdf"),
-                                      self.folder / "jamais.note", report=lambda line: None)
-        self.assertIn(str(self.pages), str(refusal.exception))
-        self.assertFalse((self.folder / "jamais.note").exists())
+    def test_a_notebook_with_nothing_to_give_is_refused(self):
+        with self.assertRaises(ValueError):
+            transfer_ink.graft_note(self.written({}), self.skeleton(),
+                                    self.folder / "jamais.note", report=lambda line: None)
 
-    def test_an_edition_that_moved_the_writing_column_is_refused(self):
-        """Strokes keep their coordinates: a shifted layout would land beside them."""
-        shifted = self.folder / "decale.pdf"
-        with open(shifted, "wb") as handle:
-            generate_pdf(PlannerConfig(**dict(SMALL.to_dict(), toolbar="left",
-                                              toolbar_mm=11.0)), handle)
-        with self.assertRaises(ValueError) as refusal:
-            transfer_ink.rebuild_note(self.note(), shifted,
-                                      self.folder / "jamais.note", report=lambda line: None)
-        self.assertIn("+11.0", str(refusal.exception))
-        self.assertFalse((self.folder / "jamais.note").exists())
+
+@unittest.skipUnless(HAS_GHOSTSCRIPT, "Ghostscript est requis pour le calage")
+class InventoryTests(unittest.TestCase):
+    """What the written notebook holds, named the way a person reads it."""
+
+    def setUp(self):
+        self.folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.folder, ignore_errors=True)
+        path = self.folder / "gabarit.pdf"
+        with open(path, "wb") as handle:
+            generate_pdf(SMALL, handle)
+        self.pages = len(PdfReader(str(path)).pages)
+        self.source = archive(self.folder / "ecrit.note", path.read_bytes(),
+                              {3: ink_layer(), 4: ink_layer(mark=False),
+                               6: ink_layer()}, count=self.pages)
+
+    def test_a_page_opened_but_never_written_is_not_listed(self):
+        self.assertEqual(sorted(transfer_ink.written_pages(self.source)), [3, 6])
+
+    def test_every_page_is_named_and_filed_under_a_section(self):
+        sections = transfer_ink.inventory(self.source)
+        listed = [page for _, rows in sections for page, _, _ in rows]
+        self.assertEqual(listed, [3, 6])
+        for section, rows in sections:
+            self.assertTrue(section)
+            for _, label, share in rows:
+                self.assertTrue(label)
+                self.assertGreater(share, 0)
+
+    def test_a_thumbnail_shows_the_writing_not_the_empty_sheet(self):
+        previews = transfer_ink.page_previews(self.source, [3, 4, 6])
+        self.assertEqual(sorted(previews), [3, 6])   # 4 is blank, nothing to show
+        for uri in previews.values():
+            self.assertTrue(uri.startswith("data:image/png;base64,"))
+
+    def test_a_selection_is_read_the_way_people_write_it(self):
+        self.assertEqual(transfer_ink.parse_pages("3"), {3})
+        self.assertEqual(transfer_ink.parse_pages("3-5, 9"), {3, 4, 5, 9})
+        self.assertIsNone(transfer_ink.parse_pages(""))
+        self.assertIsNone(transfer_ink.parse_pages(None))
+        for text in ("5-3", "0-2", "trois", "1-2-3"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                transfer_ink.parse_pages(text)
 
 
 class WorkspaceTests(unittest.TestCase):
@@ -331,8 +350,9 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_a_file_of_the_wrong_kind_never_reaches_the_disk(self):
         space = self.workspace
-        self.assertIsNone(space.destination('target', space.TARGET, 'carnet.note'))
+        self.assertIsNone(space.destination('target', space.TARGET, 'notes.txt'))
         self.assertIsNone(space.destination('source', space.SOURCE, 'notes.txt'))
+        self.assertIsNotNone(space.destination('target', space.TARGET, 'carnet.note'))
         for name in ('carnet.note', 'carnet.PDF'):
             self.assertIsNotNone(space.destination('source', space.SOURCE, name))
 

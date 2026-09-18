@@ -62,6 +62,8 @@ identique à ce qu’il était.
 | Barre d’outils réservée | Bande libre à gauche ou à droite, largeur réglable | Toute la mise en page se décale à côté |
 | Index des notes | Une ligne par page de notes, à nommer et à ouvrir d’un geste | Bas de chaque fiche projet |
 | Reprise de l’écriture | Les pages déjà écrites reportées sur le carnet régénéré | `transfer_ink.py`, ou Folio `/transfert` |
+| Tracés conservés | Greffe dans le `.note` que la tablette vient d’exporter | La gomme fonctionne encore |
+| Reprise choisie | Par section : le backlog, les projets, une seule liste | Vignette de l’écriture à l’appui |
 
 Une fiche projet ne recopie pas les notes détaillées du backlog : elle réserve
 une place fixe pour y écrire sa référence. Les références manuscrites restent
