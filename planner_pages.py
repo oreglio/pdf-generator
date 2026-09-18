@@ -96,23 +96,26 @@ class PlannerPages(ProjectPages):
     def end(self):
         self.c.showPage()
 
-    def writing_header(self, eyebrow, label, back=None):
+    def writing_header(self, eyebrow, label, back=None, limit=None):
         """A writing page states what it belongs to, then gets out of the way.
 
         `back` prefixes a chevron and sizes the tap area to the words: an
         invisible full-width link nobody can see is not an affordance.
+        `limit` is where the note tabs begin, so the words stop before them.
         """
         text = f"‹ {eyebrow}" if back else eyebrow
-        self.text(self.left, self.h - 34, text, 8, bold=True, gray=MUTED, max_width=self.width)
+        room = self.width if limit is None else limit - self.left - 10
+        self.text(self.left, self.h - 34, text, 8, bold=True, gray=MUTED, max_width=room)
         if back:
-            width = min(self.width, pdfmetrics.stringWidth(text, self.bold, 8))
+            width = min(room, pdfmetrics.stringWidth(text, self.bold, 8))
             self.link(back[1], back[0],
                       (self.left - 3, self.h - 43, self.left + width + 3, self.h - 22))
         self.text(self.left, self.h - 52, label, 7, gray=MUTED)
         self.line(self.left, self.h - 74, self.right, self.h - 74, gray=0.55)
 
-    def header(self, eyebrow, title, *, subtitle=None):
-        self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED, max_width=self.width)
+    def header(self, eyebrow, title, *, subtitle=None, limit=None):
+        room = self.width if limit is None else limit - self.left - 10
+        self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED, max_width=room)
         self.text(self.left - 1, self.h - 69, title, 30, bold=True, max_width=self.width)
         if subtitle:
             self.text(self.left, self.h - 90, subtitle, 8.5, gray=MUTED, max_width=self.width)
@@ -462,14 +465,49 @@ class PlannerPages(ProjectPages):
                     next_page=next_page, next_width=76)
         self.end()
 
-    def notes_bar(self, total, current, target, title):
-        """Tabs for every note page of one parent, on the eyebrow line."""
+    def eyebrow_fits(self, text, stop):
+        """Whether an eyebrow still reads in full before the note tabs."""
+        return pdfmetrics.stringWidth(text, self.bold, 8) <= stop - self.left - 10
+
+    def notes_index(self, top, floor, total, target, title):
+        """What each note page holds: one rule per page, written once, tappable.
+
+        The numbers alone say nothing three weeks later, so each one keeps a
+        line to name its subject — and opens the page it names.
+        """
+        columns = 2 if total > 5 else 1
+        gap = 16
+        cell = (self.width - gap * (columns - 1)) / columns
+        rows = ceil(total / columns)
+        step = self.layout.fit(top, 26, rows, floor=floor)
+        for part in range(1, total + 1):
+            column, row = divmod(part - 1, rows)
+            x = self.left + column * (cell + gap)
+            y = top - row * step
+            self.text(x, y, f"{part:02d}", 7.5, gray=MUTED, numeric=True)
+            self.line(x + 22, y - 2, x + cell, y - 2)
+            self.link(f"{title} / Notes {part:02d}", target(part),
+                      (x - 2, y - 6, x + cell, y + min(16, step - 4)))
+
+    def notes_bar_start(self, total):
+        """Where the note tabs begin, or the right edge when there are none.
+
+        The eyebrow reads up to this point: ten tabs are wide enough to run
+        over the words that name the page they belong to.
+        """
         if total < 2:
-            return
+            return self.right
         slot = min(26, (self.right - (self.left + 52)) / total)
         if slot < 11:  # Too cramped to tap: the footer still walks the pages.
+            return self.right
+        return self.right - total * slot + 3
+
+    def notes_bar(self, total, current, target, title):
+        """Tabs for every note page of one parent, on the eyebrow line."""
+        start = self.notes_bar_start(total)
+        if start >= self.right:
             return
-        start = self.right - total * slot + 3
+        slot = min(26, (self.right - (self.left + 52)) / total)
         for part in range(1, total + 1):
             self.pill(start + (part - 1) * slot, self.h - 34, slot - 3, 18,
                       f"{part:02d}", target(part), selected=part == current, size=7,
@@ -534,11 +572,17 @@ class PlannerPages(ProjectPages):
         sheets = self.config.list_sheets
         sheet = sheet_of(item, total_tasks, capacity)
         home_sheet = list_key(number, item, total_tasks, capacity)
-        self.writing_header(f"{self.list_eyebrow(number)} · {number:02d}-{item:02d}"
-                            f" — NOTES {part:02d}/{self.config.detail_pages:02d}",
-                            self.tr("Sujet"),
+        stop = self.notes_bar_start(self.config.detail_pages)
+        eyebrow = f"{self.list_eyebrow(number)} · {number:02d}-{item:02d}"
+        # The tabs already show the position; the words only repeat it when
+        # there is room, and give way to the tabs when there is not.
+        spelled = f"{eyebrow} — NOTES {part:02d}/{self.config.detail_pages:02d}"
+        if self.eyebrow_fits(f"‹ {spelled}", stop):
+            eyebrow = spelled
+        self.writing_header(eyebrow, self.tr("Sujet"),
                             back=(home_sheet,
-                                  self.tr("Retour liste {number:02d}", number=number)))
+                                  self.tr("Retour liste {number:02d}", number=number)),
+                            limit=stop)
         self.notes_bar(self.config.detail_pages, part,
                        lambda page: f"task-{number}-{item}-{page}",
                        self.tr("Tache {number:02d}-{item:02d}", number=number, item=item))

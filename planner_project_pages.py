@@ -17,9 +17,10 @@ class ProjectPages:
 
     def project_eyebrow(self, number, text, target, title):
         """Eyebrow line: the label returns, the note tabs close the right side."""
+        stop = self.notes_bar_start(self.config.project_notes_pages)
+        width = min(stop - self.left - 10, pdfmetrics.stringWidth(text, self.bold, 8))
         self.link(title, target, (self.left - 3, self.h - 43,
-                                  self.left + pdfmetrics.stringWidth(text, self.bold, 8) + 3,
-                                  self.h - 22))
+                                  self.left + width + 3, self.h - 22))
         self.project_notes_bar(number, current=None)
 
     def project_notes_bar(self, number, current=None):
@@ -60,13 +61,14 @@ class ProjectPages:
         eyebrow = self.tr("PROJET {number:02d}", number=number)
         named = bool(number <= len(self.config.project_names)
                      and self.config.project_names[number - 1])
+        stop = self.notes_bar_start(self.config.project_notes_pages)
         self.start(f"project-{number}", outline=f"{number:02d} — {name}", level=2)
         if named:
-            self.header(eyebrow, name)
+            self.header(eyebrow, name, limit=stop)
             goal_y = self.h - 108
         else:  # The title would only repeat the eyebrow: give the room away.
             self.text(self.left, self.h - 34, eyebrow, 8, bold=True, gray=MUTED,
-                      max_width=self.width)
+                      max_width=stop - self.left - 10)
             goal_y = self.h - 66
         self.project_eyebrow(number, eyebrow, "projects", self.tr("Retour aux projets"))
         self.rail(project=number)
@@ -94,7 +96,12 @@ class ProjectPages:
         self.rules(decisions_y - 20, bottom=decisions_y - room * 0.16)
         notes_y = decisions_y - room * 0.2
         self.text(self.left, notes_y, "Notes", 12, bold=True)
-        self.rules(notes_y - 20, bottom=floor)
+        if self.config.project_notes_pages:
+            self.notes_index(notes_y - 22, floor, self.config.project_notes_pages,
+                             lambda part: f"project-{number}-notes-{part}",
+                             self.tr("Projet {number:02d}", number=number))
+        else:
+            self.rules(notes_y - 20, bottom=floor)
         following = ((self.tr("Notes"), f"project-{number}-notes-1")
                      if self.config.project_notes_pages else
                      (self.tr("Projet"), f"project-{number + 1}")
@@ -109,11 +116,16 @@ class ProjectPages:
         number, part = int(spec.reference), spec.part
         total = self.config.project_notes_pages
         name = self.config.project_name(number)
-        eyebrow = f"{name.upper()} — NOTES {part:02d}/{total:02d}"
+        stop = self.notes_bar_start(total)
+        eyebrow = name.upper()
+        spelled = f"{eyebrow} — NOTES {part:02d}/{total:02d}"
+        if self.eyebrow_fits(f"‹ {spelled}", stop):
+            eyebrow = spelled
         self.start(f"project-{number}-notes-{part}")
         self.writing_header(eyebrow, self.tr("Sujet"),
                             back=(f"project-{number}",
-                                  self.tr("Projet {number:02d}", number=number)))
+                                  self.tr("Projet {number:02d}", number=number)),
+                            limit=stop)
         self.project_notes_bar(number, current=part)
         self.rail(project=number)
         self.rules(self.h - 74 - self.layout.row_height)

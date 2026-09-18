@@ -158,6 +158,52 @@ les carnets publiés restent identiques octet pour octet.
 venv/bin/python generate_dated_planner.py --toolbar right --toolbar-mm 11
 ```
 
+### Reprendre l’écriture d’un carnet déjà rempli
+
+Régénérer un carnet ne doit pas coûter les pages déjà écrites. `transfer_ink.py`
+relit le carnet rempli, mesure le décalage entre les deux éditions et repose
+l’encre sur ses lignes.
+
+```bash
+venv/bin/python transfer_ink.py \
+  --from ~/carnet.pdf.note --into output/pdf/dated/nouveau.pdf \
+  --output ~/nouveau-repris.pdf
+```
+
+Deux sources, qui ne se valent pas :
+
+| Source | Ce qu’elle contient | Qualité |
+| --- | --- | --- |
+| Archive `.note` | L’encre seule, noir sur fond transparent, 1920 × 2560 | Exacte, rien n’est reconstitué |
+| PDF exporté | Une photo JPEG pleine page, mise en page comprise | Reconstituée par soustraction |
+
+L’AiPaper aplatit chaque page écrite en un JPEG opaque plein cadre ajouté
+par-dessus le contenu vectoriel, lequel survit dessous : c’est ce qui permet de
+retrouver l’encre en soustrayant la page telle qu’elle était imprimée. L’archive
+`.note`, elle, garde déjà l’encre sur un calque à part — préférez-la.
+
+L’archive est lue, jamais écrite : le format n’est pas documenté et la tablette
+doit rester la seule à le produire. Le résultat est un PDF, qui est ce que la
+tablette sait ouvrir.
+
+Le décalage est mesuré par corrélation de phase **sur la colonne d’écriture**,
+la barre de navigation étant exclue : ancrée à la feuille, elle ne bouge pas
+quand une bande réservée à gauche pousse tout le reste, et elle répondrait que
+rien n’a bougé. `--offset-mm` l’impose à la main si besoin. Ghostscript est
+nécessaire pour cette mesure.
+
+Les pages sont appariées par leur index, que les deux sources indiquent
+explicitement : régénérez donc le carnet avec **les mêmes réglages de durée, de
+backlog et de projets**. Une barre d’outils à droite ne déplace pas la colonne
+d’écriture et ne demande aucun décalage ; à gauche, l’encre suit la bande.
+
+Le PDF de destination est modifié en **mise à jour incrémentale** : ses octets
+d’origine sont conservés et seules les pages écrites sont ajoutées. Liens et
+signets restent intacts, et un carnet de 2 400 pages ne sature pas la pile.
+
+Dans Folio, la même opération est à `/transfert` : on dépose les deux fichiers,
+on récupère le PDF repris. Rien ne sort de la machine.
+
 ### Confort d’écriture et répartition sur plusieurs feuillets
 
 `--density standard` (défaut) ou `--density comfortable`. Le mode aéré écarte
