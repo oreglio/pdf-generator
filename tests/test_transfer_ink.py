@@ -248,11 +248,20 @@ class RebuildTests(unittest.TestCase):
             for name in drawings:  # The ink itself is never touched.
                 self.assertEqual(before.read(name), after.read(name))
 
-    def test_a_rebuilt_notebook_is_a_new_one_not_a_duplicate(self):
-        """Keeping the original identity files it beside itself as « (1) »."""
-        output = self.folder / "Carnet 2026.note"
+    def test_the_notebook_keeps_its_identity_unless_a_name_is_asked_for(self):
+        """An unknown notebook is what the importer refuses when anything is off."""
+        output = self.folder / "tel quel.note"
         transfer_ink.rebuild_note(self.note(), self.edition("nouvelle.pdf"), output,
                                   report=lambda line: None)
+        with zipfile.ZipFile(output) as after:
+            info = json.loads(after.read(f"{NOTE_NAME}_NoteFileInfo.json"))
+            self.assertEqual(info["fileName"], NOTE_NAME)
+            self.assertEqual(info["id"], NOTE_ID)
+
+    def test_a_name_asked_for_is_carried_through_every_field(self):
+        output = self.folder / "Carnet 2026.note"
+        transfer_ink.rebuild_note(self.note(), self.edition("nouvelle.pdf"), output,
+                                  report=lambda line: None, name="Carnet 2026")
         with zipfile.ZipFile(output) as after:
             info = json.loads(after.read("Carnet 2026_NoteFileInfo.json"))
             self.assertEqual(info["fileName"], "Carnet 2026")
@@ -268,6 +277,12 @@ class RebuildTests(unittest.TestCase):
                 if name.endswith(".json"):
                     self.assertNotIn(NOTE_ID.encode(), after.read(name))
                     self.assertNotIn(NOTE_NAME.encode(), after.read(name))
+
+    def test_the_refusal_of_the_tablet_is_stated_before_anything_is_written(self):
+        lines = []
+        transfer_ink.rebuild_note(self.note(), self.edition("nouvelle.pdf"),
+                                  self.folder / "pour memoire.note", report=lines.append)
+        self.assertEqual(lines[0], transfer_ink.REBUILD_WARNING)
 
     def test_an_archive_that_names_no_notebook_is_refused(self):
         path = self.folder / "muet.note"
@@ -326,14 +341,6 @@ class WorkspaceTests(unittest.TestCase):
         landed = space.destination('source', space.SOURCE, '../../etc/passwd.pdf')
         self.assertEqual(landed.parent, space.folder)
         self.assertEqual(landed.name, 'source-passwd.pdf')
-
-    def test_only_the_tablet_archive_can_be_re_issued(self):
-        space = self.workspace
-        self.assertFalse(space.rebuildable)
-        space.files['source'] = space.folder / 'source-carnet.pdf'
-        self.assertFalse(space.rebuildable)
-        space.files['source'] = space.folder / 'source-carnet.note'
-        self.assertTrue(space.rebuildable)
 
     def test_the_upload_event_still_carries_the_file_this_page_reads(self):
         """NiceGUI moved this payload once; a silent change kills the page."""
