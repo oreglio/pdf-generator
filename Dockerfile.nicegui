@@ -9,7 +9,7 @@ WORKDIR /app
 # éditions pour la reprise d’écriture. Sans lui, l’atelier génère normalement
 # mais la page /transfert le dit au lieu de se taire.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends poppler-utils ghostscript \
+    && apt-get install -y --no-install-recommends poppler-utils ghostscript qpdf \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 notebook
 
@@ -21,7 +21,7 @@ COPY planner_config.py planner_i18n.py planner_pages.py planner_pdf.py ./
 COPY planner_formats.py planner_layout.py planner_manifest.py ./
 COPY planner_note_styles.py planner_project_pages.py ./
 COPY dated_planner_config.py dated_planner_pages.py dated_planner_pdf.py ./
-COPY transfer_ink.py note_archive.py ./
+COPY transfer_ink.py note_archive.py pdf_compact.py ./
 COPY assets/fonts/ ./assets/fonts/
 
 RUN mkdir -p /app/.nicegui \

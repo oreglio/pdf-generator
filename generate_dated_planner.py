@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from dated_planner_config import MONTH_RANGE, DatedPlannerConfig
+import pdf_compact
 from dated_planner_pdf import generate_dated_pdf
 from planner_config import MEETING_LAYOUTS, TYPOGRAPHIES
 from planner_formats import CUSTOM, DENSITIES, DEVICES
@@ -51,6 +52,9 @@ def main():
                         help='Ajouter une page Priorités après chaque calendrier')
     parser.add_argument('--language', choices=LANGUAGES, help='Langue du PDF (fr par défaut)')
     parser.add_argument('--font', choices=TYPOGRAPHIES)
+    parser.add_argument('--compact', action='store_true',
+                        help='Repaquetter le PDF : deux à trois fois plus léger à '
+                             'lire pour la tablette, rendu identique (qpdf requis)')
     parser.add_argument('--output-dir', type=Path,
                         default=Path(__file__).resolve().parent / 'output/pdf/dated')
     args = parser.parse_args()
@@ -78,6 +82,8 @@ def main():
     target = args.output_dir / config.pdf_filename
     start = time.perf_counter()
     count = generate_dated_pdf(config, target)
+    if args.compact:
+        target.write_bytes(pdf_compact.compact(target.read_bytes()))
     result = {'file': str(target), 'pages': count, 'bytes': target.stat().st_size,
               'seconds': round(time.perf_counter() - start, 3), 'config': config.to_dict()}
     print(json.dumps(result, ensure_ascii=False), flush=True)

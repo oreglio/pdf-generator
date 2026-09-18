@@ -125,6 +125,7 @@ class PlannerWorkspace:
         self.busy = False
         self.dirty = False
         self.short = False
+        self.compact = False
         self.sample = None
         self.output = None
         self.images = {}
@@ -385,7 +386,8 @@ class PlannerWorkspace:
             self.apply_draft()
             revision = self.revision
             artifact = await cpu_job(generate_artifact, self.mode, self.config.to_dict(),
-                                     short=self.short if self.mode == 'undated' else False)
+                                     short=self.short if self.mode == 'undated' else False,
+                                     compact=self.compact)
             if revision == self.revision:
                 self.output = artifact
                 ui.notify('Votre carnet est prêt.', type='positive')
@@ -734,6 +736,15 @@ class PlannerWorkspace:
                 ui.button(f'Télécharger les {sample.pages} pages d’aperçu', icon='file_download',
                           on_click=lambda: self.download_pdf(sample)).props('flat dense').bind_enabled_from(self, 'busy', backward=lambda value: not value)
 
+    def compaction(self):
+        """Repacking is about the file, not the notebook: it stays out of the config."""
+        ui.checkbox('Carnet compacté', value=self.compact,
+                    on_change=lambda event: setattr(self, 'compact', event.value)) \
+            .bind_enabled_from(self, 'busy', backward=lambda value: not value)
+        ui.label('Deux à trois fois plus léger à lire pour la tablette, page pour page '
+                 'identique. Le fichier est rangé autrement, rien n’est redessiné.') \
+            .classes('muted')
+
     def short_changed(self, event):
         self.revision += 1
         self.short = event.value
@@ -834,6 +845,7 @@ class PlannerWorkspace:
                 if not dated:
                     ui.checkbox('Essai : seulement 3 journées', value=self.short, on_change=self.short_changed).bind_enabled_from(self, 'busy', backward=lambda value: not value)
                     ui.label('Toutes les listes et leurs notes restent incluses.').classes('muted')
+                self.compaction()
                 ui.button('Actualiser l’aperçu', on_click=self.refresh_preview, icon='refresh').props('outline').classes('w-full').bind_enabled_from(self, 'busy', backward=lambda value: not value)
                 ui.button('Générer mon carnet', on_click=self.generate, icon='auto_stories').classes('w-full py-2').bind_enabled_from(self, 'busy', backward=lambda value: not value)
                 self.download_area()
