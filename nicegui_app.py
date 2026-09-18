@@ -70,7 +70,10 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .pick-count { font-size: 12px; color: #68746e; white-space: nowrap; }
 .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; width: 100%; padding: 4px 0 10px; }
 .shot { border: 1px solid #e4e7e0; border-radius: 10px; overflow: hidden; background: #fbfcfa; transition: border-color .15s, box-shadow .15s; }
+.shot { cursor: pointer; }
 .shot.on { border-color: #235c4f; box-shadow: 0 0 0 1px #235c4f; }
+.shot.held { cursor: default; opacity: .55; }
+.shot.held img { filter: grayscale(1); }
 .shot img { width: 100%; display: block; background: #fff; }
 .shot-foot { padding: 8px 10px; font-size: 11px; line-height: 1.5; color: #43514c; }
 .shot-foot b { display: block; font-weight: 700; color: #222c2a; }
@@ -897,7 +900,7 @@ class TransferWorkspace:
         self.result = None
         self.busy = False
         self.lines = []
-        self.sections, self.chosen, self.previews = [], set(), {}
+        self.sections, self.chosen, self.previews, self.kept = [], set(), {}, set()
 
     def close(self):
         shutil.rmtree(self.folder, ignore_errors=True)
@@ -910,7 +913,7 @@ class TransferWorkspace:
 
     async def take_stock(self):
         """List what the written notebook holds, once both files are in."""
-        self.sections, self.chosen, self.previews = [], set(), {}
+        self.sections, self.chosen, self.previews, self.kept = [], set(), {}, set()
         if not ({'source', 'target'} <= set(self.files) and self.keeps_strokes
                 and self.files['source'].suffix.lower() == '.note'):
             return
@@ -924,18 +927,23 @@ class TransferWorkspace:
         except Exception as error:  # noqa: BLE001 — the message belongs on screen
             self.lines = [f'Lecture du carnet écrit impossible : {error}']
 
-    def toggle_page(self, page, value):
-        self.chosen.add(page) if value else self.chosen.discard(page)
+    def toggle_page(self, page, value=None):
+        if page in self.kept:
+            return
+        taken = (page not in self.chosen) if value is None else value
+        self.chosen.add(page) if taken else self.chosen.discard(page)
         self.picker.refresh()
 
     def toggle_section(self, rows, value):
         for page, _, _ in rows:
+            if page in self.kept:
+                continue
             self.chosen.add(page) if value else self.chosen.discard(page)
         self.picker.refresh()
 
     def choose_all(self, value):
-        self.chosen = ({page for _, rows in self.sections for page, _, _ in rows}
-                       if value else set())
+        self.chosen = ({page for _, rows in self.sections for page, _, _ in rows
+                        if page not in self.kept} if value else set())
         self.picker.refresh()
 
     async def show_section(self, section, rows):
@@ -960,29 +968,39 @@ class TransferWorkspace:
                 ui.button('Rien', on_click=lambda: self.choose_all(False)).props('flat dense')
         with ui.column().classes('pick'):
             for section, rows in self.sections:
-                taken = sum(1 for page, _, _ in rows if page in self.chosen)
+                free = [page for page, _, _ in rows if page not in self.kept]
+                taken = sum(1 for page in free if page in self.chosen)
                 with ui.expansion(on_value_change=lambda event, s=section, r=rows:
                                   self.show_section(s, r) if event.value else None) \
                         .classes('w-full') as panel:
                     with panel.add_slot('header'):
                         with ui.row().classes('pick-head'):
-                            ui.checkbox(section, value=taken == len(rows),
+                            ui.checkbox(section, value=bool(free) and taken == len(free),
                                         on_change=lambda event, r=rows:
-                                        self.toggle_section(r, event.value))
+                                        self.toggle_section(r, event.value)) \
+                                .on('click.stop').set_enabled(bool(free))
                             ui.label(f'{taken}/{len(rows)}').classes('pick-count')
                     with ui.element('div').classes('shots'):
                         for page, label, share in rows:
-                            with ui.column().classes(
-                                    'shot' + (' on' if page in self.chosen else '')) \
-                                    .classes('gap-0'):
+                            held = page in self.kept
+                            classes = 'shot gap-0' + (' on' if page in self.chosen else '')
+                            with ui.column().classes(classes + (' held' if held else '')) \
+                                    .on('click', lambda p=page: self.toggle_page(p)):
                                 shot = self.previews.get(page)
                                 if shot:
                                     ui.html(f'<img src="{shot}" alt="page {page}">')
                                 with ui.column().classes('shot-foot gap-1'):
-                                    ui.checkbox(f'Page {page}', value=page in self.chosen,
-                                                on_change=lambda event, p=page:
-                                                self.toggle_page(p, event.value))
-                                    ui.html(f'<span>{label}</span>')
+                                    if held:
+                                        ui.html(f'<b>Page {page}</b>'
+                                                '<span>Déjà écrite dans le nouveau '
+                                                'carnet — elle est conservée</span>')
+                                    else:
+                                        ui.checkbox(f'Page {page}',
+                                                    value=page in self.chosen,
+                                                    on_change=lambda event, p=page:
+                                                    self.toggle_page(p, event.value)) \
+                                            .on('click.stop')
+                                    ui.html(f'<span>{label} · {share:.1f} % d’encre</span>')
 
     def destination(self, slot, spec, name):
         """Where an uploaded file lands, or None when its suffix is wrong."""
