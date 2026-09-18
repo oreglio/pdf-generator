@@ -39,20 +39,32 @@ def png(layer):
     return buffer.getvalue()
 
 
-def archive(path, template, layers):
+NOTE_NAME = "carnet_origine.pdf"
+NOTE_ID = "090F70D3BF647C850F6C0EB4A01774B2"
+
+
+def archive(path, template, layers, name=NOTE_NAME, note_id=NOTE_ID):
     """A `.note` shaped like the tablet's own export."""
     count = max(40, max(layers, default=0) + 1)
-    pages = [{"id": f"page-{index}", "order": index} for index in range(count)]
+    pages = [{"id": f"page-{index}", "order": index, "pid": note_id}
+             for index in range(count)]
     resources = []
     with zipfile.ZipFile(path, "w") as bundle:
         for page, layer in layers.items():
-            name = f"mainBmp_{page:04d}.png"
-            resources.append({"fileName": name, "pid": f"page-{page - 1}"})
-            bundle.writestr(name, png(layer))
+            member = f"mainBmp_{page:04d}.png"
+            resources.append({"fileName": member, "pid": f"page-{page - 1}",
+                              "noteId": note_id, "resourceType": 1})
+            bundle.writestr(member, png(layer))
         # A page that was opened but never written declares a layer it never ships.
-        resources.append({"fileName": "mainBmp_absent.png", "pid": "page-30"})
-        bundle.writestr("note_PageListFileInfo.json", json.dumps(pages))
-        bundle.writestr("note_PageResource.json", json.dumps(resources))
+        resources.append({"fileName": "mainBmp_absent.png", "pid": "page-30",
+                          "noteId": note_id, "resourceType": 1})
+        bundle.writestr(f"{name}_NoteFileInfo.json",
+                        json.dumps({"fileName": name, "id": note_id,
+                                    "pid": "NOTE_USER_DIR_ID_7178"}))
+        bundle.writestr(f"{name}_PageListFileInfo.json", json.dumps(pages))
+        bundle.writestr(f"{name}_PageResource.json", json.dumps(resources))
+        bundle.writestr(f"{name}_NoteTemplateResource.json",
+                        json.dumps({"ownerId": note_id, "templateType": "PDF"}))
         bundle.writestr("note_template.pdf", template)
     return path
 
@@ -207,8 +219,9 @@ class RebuildTests(unittest.TestCase):
         count = self.pages if count is None else count
         with zipfile.ZipFile(path) as bundle:
             members = {name: bundle.read(name) for name in bundle.namelist()}
-        members["note_PageListFileInfo.json"] = json.dumps(
-            [{"id": f"page-{index}", "order": index} for index in range(count)]).encode()
+        members[f"{NOTE_NAME}_PageListFileInfo.json"] = json.dumps(
+            [{"id": f"page-{index}", "order": index, "pid": NOTE_ID}
+             for index in range(count)]).encode()
         with zipfile.ZipFile(path, "w") as bundle:
             for name, data in members.items():
                 bundle.writestr(name, data)
@@ -223,17 +236,48 @@ class RebuildTests(unittest.TestCase):
             writer.write(handle)
         return path
 
-    def test_only_the_template_changes_everything_else_is_copied(self):
+    def test_the_template_is_replaced_and_the_handwriting_is_copied_as_is(self):
         source, target = self.note(), self.edition("nouvelle.pdf")
         output = self.folder / "reedite.note"
         pages = transfer_ink.rebuild_note(source, target, output, report=lambda line: None)
         self.assertEqual(pages, self.pages)
         with zipfile.ZipFile(source) as before, zipfile.ZipFile(output) as after:
-            self.assertEqual(before.namelist(), after.namelist())
-            changed = [name for name in before.namelist()
-                       if before.read(name) != after.read(name)]
-            self.assertEqual(changed, ["note_template.pdf"])
             self.assertEqual(after.read("note_template.pdf"), target.read_bytes())
+            drawings = [name for name in before.namelist() if name.endswith(".png")]
+            self.assertTrue(drawings)
+            for name in drawings:  # The ink itself is never touched.
+                self.assertEqual(before.read(name), after.read(name))
+
+    def test_a_rebuilt_notebook_is_a_new_one_not_a_duplicate(self):
+        """Keeping the original identity files it beside itself as « (1) »."""
+        output = self.folder / "Carnet 2026.note"
+        transfer_ink.rebuild_note(self.note(), self.edition("nouvelle.pdf"), output,
+                                  report=lambda line: None)
+        with zipfile.ZipFile(output) as after:
+            info = json.loads(after.read("Carnet 2026_NoteFileInfo.json"))
+            self.assertEqual(info["fileName"], "Carnet 2026")
+            self.assertNotEqual(info["id"], NOTE_ID)
+            self.assertEqual(info["pid"], "NOTE_USER_DIR_ID_7178")  # same folder
+            pages = json.loads(after.read("Carnet 2026_PageListFileInfo.json"))
+            self.assertTrue(all(page["pid"] == info["id"] for page in pages))
+            resources = json.loads(after.read("Carnet 2026_PageResource.json"))
+            self.assertTrue(all(item["noteId"] == info["id"] for item in resources))
+            template = json.loads(after.read("Carnet 2026_NoteTemplateResource.json"))
+            self.assertEqual(template["ownerId"], info["id"])
+            for name in after.namelist():
+                if name.endswith(".json"):
+                    self.assertNotIn(NOTE_ID.encode(), after.read(name))
+                    self.assertNotIn(NOTE_NAME.encode(), after.read(name))
+
+    def test_an_archive_that_names_no_notebook_is_refused(self):
+        path = self.folder / "muet.note"
+        with zipfile.ZipFile(path, "w") as bundle:
+            bundle.writestr("note_PageListFileInfo.json", json.dumps(
+                [{"id": f"page-{i}", "order": i} for i in range(self.pages)]))
+            bundle.writestr("note_template.pdf", self.template.read_bytes())
+        with self.assertRaises(ValueError):
+            transfer_ink.rebuild_note(path, self.edition("nouvelle.pdf"),
+                                      self.folder / "jamais.note", report=lambda line: None)
 
     def test_a_flattened_pdf_has_no_strokes_left_to_hand_back(self):
         with self.assertRaises(ValueError) as refusal:

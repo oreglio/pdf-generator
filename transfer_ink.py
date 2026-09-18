@@ -27,6 +27,7 @@ import io
 import json
 import subprocess
 import sys
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -124,6 +125,28 @@ def read_source(path, report):
 
 # --- rebuilding the tablet's own notebook ----------------------------------
 
+def note_identity(archive, names):
+    """The notebook's own name and identifier, as the archive states them."""
+    entry = next((name for name in names if name.endswith("NoteFileInfo.json")), None)
+    if entry is None:
+        raise ValueError("Cette archive ne dit pas quel carnet elle décrit : "
+                         "elle ne vient pas d’un carnet AiPaper.")
+    info = json.loads(archive.read(entry))
+    return info["fileName"], info["id"]
+
+
+def rename_notebook(data, old_name, old_id, new_name, new_id):
+    """A rebuilt notebook is a new notebook, never a silent overwrite.
+
+    The tablet keys a notebook by its identifier, so re-importing one that kept
+    the original's identity lands beside it as a duplicate. Name and identifier
+    are opaque strings, and every place that repeats them is a plain field:
+    swapping both, everywhere, hands back a notebook the tablet files on its own.
+    """
+    return data.replace(old_id.encode(), new_id.encode()) \
+               .replace(json.dumps(old_name).encode(), json.dumps(new_name).encode())
+
+
 def template_entry(names):
     """The archive member holding the PDF the notebook was written on."""
     found = [name for name in names if name.lower().endswith(".pdf")]
@@ -133,7 +156,7 @@ def template_entry(names):
     return found[0]
 
 
-def rebuild_note(source, target, output, report=print):
+def rebuild_note(source, target, output, report=print, name=None):
     """Re-issue a `.note` on a new edition, keeping the strokes editable.
 
     Only the template PDF is exchanged. Layers, strokes and metadata are copied
@@ -174,12 +197,23 @@ def rebuild_note(source, target, output, report=print):
                 "Un carnet réédité garde ses tracés là où ils ont été écrits : ils "
                 "tomberaient à côté. Régénérez le PDF avec la même mise en page, ou "
                 "demandez un PDF, où l’encre est une image qui suit le décalage.")
+        old_name, old_id = note_identity(archive, names)
+        new_name = name or output.name.removesuffix(".note")
+        new_id = uuid.uuid4().hex.upper()
         report(f"Réédition du carnet : {pages} pages, gabarit « {entry} » remplacé.")
+        report(f"Nouveau carnet « {new_name} », distinct de « {old_name} » : "
+               "il se rangera à côté, sans doublon ni écrasement.")
         with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as rebuilt:
             for item in archive.infolist():
-                data = target.read_bytes() if item.filename == entry \
-                    else archive.read(item.filename)
-                rebuilt.writestr(item, data)
+                if item.filename == entry:
+                    data = target.read_bytes()
+                else:
+                    data = archive.read(item.filename)
+                    if item.filename.endswith(".json"):
+                        data = rename_notebook(data, old_name, old_id, new_name, new_id)
+                name_in_zip = item.filename.replace(old_name + "_", new_name + "_", 1) \
+                    if item.filename.startswith(old_name + "_") else item.filename
+                rebuilt.writestr(name_in_zip, data)
     report("Vos tracés restent des tracés : sélection, déplacement et gomme "
            "fonctionnent encore sur la tablette.")
     report(f"→ {output} ({output.stat().st_size / 1e6:.1f} Mo)")

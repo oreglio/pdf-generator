@@ -216,6 +216,13 @@ venv/bin/python transfer_ink.py --as note \
   --from ~/carnet.pdf.note --into nouveau.pdf --output ~/carnet-repris.pdf.note
 ```
 
+Le carnet réédité reçoit **sa propre identité** : nouveau nom, pris du fichier
+de sortie, et nouvel identifiant repointé dans les 2 388 pages et les 7 204
+ressources. La tablette classe un carnet par son identifiant : réimporter une
+archive qui garde celui de l’original le range à côté de lui en « (1) » au lieu
+de le remplacer. Le carnet réédité se range donc seul, sans doublon ni
+écrasement, dans le même dossier.
+
 La réédition n’est possible qu’**à l’identique**, et l’outil le vérifie avant
 d’écrire quoi que ce soit : le nouveau PDF doit avoir le même nombre de pages
 et la même mise en page. Les tracés vivent en coordonnées d’écran, et le
