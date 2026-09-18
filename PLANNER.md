@@ -201,8 +201,32 @@ Le PDF de destination est modifié en **mise à jour incrémentale** : ses octet
 d’origine sont conservés et seules les pages écrites sont ajoutées. Liens et
 signets restent intacts, et un carnet de 2 400 pages ne sature pas la pile.
 
+#### Deux formes de sortie
+
+`--as pdf` (défaut) porte votre écriture **comme une image** : le fichier
+s’ouvre partout, vous écrivez par-dessus, mais vous ne reprenez plus les
+anciens tracés trait par trait — la gomme ne les voit pas.
+
+`--as note` réédite le **carnet de la tablette** : seul le gabarit PDF est
+échangé dans l’archive, tout le reste est recopié octet pour octet. Vos tracés
+restent des tracés, donc sélectionnables, déplaçables et effaçables.
+
+```bash
+venv/bin/python transfer_ink.py --as note \
+  --from ~/carnet.pdf.note --into nouveau.pdf --output ~/carnet-repris.pdf.note
+```
+
+La réédition n’est possible qu’**à l’identique**, et l’outil le vérifie avant
+d’écrire quoi que ce soit : le nouveau PDF doit avoir le même nombre de pages
+et la même mise en page. Les tracés vivent en coordonnées d’écran, et le
+fichier qui les porte (`path_*.json`) est un historique qui n’associe même pas
+une page à un calque : les déplacer serait deviner sur les notes de quelqu’un.
+Une édition qui a bougé sa colonne d’écriture est donc refusée et renvoyée vers
+le PDF, où l’encre est une image qu’on peut décaler sans risque.
+
 Dans Folio, la même opération est à `/transfert` : on dépose les deux fichiers,
-on récupère le PDF repris. Rien ne sort de la machine.
+on choisit la forme de sortie, on récupère le résultat. Rien ne sort de la
+machine.
 
 ### Confort d’écriture et répartition sur plusieurs feuillets
 

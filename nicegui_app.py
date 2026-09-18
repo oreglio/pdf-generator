@@ -863,8 +863,8 @@ class TransferWorkspace:
               'label': 'Mon nouveau carnet · PDF',
               'hint': ('Régénéré avec les mêmes réglages de durée, de backlog et de '
                        'projets : c’est ce qui garantit que chaque page retombe juste.')}
-    LIMIT = 300 * 1024 * 1024
-
+    SLOTS = (('source', SOURCE), ('target', TARGET))
+    LIMIT = 400 * 1024 * 1024
     MISSING = ('La reprise d’écriture demande des bibliothèques supplémentaires : '
                'pip install -r requirements-transfer.txt, puis Ghostscript '
                '(brew install ghostscript).')
@@ -878,93 +878,124 @@ class TransferWorkspace:
             return None
         return transfer_report
 
+    SHAPES = {'pdf': 'Un PDF, lisible partout',
+              'note': 'Un carnet .note, tracés modifiables'}
+
     def __init__(self):
         self.folder = Path(tempfile.mkdtemp(prefix='folio-transfert-'))
         self.files = {}
+        self.status = {}
         self.result = None
         self.busy = False
+        self.shape = 'pdf'
         self.lines = []
+
+    def choose_shape(self, event):
+        self.shape = event.value
+        self.result = None
+        self.actions.refresh()
+
+    @property
+    def rebuildable(self):
+        """Only the tablet's own archive still holds strokes to hand back."""
+        source = self.files.get('source')
+        return bool(source and source.suffix.lower() == '.note')
 
     def close(self):
         shutil.rmtree(self.folder, ignore_errors=True)
 
+    def destination(self, slot, spec, name):
+        """Where an uploaded file lands, or None when its suffix is wrong."""
+        clean = Path(name).name
+        if not clean.lower().endswith(spec['suffix']):
+            return None
+        return self.folder / f'{slot}-{clean}'
+
     def accept(self, slot, spec):
-        def handler(event):
-            name = Path(event.name).name
-            if not name.lower().endswith(spec['suffix']):
-                ui.notify(f'Choisissez un fichier {" ou ".join(spec["suffix"])}.',
-                          type='negative')
-                return
-            path = self.folder / f'{slot}-{name}'
-            with open(path, 'wb') as handle:
-                shutil.copyfileobj(event.content, handle)
-            self.files[slot] = path
-            self.result = None
-            ui.notify(f'{name} · {path.stat().st_size / 1e6:.1f} Mo', type='positive')
-            self.slots.refresh()
-            self.actions.refresh()
+        async def handler(event):
+            # NiceGUI streams a large upload straight to disk, so `save` moves
+            # tens of megabytes without ever holding them in memory. Only the
+            # actions refresh: rebuilding the slots would delete the other
+            # uploader while its own file is still on its way.
+            try:
+                upload = event.file
+                path = self.destination(slot, spec, upload.name)
+                if path is None:
+                    self.status[slot].set_text('Ce format n’est pas accepté ici : '
+                                               + ' ou '.join(spec['suffix']) + '.')
+                    return
+                await upload.save(path)
+                self.files[slot] = path
+                self.result = None
+                self.status[slot].set_text(
+                    f'{path.name.split("-", 1)[-1]} · {path.stat().st_size / 1e6:.1f} Mo')
+            except Exception as error:  # noqa: BLE001 — a swallowed upload is a dead button
+                self.lines = [f'Import impossible : {error}']
+                self.status[slot].set_text('Ce fichier n’a pas pu être lu.')
+            finally:
+                self.actions.refresh()
         return handler
 
-    def forget(self, slot):
-        path = self.files.pop(slot, None)
-        if path:
-            path.unlink(missing_ok=True)
-        self.result = None
-        self.slots.refresh()
-        self.actions.refresh()
-
-    @ui.refreshable
     def slots(self):
+        """Built once and left alone: the uploaders own their own feedback."""
         with ui.element('div').classes('slots'):
-            for slot, spec in (('source', self.SOURCE), ('target', self.TARGET)):
+            for slot, spec in self.SLOTS:
                 with ui.column().classes('slot'):
                     ui.label(spec['label']).classes('text-sm font-bold')
-                    chosen = self.files.get(slot)
-                    if chosen:
-                        with ui.row().classes('items-center gap-2 w-full'):
-                            ui.label(chosen.name.split('-', 1)[-1]).classes('chip')
-                            ui.button(icon='close', on_click=lambda s=slot: self.forget(s)) \
-                                .props('flat dense round').bind_enabled_from(
-                                    self, 'busy', backward=lambda value: not value)
-                    else:
-                        ui.upload(label='Déposer le fichier', auto_upload=True,
-                                  max_file_size=self.LIMIT,
-                                  on_upload=self.accept(slot, spec),
-                                  on_rejected=lambda: ui.notify(
-                                      'Fichier trop lourd : 300 Mo au maximum.',
-                                      type='negative')) \
-                            .props(f'accept={",".join(spec["suffix"])}') \
-                            .bind_enabled_from(self, 'busy',
-                                               backward=lambda value: not value)
+                    ui.upload(label='Déposer le fichier', auto_upload=True,
+                              max_file_size=self.LIMIT,
+                              on_upload=self.accept(slot, spec),
+                              on_rejected=lambda: ui.notify(
+                                  'Fichier trop lourd : 400 Mo au maximum.',
+                                  type='negative')) \
+                        .props(f'accept={",".join(spec["suffix"])}') \
+                        .bind_enabled_from(self, 'busy',
+                                           backward=lambda value: not value)
+                    self.status[slot] = ui.label('Aucun fichier pour l’instant.') \
+                        .classes('muted')
                     ui.label(spec['hint']).classes('muted')
 
     @ui.refreshable
     def actions(self):
-        ready = {'source', 'target'} <= set(self.files)
+        ready = {'source', 'target'} <= set(self.files) and not self.busy
+        shape = self.shape if self.shape == 'pdf' or self.rebuildable else 'pdf'
+        ui.toggle(self.SHAPES, value=shape, on_change=self.choose_shape) \
+            .props('unelevated toggle-color=primary color=white text-color=grey-8') \
+            .set_enabled(not self.busy)
+        ui.label('Un PDF porte votre écriture comme une image : elle s’ouvre partout, '
+                 'et vous écrivez par-dessus, sans pouvoir la reprendre trait par '
+                 'trait. Un carnet .note rend la main à la tablette : les tracés '
+                 'restent des tracés, donc effaçables et déplaçables.'
+                 if self.rebuildable else
+                 'Le carnet .note demande l’archive .note de la tablette : un PDF '
+                 'exporté n’a plus les tracés, seulement leur photo.').classes('muted')
         ui.button('Reporter mon écriture', icon='draw', on_click=self.run) \
-            .classes('py-2').bind_enabled_from(
-                self, 'busy', backward=lambda value: ready and not value)
+            .classes('py-2').set_enabled(ready)
         if self.lines:
             ui.html('<div class="journal">'
                     + '\n'.join(line.replace('&', '&amp;').replace('<', '&lt;')
                                 for line in self.lines) + '</div>')
         if self.result:
+            kind = ('application/pdf' if self.result.suffix == '.pdf'
+                    else 'application/octet-stream')
             ui.button(f'Télécharger {self.result.name}', icon='download',
                       on_click=lambda: ui.download(self.result.read_bytes(),
-                                                   self.result.name, 'application/pdf')) \
+                                                   self.result.name, kind)) \
                 .props('outline')
 
     async def run(self):
-        if self.busy:
+        if self.busy or not {'source', 'target'} <= set(self.files):
             return
-        self.busy, self.result, self.lines = True, None, ['Transfert en cours…']
-        self.slots.refresh()
+        self.busy, self.result = True, None
+        self.lines = ['Lecture du carnet écrit, calage, report de l’encre…',
+                      'Comptez une vingtaine de secondes pour un carnet complet.']
         self.actions.refresh()
-        output = self.folder / (self.files['target'].name.split('-', 1)[-1]
-                                .removesuffix('.pdf') + '-repris.pdf')
+        rebuild = self.shape == 'note' and self.rebuildable
+        stem = self.files['target'].name.split('-', 1)[-1].removesuffix('.pdf')
+        output = self.folder / (stem + ('-repris.pdf.note' if rebuild else '-repris.pdf'))
         try:
             _, lines = await cpu_job(self.available(), self.files['source'],
-                                     self.files['target'], output)
+                                     self.files['target'], output, None, rebuild)
             self.lines, self.result = lines, output
             ui.notify('Écriture reportée.', type='positive')
         except Exception as error:  # noqa: BLE001 — the message belongs on screen
@@ -972,7 +1003,6 @@ class TransferWorkspace:
             ui.notify('Le transfert a échoué : voyez le journal.', type='negative')
         finally:
             self.busy = False
-            self.slots.refresh()
             self.actions.refresh()
 
     def render(self):
