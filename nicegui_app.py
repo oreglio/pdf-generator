@@ -68,7 +68,7 @@ body { font-family: Manrope, sans-serif; color: #222c2a; background: #fafaf8; }
 .pick .q-expansion-item:first-child { border-top: none; }
 .pick-head { width: 100%; align-items: center; justify-content: space-between; gap: 12px; }
 .pick-count { font-size: 12px; color: #68746e; white-space: nowrap; }
-.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; width: 100%; padding: 4px 0 10px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; width: 100%; padding: 4px 0 10px; }
 .shot { border: 1px solid #e4e7e0; border-radius: 10px; overflow: hidden; background: #fbfcfa; transition: border-color .15s, box-shadow .15s; }
 .shot { cursor: pointer; }
 .shot.on { border-color: #235c4f; box-shadow: 0 0 0 1px #235c4f; }
@@ -901,6 +901,7 @@ class TransferWorkspace:
         self.busy = False
         self.lines = []
         self.sections, self.chosen, self.previews, self.kept = [], set(), {}, set()
+        self.unfolded, self.offset = set(), (0, 0)
 
     def close(self):
         shutil.rmtree(self.folder, ignore_errors=True)
@@ -914,6 +915,7 @@ class TransferWorkspace:
     async def take_stock(self):
         """List what the written notebook holds, once both files are in."""
         self.sections, self.chosen, self.previews, self.kept = [], set(), {}, set()
+        self.unfolded, self.offset = set(), (0, 0)
         if not ({'source', 'target'} <= set(self.files) and self.keeps_strokes
                 and self.files['source'].suffix.lower() == '.note'):
             return
@@ -946,13 +948,22 @@ class TransferWorkspace:
                         if page not in self.kept} if value else set())
         self.picker.refresh()
 
-    async def show_section(self, section, rows):
-        """Draw the handwriting of one section, the first time it is opened."""
+    async def show_section(self, section, rows, opened):
+        """Draw the handwriting of one section, the first time it is opened.
+
+        Which sections are open is remembered here, because a refresh rebuilds
+        them all: without it, a section would fold itself shut at the very
+        moment its thumbnails arrived.
+        """
+        self.unfolded.add(section) if opened else self.unfolded.discard(section)
+        if not opened:
+            return
         missing = [page for page, _, _ in rows if page not in self.previews]
         if missing:
             module = self.available()
-            self.previews.update(await cpu_job(module.page_previews,
-                                               self.files['source'], missing))
+            self.previews.update(await cpu_job(
+                module.page_previews, self.files['source'], missing,
+                self.files['target'], self.offset))
             self.picker.refresh()
 
     @ui.refreshable
@@ -970,8 +981,9 @@ class TransferWorkspace:
             for section, rows in self.sections:
                 free = [page for page, _, _ in rows if page not in self.kept]
                 taken = sum(1 for page in free if page in self.chosen)
-                with ui.expansion(on_value_change=lambda event, s=section, r=rows:
-                                  self.show_section(s, r) if event.value else None) \
+                with ui.expansion(value=section in self.unfolded,
+                                  on_value_change=lambda event, s=section, r=rows:
+                                  self.show_section(s, r, event.value)) \
                         .classes('w-full') as panel:
                     with panel.add_slot('header'):
                         with ui.row().classes('pick-head'):
