@@ -1179,6 +1179,14 @@ app.add_static_files('/planner-fonts', ROOT / 'assets/fonts/Manrope')
 app.on_shutdown(shutdown_jobs)
 
 
+@app.get('/healthz')
+def healthz():
+    # The container probe runs every 30 s. Built for it, the page would leave
+    # its upload route behind in FastAPI's 4096-entry cache, holding the whole
+    # page with it: folio grew by 2,880 pages a day with nobody on it.
+    return {'ok': True}
+
+
 @ui.page('/')
 def index():
     ui.colors(primary='#235c4f', secondary='#dfe8da', accent='#235c4f')
