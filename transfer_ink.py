@@ -16,10 +16,11 @@ The archive is read, never written: the format is undocumented and the tablet
 should stay the only thing that authors it. The ink lands in a PDF, which is
 what the tablet knows how to open.
 
-Pages are matched by index, which both sources state outright. When the new
-edition moved the layout — a reserved toolbar band, another device — the offset
-is measured by phase correlation over the writing column, so the ink falls back
-onto its lines instead of beside them.
+Pages are matched by what they are — the bookmark that names them — never by
+their number: a new period moves the backlog and the projects dozens of pages
+away. When the new edition moved the layout — a reserved toolbar band, another
+device — the offset is measured by phase correlation over the writing column,
+between pages that were matched, so the ink falls back onto its lines.
 """
 
 import argparse
@@ -50,6 +51,8 @@ MM = 72 / 25.4
 # the haloes; a stroke crossing a rule loses a pixel or two, which nobody sees.
 BACKGROUND_GROWTH = 5
 INK_THRESHOLD = 60
+# Panel pixels two sampled pages may disagree by before the journal says so.
+SPREAD_TOLERANCE = 4
 
 
 # --- sources ---------------------------------------------------------------
@@ -190,6 +193,29 @@ def move_strokes(data, dx, dy):
 INVENTORY_THREADS = 8
 
 
+def template_bytes(path):
+    """The printed pages of a notebook: the PDF itself, or the one a `.note` holds."""
+    path = Path(path)
+    if zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as archive:
+            return archive.read(note_archive.template_entry(archive))
+    return path.read_bytes()
+
+
+def occupied_pages(target):
+    """Pages of the destination the tablet already wrote on, which stay as they are.
+
+    A PDF has none: it is a printed notebook nobody has opened yet.
+    """
+    if not zipfile.is_zipfile(Path(target)):
+        return set()
+    with zipfile.ZipFile(Path(target)) as base:
+        taken = set(base.namelist())
+        return {page for page, slots in note_archive.resources(base).items()
+                if any(slots.get(kind) in taken
+                       for kind in (note_archive.LAYER, note_archive.STROKES))}
+
+
 def written_pages(source):
     """{page: weight of its layer} for a `.note`, blank pages left out."""
     with zipfile.ZipFile(Path(source)) as ink:
@@ -245,9 +271,8 @@ def page_previews(source, pages, target=None, offset=(0, 0), width=320,
     holder = None
     try:
         if target is not None:
-            with zipfile.ZipFile(Path(target)) as base:
-                holder = Path(target).with_suffix(".apercu.pdf")
-                holder.write_bytes(base.read(note_archive.template_entry(base)))
+            holder = Path(target).with_suffix(".apercu.pdf")
+            holder.write_bytes(template_bytes(target))
         with zipfile.ZipFile(Path(source)) as ink:
             declared = note_archive.resources(ink)
             present = set(ink.namelist())
@@ -314,30 +339,29 @@ def page_sections(source, pages):
     pages sit after the last month in the file while belonging to neither.
     """
     import bisect
-    with zipfile.ZipFile(Path(source)) as archive:
-        reader = PdfReader(io.BytesIO(archive.read(note_archive.template_entry(archive))))
+    reader = PdfReader(io.BytesIO(template_bytes(source)))
+    flat = []
+
+    def walk(items, depth=0, inherited=None):
+        """Carry the second-level title down the tree, never up the pages."""
+        section = inherited
+        for item in items:
+            if isinstance(item, list):
+                walk(item, depth + 1, section)
+                continue
+            try:
+                page = reader.get_destination_page_number(item)
+            except Exception:  # noqa: BLE001 — a stale bookmark is not fatal
+                continue
+            # A month, a week, a backlog list, the projects: the second
+            # level is the unit. Deeper entries inherit the one above them.
+            section = item.title if depth <= 1 else (inherited or item.title)
+            flat.append((page, section, item.title))
+
+    try:
+        walk(reader.outline)
+    except Exception:  # noqa: BLE001 — a notebook without bookmarks still works
         flat = []
-
-        def walk(items, depth=0, inherited=None):
-            """Carry the second-level title down the tree, never up the pages."""
-            section = inherited
-            for item in items:
-                if isinstance(item, list):
-                    walk(item, depth + 1, section)
-                    continue
-                try:
-                    page = reader.get_destination_page_number(item)
-                except Exception:  # noqa: BLE001 — a stale bookmark is not fatal
-                    continue
-                # A month, a week, a backlog list, the projects: the second
-                # level is the unit. Deeper entries inherit the one above them.
-                section = item.title if depth <= 1 else (inherited or item.title)
-                flat.append((page, section, item.title))
-
-        try:
-            walk(reader.outline)
-        except Exception:  # noqa: BLE001 — a notebook without bookmarks still works
-            flat = []
     flat.sort(key=lambda entry: entry[0])
     starts = [entry[0] for entry in flat]
     named = {}
@@ -359,9 +383,7 @@ def page_count(archive_path):
     counted against — the page list should agree, and does on a notebook the
     tablet made itself.
     """
-    with zipfile.ZipFile(Path(archive_path)) as archive:
-        pdf = archive.read(note_archive.template_entry(archive))
-    return len(PdfReader(io.BytesIO(pdf)).pages)
+    return len(PdfReader(io.BytesIO(template_bytes(archive_path))).pages)
 
 
 def landing(source, target, pages):
@@ -389,6 +411,66 @@ def landing(source, target, pages):
             for page in pages}
 
 
+def say_where(where, report):
+    """Tell which pages moved and which have nowhere to go; return the latter."""
+    astray = {page: label for page, (label, arrival) in where.items() if arrival is None}
+    moved = {page: arrival for page, (_, arrival) in where.items()
+             if arrival not in (None, page)}
+    if moved:
+        report(f"{len(moved)} page(s) ont changé de rang et suivent leur section.")
+        for page, destination in sorted(moved.items())[:4]:
+            report(f"  « {where[page][0]} » : page {page} → page {destination}")
+    if astray:
+        report(f"{len(astray)} page(s) sans place dans le nouveau carnet, laissée(s) "
+               "de côté.")
+        for page, label in sorted(astray.items())[:4]:
+            report(f"  page {page} : « {label} »")
+    return astray
+
+
+NOWHERE = ("Les pages choisies ne désignent plus la même chose dans le nouveau "
+           "carnet : régénérez-le avec les mêmes réglages de backlog et de projets, "
+           "ou choisissez d’autres pages.")
+# Each sample is two renders, about a second together. Five spread over what is
+# carried let the median shrug off two pages that disagree.
+ALIGNMENT_SAMPLES = 5
+
+
+def sample_pairs(where):
+    """A few (page, arrival) pairs, spread over everything that has a place.
+
+    The offset is only worth measuring between two pages of the same kind: a
+    September month against a November one differs by a whole grid column, and
+    phase correlation dutifully reports that column as a shift. Pages matched
+    by name are the same sheet in both editions, and they are the very pages
+    the ink is about to land on.
+    """
+    pairs = sorted((page, arrival) for page, (_, arrival) in where.items() if arrival)
+    if len(pairs) <= ALIGNMENT_SAMPLES:
+        return pairs
+    step = (len(pairs) - 1) / (ALIGNMENT_SAMPLES - 1)
+    return [pairs[round(index * step)] for index in range(ALIGNMENT_SAMPLES)]
+
+
+def plan(source, target, pages):
+    """What carrying `pages` over would do, before anything is written.
+
+    Returns (where, kept, offset): where each page lands, as `landing` says;
+    the pages whose destination the tablet already wrote on; and the layout
+    offset in panel pixels, so a preview shows the ink where it will fall.
+    """
+    where = landing(source, target, pages)
+    occupied = occupied_pages(target)
+    kept = {page for page, (_, arrival) in where.items() if arrival in occupied}
+    offset = (0, 0)
+    if any(arrival for _, arrival in where.values()):
+        try:
+            offset = alignment(source, target, target, where)
+        except (ValueError, OSError, subprocess.CalledProcessError):
+            pass  # A preview is a convenience; the transfer itself will say why.
+    return where, kept, offset
+
+
 def graft_note(source, target, output, report=print, pages=None):
     """Add the handwriting of one notebook to one the tablet has just made.
 
@@ -404,22 +486,12 @@ def graft_note(source, target, output, report=print, pages=None):
         if not zipfile.is_zipfile(path):
             raise ValueError(f"Pour garder des tracés modifiables, {role} doit être "
                              "une archive .note de la tablette.")
-    dx, dy = alignment(source, target, output, report)
     wanted_pages = [page for page in written_pages(source)
                     if pages is None or page in set(pages)]
     where = landing(source, target, wanted_pages)
-    astray = {page: where[page][0] for page in wanted_pages if where[page][1] is None}
-    moved = {page: where[page][1] for page in wanted_pages
-             if where[page][1] not in (None, page)}
-    if moved:
-        report(f"{len(moved)} page(s) ont changé de rang et suivent leur section.")
-        for page, destination in sorted(moved.items())[:4]:
-            report(f"  « {where[page][0]} » : page {page} → page {destination}")
-    if astray:
-        report(f"{len(astray)} page(s) sans place dans le nouveau carnet, laissée(s) "
-               "de côté.")
-        for page, label in sorted(astray.items())[:4]:
-            report(f"  page {page} : « {label} »")
+    astray = say_where(where, report)
+    dx, dy = (alignment(source, target, output, where, report)
+              if len(astray) < len(where) else (0, 0))
     with zipfile.ZipFile(source) as ink, zipfile.ZipFile(target) as base:
         written, declared = note_archive.resources(ink), note_archive.resources(base)
         present, taken = set(ink.namelist()), set(base.namelist())
@@ -450,10 +522,7 @@ def graft_note(source, target, output, report=print, pages=None):
         if not added:
             raise ValueError(
                 f"{source.name} : aucune page à reporter. "
-                + ("Les pages choisies ne désignent plus la même chose dans le "
-                   "nouveau carnet : régénérez-le avec les mêmes réglages de "
-                   "backlog et de projets, ou choisissez d’autres pages."
-                   if astray else "Aucune page écrite dans la sélection."))
+                + (NOWHERE if astray else "Aucune page écrite dans la sélection."))
     report(f"{len(grafted)} page(s) greffée(s) : "
            + ", ".join(str(page) for page in sorted(grafted)))
     total = note_archive.append(target, output, added)
@@ -467,25 +536,32 @@ def templates(source, target, scratch):
     """Both templates on disk, as a pair of paths to clean up afterwards."""
     holders = []
     for index, path in enumerate((source, target)):
-        with zipfile.ZipFile(Path(path)) as archive:
-            holder = Path(scratch).with_suffix(f".gabarit-{index}.pdf")
-            holder.write_bytes(archive.read(note_archive.template_entry(archive)))
-            holders.append(holder)
+        holder = Path(scratch).with_suffix(f".gabarit-{index}.pdf")
+        holder.write_bytes(template_bytes(path))
+        holders.append(holder)
     return holders
 
 
-def alignment(source, target, scratch, report=lambda line: None):
-    """How far the new edition moved its writing column, in panel pixels."""
+def alignment(source, target, scratch, where, report=lambda line: None):
+    """How far the new edition moved its writing column, in panel pixels.
+
+    `where` is what `landing` answered: the measurement is taken between pages
+    it matched, never between two pages that merely share a number.
+    """
     holders = templates(source, target, scratch)
     try:
         report("Calage sur le carnet d’origine :")
-        dx, dy, spread = measure(holders[0], False, holders[1], [1, 2], report)
+        dx, dy, spread = measure(holders[0], Path(source).suffix.lower() == ".pdf",
+                                 holders[1], sample_pairs(where), report)
     finally:
         for holder in holders:
             holder.unlink(missing_ok=True)
     report(f"Décalage retenu : {dx / PANEL_DPI * 25.4:+.2f} × "
            f"{dy / PANEL_DPI * 25.4:+.2f} mm"
            + (f" (dispersion {spread:.0f} px)" if spread else " (unanime)"))
+    if spread > SPREAD_TOLERANCE:
+        report("  Les pages ne s’accordent pas sur le décalage : vérifiez le "
+               "résultat, ou imposez-le à la main.")
     return round(dx), round(dy)
 
 
@@ -532,18 +608,21 @@ def shift(before, after):
             peak[0] - height if peak[0] > height // 2 else peak[0])
 
 
-def measure(template, clean, target, pages, report):
-    """The offset between the two editions, agreed on by several pages."""
+def measure(template, clean, target, pairs, report):
+    """The offset between the two editions, agreed on by several matched pages.
+
+    `pairs` are (page of the written notebook, page of the new one).
+    """
     found = []
-    for page in pages:
+    for page, arrival in pairs:
         try:
             dx, dy = shift(render(template, page, SAMPLE_DPI, clean=clean),
-                           render(target, page, SAMPLE_DPI))
+                           render(target, arrival, SAMPLE_DPI))
         except (subprocess.CalledProcessError, ValueError) as error:
-            report(f"  page {page} : calage impossible ({error})")
+            report(f"  page {page} → {arrival} : calage impossible ({error})")
             continue
         found.append((dx, dy))
-        report(f"  page {page} : {dx:+d}, {dy:+d} px")
+        report(f"  page {page} → {arrival} : {dx:+d}, {dy:+d} px")
     if not found:
         raise ValueError("Aucune page n’a pu être calée : imposez le décalage.")
     scale = PANEL_DPI / SAMPLE_DPI
@@ -572,59 +651,51 @@ def overlay(layer, box, dx, dy):
     return PdfReader(io.BytesIO(buffer.getvalue())).pages[0]
 
 
-def transfer(source, target, output, offset_mm=None, report=print):
+def transfer(source, target, output, offset_mm=None, report=print, pages=None):
     """Report the handwriting of `source` onto `target`, saving to `output`."""
     source, target, output = Path(source), Path(target), Path(output)
-    layers, template = read_source(source, report)
-    written = {page: layer for page, layer in layers.items() if coverage(layer) > 0}
-    blank = sorted(set(layers) - set(written))
+    layers, _ = read_source(source, report)
+    chosen = None if pages is None else set(pages)
+    written = {page: layer for page, layer in layers.items()
+               if coverage(layer) > 0 and (chosen is None or page in chosen)}
+    blank = sorted(page for page, layer in layers.items() if coverage(layer) == 0)
     if not written:
-        raise ValueError(f"{source.name} : aucune page écrite dans ce carnet.")
+        raise ValueError(f"{source.name} : aucune page écrite "
+                         + ("dans ce carnet." if chosen is None else "dans la sélection."))
     report(f"{len(written)} page(s) écrite(s) : "
            + ", ".join(str(page) for page in sorted(written)))
     if blank:
         report("Ignorées, car vides : " + ", ".join(str(page) for page in blank))
 
-    reader = PdfReader(str(target))
-    highest = max(written)
-    if highest > len(reader.pages):
-        raise ValueError(f"{target.name} ne compte que {len(reader.pages)} pages, "
-                         f"alors que l’encre va jusqu’à la page {highest}. Régénérez "
-                         "le carnet avec les mêmes réglages de durée, de backlog et "
-                         "de projets.")
+    # The same matching as a `.note` destination: a page goes where its name
+    # is, and a page whose name is gone stays behind instead of landing on a
+    # stranger's sheet.
+    where = landing(source, target, sorted(written))
+    say_where(where, report)
+    carried = {page: where[page][1] for page in sorted(written) if where[page][1]}
+    if not carried:
+        raise ValueError(f"{source.name} : aucune page à reporter. " + NOWHERE)
 
     if offset_mm is not None:
         dx, dy = offset_mm * MM * PANEL_DPI / 72, 0.0
         report(f"Décalage imposé : {offset_mm:+.2f} mm horizontal.")
     else:
-        holder = output.with_suffix(".gabarit.pdf")
-        holder.write_bytes(template)
-        try:
-            report("Calage sur le carnet d’origine :")
-            dx, dy, spread = measure(holder, source.suffix.lower() == ".pdf", target,
-                                     sorted(written)[:3], report)
-        finally:
-            holder.unlink(missing_ok=True)
-        report(f"Décalage retenu : {dx / PANEL_DPI * 25.4:+.2f} × "
-               f"{dy / PANEL_DPI * 25.4:+.2f} mm"
-               + (f" (dispersion {spread:.0f} px)" if spread else " (unanime)"))
-        if spread > 4:
-            report("  Les pages ne s’accordent pas sur le décalage : vérifiez le "
-                   "résultat, ou imposez-le à la main.")
+        dx, dy = alignment(source, target, output, where, report)
 
     # An incremental update keeps the original bytes and appends only the pages
     # that changed: cloning a 2 400-page object graph exhausts the interpreter
     # stack, and would rewrite every link and bookmark for nothing.
     writer = PdfWriter(str(target), incremental=True)
-    for page, layer in sorted(written.items()):
-        target_page = writer.pages[page - 1]
+    for page, arrival in carried.items():
+        layer = written[page]
+        target_page = writer.pages[arrival - 1]
         box = (float(target_page.mediabox.width), float(target_page.mediabox.height))
         target_page.merge_page(overlay(layer, box, dx, dy))
-        report(f"  page {page:>5} · {coverage(layer):5.2f} % d’encre reportée")
+        report(f"  page {page:>5} → {arrival:>5} · {coverage(layer):5.2f} % d’encre reportée")
     with open(output, "wb") as handle:
         writer.write(handle)
     report(f"→ {output} ({output.stat().st_size / 1e6:.1f} Mo)")
-    return sorted(written)
+    return sorted(carried)
 
 
 def carry(source, target, output, offset_mm=None, report=print, pages=None):
@@ -635,7 +706,7 @@ def carry(source, target, output, offset_mm=None, report=print, pages=None):
     """
     if zipfile.is_zipfile(Path(target)):
         return graft_note(source, target, output, report=report, pages=pages)
-    return transfer(source, target, output, offset_mm, report=report)
+    return transfer(source, target, output, offset_mm, report=report, pages=pages)
 
 
 def transfer_report(source, target, output, offset_mm=None, pages=None):
@@ -673,8 +744,8 @@ def parse_pages(text):
 def print_inventory(source):
     for section, rows in inventory(source):
         print(f"{section}  ({len(rows)} page(s))")
-        for page, label, share in rows:
-            print(f"    {page:>6}  {share:5.2f} %  {label}")
+        for page, label in rows:
+            print(f"    {page:>6}  {label}")
 
 
 def main():

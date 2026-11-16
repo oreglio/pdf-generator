@@ -192,14 +192,45 @@ class TransferTests(unittest.TestCase):
         self.assertEqual(pages, [3])
         self.assertTrue(any("Ignorées, car vides : 4" in line for line in lines))
 
-    def test_a_notebook_too_short_to_hold_the_ink_is_refused(self):
-        short = self.build(replace(SMALL, days=1), "court.pdf")
-        with self.assertRaises(ValueError) as refusal:
-            transfer_ink.transfer(self.note({3: ink_layer(), 400: ink_layer()}),
-                                  short, self.folder / "jamais.pdf",
-                                  report=lambda line: None)
-        self.assertIn("400", str(refusal.exception))
-        self.assertFalse((self.folder / "jamais.pdf").exists())
+    def test_a_page_with_nowhere_to_land_is_left_aside_and_said_so(self):
+        """Ink beyond what the new edition names is reported, never misplaced."""
+        short = self.build(replace(SMALL, days=1, project_count=0), "court.pdf")
+        last = len(PdfReader(str(self.template)).pages)
+        lines = []
+        pages = transfer_ink.transfer(self.note({3: ink_layer(), last: ink_layer()}),
+                                      short, self.folder / "court-repris.pdf",
+                                      report=lines.append)
+        self.assertEqual(pages, [3])
+        self.assertTrue(any("sans place" in line for line in lines))
+
+    def test_a_section_keeps_its_writing_wherever_the_new_edition_puts_it(self):
+        """A longer period pushes the projects down; a PDF follows them too."""
+        longer = self.build(replace(SMALL, days=SMALL.days + 4), "plus-long.pdf")
+        last = len(PdfReader(str(self.template)).pages)
+        output = self.folder / "suivi.pdf"
+        pages = transfer_ink.transfer(self.note({last: ink_layer()}), longer, output,
+                                      report=lambda line: None)
+        self.assertEqual(pages, [last])
+        self.assertEqual(self.inked_pages(output), [len(PdfReader(str(longer)).pages)])
+
+    def test_the_offset_is_measured_between_pages_of_the_same_kind(self):
+        """Comparing a project sheet with a day page invents a shift nobody made."""
+        longer = self.build(replace(SMALL, days=SMALL.days + 4), "plus-long.pdf")
+        last = len(PdfReader(str(self.template)).pages)
+        lines = []
+        transfer_ink.transfer(self.note({last - 1: ink_layer(), last: ink_layer()}),
+                              longer, self.folder / "cale.pdf", report=lines.append)
+        measured = next(line for line in lines if line.startswith("Décalage retenu"))
+        self.assertIn("+0.00 × +0.00", measured)
+        self.assertIn("unanime", measured)
+
+    def test_only_the_chosen_pages_are_carried_over(self):
+        output = self.folder / "choisi.pdf"
+        pages = transfer_ink.transfer(self.note({3: ink_layer(), 6: ink_layer()}),
+                                      self.template, output, report=lambda line: None,
+                                      pages=[6])
+        self.assertEqual(pages, [6])
+        self.assertEqual(self.inked_pages(output), [6])
 
     def test_a_notebook_nobody_wrote_in_is_refused(self):
         with self.assertRaises(ValueError):
@@ -302,6 +333,18 @@ class GraftTests(unittest.TestCase):
         where = transfer_ink.landing(source, base, [3])
         self.assertIsNotNone(where[3][1])
 
+    def test_the_offset_is_measured_between_pages_of_the_same_kind(self):
+        """The cover and the first month say nothing about where a project sits."""
+        longer = self.build(replace(SMALL, days=SMALL.days + 4), "plus-long.pdf")
+        base = self.skeleton(longer, count=len(PdfReader(str(longer)).pages))
+        lines = []
+        transfer_ink.graft_note(self.written({self.pages: ink_layer()}), base,
+                                self.folder / "cale.note", report=lines.append)
+        measured = next(line for line in lines if line.startswith("Décalage retenu"))
+        self.assertIn("+0.00 × +0.00", measured)
+        calage = [line for line in lines if "→" in line and "px" in line]
+        self.assertTrue(calage and all(f"page {self.pages} →" in line for line in calage))
+
     def test_a_page_whose_section_is_gone_is_left_behind(self):
         """A dated page from September does not belong in a shorter notebook."""
         shorter = self.build(replace(SMALL, days=1, project_count=0), "court.pdf")
@@ -369,6 +412,29 @@ class InventoryTests(unittest.TestCase):
         page = read(onsheet)
         self.assertAlmostEqual(page.width / page.height, 1920 / 2560, places=2)
 
+    def test_a_plan_says_where_each_page_goes_before_anything_is_written(self):
+        """The picker shows arrivals; a PDF destination is planned like a `.note`."""
+        template = self.folder / "gabarit.pdf"
+        for target in (template, self.source):
+            with self.subTest(target=target.suffix):
+                where = transfer_ink.landing(self.source, target, [3, 6])
+                self.assertEqual({page: arrival for page, (_, arrival) in where.items()},
+                                 {3: 3, 6: 6})
+        # A layer opened and left blank still belongs to the tablet: page 4 counts.
+        self.assertEqual(transfer_ink.occupied_pages(self.source), {3, 4, 6})
+        self.assertEqual(transfer_ink.occupied_pages(template), set())
+        where, kept, offset = transfer_ink.plan(self.source, template, [3, 6])
+        self.assertEqual((where[3][1], kept, offset), (3, set(), (0, 0)))
+        _, kept, _ = transfer_ink.plan(self.source, self.source, [3, 6])
+        self.assertEqual(kept, {3, 6})
+
+    def test_the_inventory_can_be_printed_from_the_command_line(self):
+        import contextlib
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            transfer_ink.print_inventory(self.source)
+        self.assertIn("3", printed.getvalue())
+
     def test_a_selection_is_read_the_way_people_write_it(self):
         self.assertEqual(transfer_ink.parse_pages("3"), {3})
         self.assertEqual(transfer_ink.parse_pages("3-5, 9"), {3, 4, 5, 9})
@@ -386,6 +452,26 @@ class WorkspaceTests(unittest.TestCase):
         from nicegui_app import TransferWorkspace
         self.workspace = TransferWorkspace()
         self.addCleanup(self.workspace.close)
+
+    def test_the_picker_knows_where_pages_go_whatever_the_destination(self):
+        """A PDF destination chooses its pages too, and drops the ones with no home."""
+        import asyncio
+        folder = self.workspace.folder
+        template = folder / "target-gabarit.pdf"
+        with open(template, "wb") as handle:
+            generate_pdf(SMALL, handle)
+        last = len(PdfReader(str(template)).pages)
+        shorter = folder / "target-court.pdf"
+        with open(shorter, "wb") as handle:
+            generate_pdf(replace(SMALL, days=1, project_count=0), handle)
+        source = archive(folder / "source-ecrit.note", template.read_bytes(),
+                         {3: ink_layer(), last: ink_layer()}, count=last)
+        space = self.workspace
+        space.files = {'source': source, 'target': shorter}
+        asyncio.run(space.take_stock())
+        self.assertEqual(space.lost, {last})
+        self.assertEqual(space.chosen, {3})
+        self.assertEqual(space.where[3][1], 3)
 
     def test_a_file_of_the_wrong_kind_never_reaches_the_disk(self):
         space = self.workspace

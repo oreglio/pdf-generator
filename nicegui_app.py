@@ -937,7 +937,7 @@ class TransferWorkspace:
         self.sections, self.chosen, self.previews, self.kept = [], set(), {}, set()
         self.unfolded, self.offset, self.where = set(), (0, 0), {}
         self.lost = set()
-        if not ({'source', 'target'} <= set(self.files) and self.keeps_strokes
+        if not ({'source', 'target'} <= set(self.files)
                 and self.files['source'].suffix.lower() == '.note'):
             return
         try:
@@ -946,7 +946,14 @@ class TransferWorkspace:
                 return
             self.sections = await cpu_job(module.inventory,
                                           self.files['source'])
-            self.chosen = {page for _, rows in self.sections for page, _ in rows}
+            pages = [page for _, rows in self.sections for page, _ in rows]
+            # Where each page lands is decided here, once, by the same code
+            # that will carry it: the picker never shows a promise the
+            # transfer does not keep.
+            self.where, self.kept, self.offset = await cpu_job(
+                module.plan, self.files['source'], self.files['target'], pages)
+            self.lost = {page for page in pages if self.where[page][1] is None}
+            self.chosen = set(pages) - self.lost - self.kept
         except Exception as error:  # noqa: BLE001 — the message belongs on screen
             self.lines = [f'Lecture du carnet écrit impossible : {error}']
 
